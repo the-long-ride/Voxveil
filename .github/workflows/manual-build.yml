@@ -1,0 +1,120 @@
+name: Manual Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, commit, or tag to build
+        required: true
+        default: master
+        type: string
+      platform:
+        description: Platform
+        required: true
+        default: all
+        type: choice
+        options: [all, windows, linux, macos, android, ios]
+      edition:
+        description: Edition
+        required: true
+        default: all
+        type: choice
+        options: [all, standard, pro-system]
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    name: Quality gates
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout requested ref
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22.16.0'
+      - name: Require committed lockfiles
+        run: node scripts/ci/require-lockfiles.mjs
+      - name: Install locked dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-fund --no-audit
+      - name: Run source quality gates
+        run: npm run quality
+      - name: Run UI coverage gate
+        run: npm run coverage
+      - name: Install Linux Tauri system packages
+        run: sudo apt-get update && sudo apt-get install --yes libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+      - name: Select pinned Rust toolchain
+        run: rustup show active-toolchain && rustup component add rustfmt clippy llvm-tools-preview
+      - name: Install pinned Rust quality tools
+        run: |
+          cargo install --locked cargo-deny --version 0.20.2
+          cargo install --locked cargo-llvm-cov --version 0.8.7
+      - name: Rust formatting
+        run: cargo fmt --all -- --check
+      - name: Rust lint
+        run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+      - name: Rust dependency policy
+        run: cargo deny check
+      - name: Rust tests and 85% line coverage gate
+        run: cargo llvm-cov --workspace --all-features --fail-under-lines 85
+
+  build:
+    name: ${{ matrix.platform }} / ${{ matrix.edition }}
+    needs: preflight
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { platform: windows, edition: standard, os: windows-latest }
+          - { platform: windows, edition: pro-system, os: windows-latest }
+          - { platform: linux, edition: standard, os: ubuntu-24.04 }
+          - { platform: linux, edition: pro-system, os: ubuntu-24.04 }
+          - { platform: macos, edition: standard, os: macos-15 }
+          - { platform: macos, edition: pro-system, os: macos-15 }
+          - { platform: android, edition: standard, os: ubuntu-24.04 }
+          - { platform: android, edition: pro-system, os: ubuntu-24.04 }
+          - { platform: ios, edition: standard, os: macos-15 }
+          - { platform: ios, edition: pro-system, os: macos-15 }
+    if: >-
+      (inputs.platform == 'all' || inputs.platform == matrix.platform) &&
+      (inputs.edition == 'all' || inputs.edition == matrix.edition)
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - name: Checkout requested ref
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22.16.0'
+      - name: Install Linux Tauri system packages
+        if: matrix.os == 'ubuntu-24.04'
+        run: sudo apt-get update && sudo apt-get install --yes libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+      - name: Select pinned Rust toolchain
+        run: rustup show active-toolchain
+      - name: Require committed lockfiles
+        run: node scripts/ci/require-lockfiles.mjs
+      - name: Install locked dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-fund --no-audit
+      - name: Build selected variant
+        env:
+          VOXVEIL_EDITION: ${{ matrix.edition }}
+        run: node scripts/build/build-variant.mjs --platform ${{ matrix.platform }} --edition ${{ matrix.edition }}
+      - name: Collect and checksum package
+        run: node scripts/release/collect-artifacts.mjs --platform ${{ matrix.platform }} --edition ${{ matrix.edition }}
+      - name: Upload verified package
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: Voxveil-${{ matrix.platform }}-${{ matrix.edition }}
+          path: dist-artifacts/${{ matrix.platform }}-${{ matrix.edition }}/
+          if-no-files-found: error
+          retention-days: 14

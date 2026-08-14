@@ -1,0 +1,6 @@
+{
+  "identifier": "default",
+  "description": "Minimal capability set for the Voxveil main window.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

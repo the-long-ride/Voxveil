@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "policy": "Direct npm dependencies only. Every entry is exact-version pinned and manually approved for commercial use. Transitive dependencies remain lockfile/advisory-audited before release.",
+  "packages": {
+    "@tauri-apps/api": { "version": "2.11.1", "license": "MIT OR Apache-2.0", "commercialUse": true },
+    "@tauri-apps/cli": { "version": "2.11.1", "license": "MIT OR Apache-2.0", "commercialUse": true },
+    "i18next": { "version": "26.3.6", "license": "MIT", "commercialUse": true },
+    "react": { "version": "19.2.8", "license": "MIT", "commercialUse": true },
+    "react-dom": { "version": "19.2.8", "license": "MIT", "commercialUse": true },
+    "react-i18next": { "version": "17.0.11", "license": "MIT", "commercialUse": true },
+    "@testing-library/dom": { "version": "10.4.1", "license": "MIT", "commercialUse": true },
+    "@testing-library/jest-dom": { "version": "7.0.0", "license": "MIT", "commercialUse": true },
+    "@testing-library/react": { "version": "16.3.2", "license": "MIT", "commercialUse": true },
+    "@types/react": { "version": "19.2.17", "license": "MIT", "commercialUse": true },
+    "@types/react-dom": { "version": "19.2.3", "license": "MIT", "commercialUse": true },
+    "@vitejs/plugin-react": { "version": "6.0.4", "license": "MIT", "commercialUse": true },
+    "@vitest/coverage-v8": { "version": "4.1.10", "license": "MIT", "commercialUse": true },
+    "jsdom": { "version": "30.0.1", "license": "MIT", "commercialUse": true },
+    "typescript": { "version": "7.0.2", "license": "Apache-2.0", "commercialUse": true },
+    "vite": { "version": "8.2.0", "license": "MIT", "commercialUse": true },
+    "vitest": { "version": "4.1.10", "license": "MIT", "commercialUse": true }
+  }
+}

@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ui-quality:
+    name: UI, policy, and coverage
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22.16.0'
+
+      - name: Require committed lockfiles
+        run: node scripts/ci/require-lockfiles.mjs
+      - name: Install locked dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-fund --no-audit
+
+      - name: Dependency vulnerability audit
+        run: npm audit --audit-level=high
+
+      - name: Repository quality gates
+        run: npm run quality
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: UI tests and 85% coverage gate
+        run: npm run coverage
+
+      - name: Production UI build
+        run: npm run build
+
+  rust-quality:
+    name: Rust, policy, and coverage
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Require committed lockfiles
+        run: test -f package-lock.json && test -f Cargo.lock
+
+      - name: Install Linux Tauri system packages
+        run: sudo apt-get update && sudo apt-get install --yes libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Select pinned Rust toolchain
+        run: rustup show active-toolchain && rustup component add rustfmt clippy llvm-tools-preview
+
+      - name: Install pinned Rust quality tools
+        run: |
+          cargo install --locked cargo-deny --version 0.20.2
+          cargo install --locked cargo-llvm-cov --version 0.8.7
+
+      - name: Rust formatting
+        run: cargo fmt --all -- --check
+
+      - name: Rust lint
+        run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+
+      - name: Rust dependency policy
+        run: cargo deny check
+
+      - name: Rust tests and 85% line coverage gate
+        run: cargo llvm-cov --workspace --all-features --fail-under-lines 85

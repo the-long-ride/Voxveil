@@ -1,0 +1,110 @@
+{
+  "app": {
+    "name": "Voxveil"
+  },
+  "common": {
+    "enabled": "有効",
+    "ready": "準備完了",
+    "unavailable": "利用不可"
+  },
+  "nav": {
+    "primary": "メインナビゲーション",
+    "mobile": "モバイルナビゲーション",
+    "home": "ホーム",
+    "apps": "アプリ",
+    "routing": "ルーティング",
+    "engine": "エンジン",
+    "settings": "設定"
+  },
+  "home": {
+    "eyeline": "リアルタイム・ボーカル制御",
+    "title": "ミックスを、あなたの聴き方で。",
+    "description": "デバイス音声のボーカルを完全ローカルで低減し、分離品質とレイテンシーを直接調整できます。"
+  },
+  "processing": {
+    "master": "処理",
+    "vocals": "ボーカル",
+    "quality": "レイテンシー / 品質",
+    "lowLatency": "低レイテンシー",
+    "highQuality": "高品質",
+    "mode": "処理モード",
+    "allOutput": "全出力",
+    "perApp": "アプリ別",
+    "engine": "エンジン"
+  },
+  "engine": {
+    "eyeline": "処理",
+    "title": "エンジン",
+    "description": "Classic DSP はモデルなしで動作します。商用利用が確認されたローカルモデルを導入すると、任意の AI 分離で品質を高められます。",
+    "auto": "自動",
+    "dsp": "Classic DSP",
+    "ai": "AI",
+    "dspDescription": "非常に軽量なセンター／スペクトル・ボーカル抑制。",
+    "aiDescription": "任意のローカル2ステム分離。ライセンス確認前はモデルを同梱しません。",
+    "builtIn": "内蔵",
+    "noModel": "モデルなし",
+    "licenseRule": "正確なチェックポイントのライセンスまたは再配布権が不明な場合、Voxveil はそのモデルを出荷しません。"
+  },
+  "status": {
+    "current": "現在の処理状態",
+    "latency": "推定レイテンシー",
+    "load": "処理負荷",
+    "output": "出力",
+    "idleLoad": "アイドル",
+    "lowLoad": "低 CPU",
+    "mediumLoad": "中程度の CPU",
+    "highLoad": "高 CPU"
+  },
+  "apps": {
+    "eyeline": "ソース制御",
+    "title": "アプリ",
+    "description": "デバイス全体のミックスを処理するか、個別のアプリを選択します。通話音声は既定でバイパスします。",
+    "communicationBypass": "通話 • 既定でバイパス",
+    "category": {
+      "media": "メディア",
+      "game": "ゲーム",
+      "communication": "通話",
+      "system": "システム"
+    }
+  },
+  "routing": {
+    "eyeline": "オーディオ経路",
+    "title": "ルーティング",
+    "description": "分離処理を二重に実行せず、1つの処理済みストリームを物理出力、仮想端点、または両方へ送ります。",
+    "outputMode": "出力モード",
+    "physical": "物理",
+    "virtual": "仮想",
+    "both": "両方",
+    "virtualName": "Voxveil Processed Audio"
+  },
+  "settings": {
+    "eyeline": "環境設定",
+    "title": "設定",
+    "description": "Voxveil は設定、言語リソース、処理、診断をこのデバイス内に保持します。",
+    "language": "言語",
+    "languageDescription": "ローカル同梱。翻訳サービスへ接続しません。",
+    "privacy": "プライバシー",
+    "privacyDescription": "分析、テレメトリ、クラッシュ送信、クラウド音声処理はありません。",
+    "local": "ローカルのみ",
+    "appearance": "外観",
+    "appearanceDescription": "Voxveil の表示方法を選択します。",
+    "themeSystem": "システム",
+    "themeLight": "ライト",
+    "themeDark": "ダーク",
+    "edition": "エディション",
+    "editionStandard": "スタンダード",
+    "editionProSystem": "Pro System"
+  },
+  "privacy": {
+    "localOnly": "100% ローカル処理"
+  },
+  "languages": {
+    "en": "英語",
+    "vi": "ベトナム語",
+    "zh": "中国語",
+    "ko": "韓国語",
+    "ja": "日本語",
+    "es": "スペイン語",
+    "fr": "フランス語"
+  }
+}

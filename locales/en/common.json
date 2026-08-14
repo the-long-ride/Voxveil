@@ -1,0 +1,110 @@
+{
+  "app": {
+    "name": "Voxveil"
+  },
+  "common": {
+    "enabled": "enabled",
+    "ready": "Ready",
+    "unavailable": "Unavailable"
+  },
+  "nav": {
+    "primary": "Primary navigation",
+    "mobile": "Mobile navigation",
+    "home": "Home",
+    "apps": "Apps",
+    "routing": "Routing",
+    "engine": "Engine",
+    "settings": "Settings"
+  },
+  "home": {
+    "eyeline": "Real-time vocal control",
+    "title": "Hear the mix, your way.",
+    "description": "Reduce vocals from device audio locally, with direct control over isolation quality and latency."
+  },
+  "processing": {
+    "master": "Processing",
+    "vocals": "Vocals",
+    "quality": "Latency / Quality",
+    "lowLatency": "Low latency",
+    "highQuality": "High quality",
+    "mode": "Processing mode",
+    "allOutput": "All output",
+    "perApp": "Per app",
+    "engine": "Engine"
+  },
+  "engine": {
+    "eyeline": "Processing",
+    "title": "Engine",
+    "description": "Classic DSP works without a model. Optional AI separation can improve isolation when a commercially cleared local model is installed.",
+    "auto": "Auto",
+    "dsp": "Classic DSP",
+    "ai": "AI",
+    "dspDescription": "Ultra-light center and spectral vocal suppression.",
+    "aiDescription": "Optional local two-stem separation. No model is bundled until licensing is cleared.",
+    "builtIn": "Built in",
+    "noModel": "No model",
+    "licenseRule": "Voxveil never ships a model when the exact checkpoint license or redistribution rights are unclear."
+  },
+  "status": {
+    "current": "Current processing status",
+    "latency": "Estimated latency",
+    "load": "Processing load",
+    "output": "Output",
+    "idleLoad": "Idle",
+    "lowLoad": "Low CPU",
+    "mediumLoad": "Medium CPU",
+    "highLoad": "High CPU"
+  },
+  "apps": {
+    "eyeline": "Source control",
+    "title": "Apps",
+    "description": "Process the complete device mix or select individual applications. Communication audio remains bypassed by default.",
+    "communicationBypass": "Communication • bypassed by default",
+    "category": {
+      "media": "Media",
+      "game": "Game",
+      "communication": "Communication",
+      "system": "System"
+    }
+  },
+  "routing": {
+    "eyeline": "Audio path",
+    "title": "Routing",
+    "description": "Send one processed stream to physical playback, the virtual endpoint, or both without running separation twice.",
+    "outputMode": "Output mode",
+    "physical": "Physical",
+    "virtual": "Virtual",
+    "both": "Both",
+    "virtualName": "Voxveil Processed Audio"
+  },
+  "settings": {
+    "eyeline": "Preferences",
+    "title": "Settings",
+    "description": "Voxveil keeps configuration, language resources, processing and diagnostics on this device.",
+    "language": "Language",
+    "languageDescription": "Bundled locally. No translation service is contacted.",
+    "privacy": "Privacy",
+    "privacyDescription": "No analytics, telemetry, crash upload or cloud audio processing.",
+    "local": "Local only",
+    "appearance": "Appearance",
+    "appearanceDescription": "Choose how Voxveil follows your display.",
+    "themeSystem": "System",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "edition": "Edition",
+    "editionStandard": "Standard",
+    "editionProSystem": "Pro System"
+  },
+  "privacy": {
+    "localOnly": "100% local processing"
+  },
+  "languages": {
+    "en": "English",
+    "vi": "Vietnamese",
+    "zh": "Chinese",
+    "ko": "Korean",
+    "ja": "Japanese",
+    "es": "Spanish",
+    "fr": "French"
+  }
+}

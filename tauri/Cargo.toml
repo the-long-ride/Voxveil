@@ -1,0 +1,27 @@
+[package]
+name = "voxveil-tauri"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+name = "voxveil_app"
+path = "lib.rs"
+
+[[bin]]
+name = "voxveil"
+path = "main.rs"
+
+[build-dependencies]
+tauri-build = { version = "=2.6.3", features = [] }
+
+[dependencies]
+serde = { version = "=1.0.229", features = ["derive"] }
+tauri = { version = "=2.11.5", features = [] }
+voxveil-audio-core = { path = "../crates/voxveil-audio-core" }
+voxveil-dsp = { path = "../crates/voxveil-dsp" }
+voxveil-model-api = { path = "../crates/voxveil-model-api" }
+voxveil-routing = { path = "../crates/voxveil-routing" }
+voxveil-types = { path = "../crates/voxveil-types" }

@@ -1,0 +1,28 @@
+{
+  "productName": "Voxveil",
+  "version": "0.1.0",
+  "identifier": "com.voxveil.app",
+  "build": {
+    "beforeDevCommand": "npm --prefix ../ui run dev",
+    "beforeBuildCommand": "npm --prefix ../ui run build",
+    "devUrl": "http://localhost:1420",
+    "frontendDist": "../ui/dist"
+  },
+  "app": {
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' asset: data:; style-src 'self' 'unsafe-inline'; script-src 'self'"
+    },
+    "windows": [
+      {
+        "label": "main",
+        "title": "Voxveil",
+        "width": 1180,
+        "height": 780,
+        "minWidth": 320,
+        "minHeight": 568,
+        "resizable": true
+      }
+    ]
+  },
+  "bundle": { "active": true }
+}

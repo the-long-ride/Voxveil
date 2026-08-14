@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "policy": "Direct crates.io dependencies only. Path workspace crates are first-party. Git dependencies are forbidden.",
+  "packages": {
+    "serde": { "version": "1.0.229", "license": "MIT OR Apache-2.0", "commercialUse": true },
+    "tauri": { "version": "2.11.5", "license": "MIT OR Apache-2.0", "commercialUse": true },
+    "tauri-build": { "version": "2.6.3", "license": "MIT OR Apache-2.0", "commercialUse": true }
+  }
+}

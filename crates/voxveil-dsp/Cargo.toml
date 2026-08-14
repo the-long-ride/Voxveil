@@ -1,0 +1,11 @@
+[package]
+name = "voxveil-dsp"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+voxveil-audio-core = { path = "../voxveil-audio-core" }
+voxveil-types = { path = "../voxveil-types" }

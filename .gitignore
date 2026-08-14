@@ -1,0 +1,20 @@
+# build
+node_modules/
+dist/
+target/
+coverage/
+*.profraw
+*.lcov
+.DS_Store
+.env
+.env.*
+dist-artifacts/
+release-artifacts/
+release-metadata/
+
+*.tsbuildinfo
+
+
+# Git
+*.patch
+*.diff

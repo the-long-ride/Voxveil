@@ -1,0 +1,33 @@
+{
+  "name": "voxveil",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "npm@10.9.2",
+  "workspaces": [
+    "ui",
+    "tauri"
+  ],
+  "scripts": {
+    "dev": "npm run tauri --workspace @voxveil/tauri-shell -- dev",
+    "build": "npm run build --workspace @voxveil/ui",
+    "test": "npm run test:quality && npm run test --workspace @voxveil/ui",
+    "test:quality": "node scripts/run-node-tests.mjs",
+    "coverage": "npm run coverage --workspace @voxveil/ui",
+    "quality:loc": "node scripts/quality/check-loc.mjs .",
+    "quality:i18n": "node scripts/quality/check-i18n.mjs .",
+    "quality:network": "node scripts/quality/check-network-surface.mjs .",
+    "quality:licenses": "node scripts/quality/check-license-metadata.mjs .",
+    "quality": "npm run test:quality && npm run quality:loc && npm run quality:i18n && npm run quality:network && npm run quality:licenses && npm run quality:cargo && npm run quality:tauri-security && npm run quality:hygiene && npm run quality:workflows",
+    "dev:ui": "npm run dev --workspace @voxveil/ui",
+    "tauri": "npm run tauri --workspace @voxveil/tauri-shell --",
+    "typecheck": "npm run typecheck --workspace @voxveil/ui",
+    "quality:workflows": "node scripts/quality/check-workflows.mjs .",
+    "quality:cargo": "node scripts/quality/check-cargo-dependencies.mjs .",
+    "quality:tauri-security": "node scripts/quality/check-tauri-security.mjs .",
+    "quality:hygiene": "node scripts/quality/check-repository-hygiene.mjs ."
+  },
+  "engines": {
+    "node": "^22.16.0 || ^24.0.0",
+    "npm": "^10.9.2 || ^11.0.0"
+  }
+}

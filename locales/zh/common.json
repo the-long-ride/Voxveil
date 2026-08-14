@@ -1,0 +1,110 @@
+{
+  "app": {
+    "name": "Voxveil"
+  },
+  "common": {
+    "enabled": "已启用",
+    "ready": "就绪",
+    "unavailable": "不可用"
+  },
+  "nav": {
+    "primary": "主导航",
+    "mobile": "移动导航",
+    "home": "主页",
+    "apps": "应用",
+    "routing": "路由",
+    "engine": "引擎",
+    "settings": "设置"
+  },
+  "home": {
+    "eyeline": "实时人声控制",
+    "title": "按你的方式聆听混音。",
+    "description": "完全在本机降低设备音频中的人声，并直接控制分离质量与延迟。"
+  },
+  "processing": {
+    "master": "处理",
+    "vocals": "人声",
+    "quality": "延迟 / 质量",
+    "lowLatency": "低延迟",
+    "highQuality": "高质量",
+    "mode": "处理模式",
+    "allOutput": "全部输出",
+    "perApp": "按应用",
+    "engine": "引擎"
+  },
+  "engine": {
+    "eyeline": "处理",
+    "title": "引擎",
+    "description": "经典 DSP 无需模型即可工作。安装经过商业许可审核的本地模型后，可选 AI 分离可提升隔离效果。",
+    "auto": "自动",
+    "dsp": "经典 DSP",
+    "ai": "AI",
+    "dspDescription": "超轻量的中央声道与频谱人声抑制。",
+    "aiDescription": "可选的本地双轨分离。在许可明确前不会捆绑模型。",
+    "builtIn": "内置",
+    "noModel": "无模型",
+    "licenseRule": "如果确切检查点许可或再分发权不明确，Voxveil 绝不会随软件发布该模型。"
+  },
+  "status": {
+    "current": "当前处理状态",
+    "latency": "预计延迟",
+    "load": "处理负载",
+    "output": "输出",
+    "idleLoad": "空闲",
+    "lowLoad": "低 CPU",
+    "mediumLoad": "中等 CPU",
+    "highLoad": "高 CPU"
+  },
+  "apps": {
+    "eyeline": "音源控制",
+    "title": "应用",
+    "description": "处理完整设备混音或选择单个应用。通信音频默认绕过。",
+    "communicationBypass": "通信 • 默认绕过",
+    "category": {
+      "media": "媒体",
+      "game": "游戏",
+      "communication": "通信",
+      "system": "系统"
+    }
+  },
+  "routing": {
+    "eyeline": "音频路径",
+    "title": "路由",
+    "description": "将同一处理后的音频流发送到物理设备、虚拟端点或两者，无需重复运行分离。",
+    "outputMode": "输出模式",
+    "physical": "物理",
+    "virtual": "虚拟",
+    "both": "两者",
+    "virtualName": "Voxveil 已处理音频"
+  },
+  "settings": {
+    "eyeline": "偏好",
+    "title": "设置",
+    "description": "Voxveil 将配置、语言资源、处理和诊断保留在此设备上。",
+    "language": "语言",
+    "languageDescription": "本地捆绑，不连接翻译服务。",
+    "privacy": "隐私",
+    "privacyDescription": "无分析、无遥测、无崩溃上传、无云端音频处理。",
+    "local": "仅本地",
+    "appearance": "外观",
+    "appearanceDescription": "选择 Voxveil 如何跟随设备显示设置。",
+    "themeSystem": "跟随系统",
+    "themeLight": "浅色",
+    "themeDark": "深色",
+    "edition": "版本",
+    "editionStandard": "标准版",
+    "editionProSystem": "Pro System"
+  },
+  "privacy": {
+    "localOnly": "100% 本地处理"
+  },
+  "languages": {
+    "en": "英语",
+    "vi": "越南语",
+    "zh": "中文",
+    "ko": "韩语",
+    "ja": "日语",
+    "es": "西班牙语",
+    "fr": "法语"
+  }
+}

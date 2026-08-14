@@ -1,0 +1,26 @@
+.app-shell { min-height: 100vh; display: grid; grid-template-columns: 228px minmax(0, 1fr); }
+.side-nav { position: sticky; top: 0; height: 100vh; padding: 28px 20px 20px; border-right: 1px solid var(--border); display: flex; flex-direction: column; background: var(--bg); }
+.brand { font-size: 20px; font-weight: 650; letter-spacing: -0.04em; margin: 0 8px 44px; }
+.brand span { font-size: 8px; vertical-align: top; margin-left: 3px; color: var(--text-muted); }
+.side-nav nav { display: grid; gap: 2px; }
+.side-nav nav button { min-height: 42px; border: 0; border-radius: var(--radius-sm); padding: 0 10px; background: transparent; text-align: left; color: var(--text-muted); cursor: pointer; transition: background var(--motion-fast), color var(--motion-fast); }
+.side-nav nav button:hover { background: var(--surface-subtle); color: var(--text); }
+.side-nav nav button.is-active { background: var(--text); color: var(--bg); }
+.side-foot { margin-top: auto; padding: 12px 8px 0; color: var(--text-muted); font-size: 11px; }
+.workspace { min-width: 0; }
+.topbar { height: 74px; display: flex; align-items: center; justify-content: flex-end; padding: 0 clamp(20px, 4vw, 56px); border-bottom: 1px solid var(--border); }
+.mobile-brand { display: none; font-size: 18px; font-weight: 650; letter-spacing: -0.04em; }
+.master-control { display: flex; gap: 12px; align-items: center; color: var(--text-muted); }
+.main-content { width: min(1040px, 100%); margin: 0 auto; padding: clamp(40px, 6vw, 80px) clamp(20px, 5vw, 64px) 100px; }
+.bottom-nav { display: none; }
+
+@media (max-width: 760px) {
+  .app-shell { display: block; }
+  .side-nav { display: none; }
+  .topbar { height: 64px; padding: 0 16px; justify-content: space-between; }
+  .mobile-brand { display: block; }
+  .main-content { padding: 36px 18px 104px; }
+  .bottom-nav { position: fixed; z-index: 20; left: 12px; right: 12px; bottom: 12px; display: grid; grid-template-columns: repeat(4, 1fr); padding: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; }
+  .bottom-nav button { min-height: 44px; border: 0; background: transparent; color: var(--text-muted); border-radius: 8px; font-size: 12px; }
+  .bottom-nav button.is-active { background: var(--text); color: var(--bg); }
+}

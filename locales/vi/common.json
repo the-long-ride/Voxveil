@@ -1,0 +1,110 @@
+{
+  "app": {
+    "name": "Voxveil"
+  },
+  "common": {
+    "enabled": "đã bật",
+    "ready": "Sẵn sàng",
+    "unavailable": "Không khả dụng"
+  },
+  "nav": {
+    "primary": "Điều hướng chính",
+    "mobile": "Điều hướng di động",
+    "home": "Trang chính",
+    "apps": "Ứng dụng",
+    "routing": "Định tuyến",
+    "engine": "Bộ xử lý",
+    "settings": "Cài đặt"
+  },
+  "home": {
+    "eyeline": "Điều khiển giọng hát thời gian thực",
+    "title": "Nghe bản phối theo cách của bạn.",
+    "description": "Giảm giọng hát từ âm thanh thiết bị ngay trên máy, với quyền kiểm soát trực tiếp chất lượng tách và độ trễ."
+  },
+  "processing": {
+    "master": "Xử lý",
+    "vocals": "Giọng hát",
+    "quality": "Độ trễ / Chất lượng",
+    "lowLatency": "Độ trễ thấp",
+    "highQuality": "Chất lượng cao",
+    "mode": "Chế độ xử lý",
+    "allOutput": "Toàn bộ âm thanh",
+    "perApp": "Theo ứng dụng",
+    "engine": "Bộ xử lý"
+  },
+  "engine": {
+    "eyeline": "Xử lý",
+    "title": "Bộ xử lý",
+    "description": "DSP cổ điển hoạt động không cần mô hình. AI tùy chọn có thể cải thiện khả năng tách khi có mô hình cục bộ đã được xác minh giấy phép thương mại.",
+    "auto": "Tự động",
+    "dsp": "DSP cổ điển",
+    "ai": "AI",
+    "dspDescription": "Giảm giọng trung tâm và theo phổ, rất nhẹ.",
+    "aiDescription": "Tách hai stem cục bộ tùy chọn. Không đóng gói mô hình trước khi giấy phép được xác minh.",
+    "builtIn": "Tích hợp",
+    "noModel": "Chưa có mô hình",
+    "licenseRule": "Voxveil không bao giờ phát hành mô hình khi giấy phép checkpoint hoặc quyền phân phối lại chưa rõ ràng."
+  },
+  "status": {
+    "current": "Trạng thái xử lý hiện tại",
+    "latency": "Độ trễ ước tính",
+    "load": "Tải xử lý",
+    "output": "Đầu ra",
+    "idleLoad": "Nhàn rỗi",
+    "lowLoad": "CPU thấp",
+    "mediumLoad": "CPU trung bình",
+    "highLoad": "CPU cao"
+  },
+  "apps": {
+    "eyeline": "Điều khiển nguồn",
+    "title": "Ứng dụng",
+    "description": "Xử lý toàn bộ âm thanh thiết bị hoặc chọn từng ứng dụng. Âm thanh liên lạc được bỏ qua mặc định.",
+    "communicationBypass": "Liên lạc • mặc định bỏ qua",
+    "category": {
+      "media": "Đa phương tiện",
+      "game": "Trò chơi",
+      "communication": "Liên lạc",
+      "system": "Hệ thống"
+    }
+  },
+  "routing": {
+    "eyeline": "Đường âm thanh",
+    "title": "Định tuyến",
+    "description": "Gửi một luồng đã xử lý tới thiết bị vật lý, đầu ra ảo hoặc cả hai mà không chạy tách hai lần.",
+    "outputMode": "Chế độ đầu ra",
+    "physical": "Vật lý",
+    "virtual": "Ảo",
+    "both": "Cả hai",
+    "virtualName": "Âm thanh Voxveil đã xử lý"
+  },
+  "settings": {
+    "eyeline": "Tùy chọn",
+    "title": "Cài đặt",
+    "description": "Voxveil giữ cấu hình, ngôn ngữ, xử lý và chẩn đoán trên thiết bị này.",
+    "language": "Ngôn ngữ",
+    "languageDescription": "Được đóng gói cục bộ. Không liên hệ dịch vụ dịch thuật.",
+    "privacy": "Quyền riêng tư",
+    "privacyDescription": "Không phân tích, telemetry, tải lỗi hoặc xử lý âm thanh đám mây.",
+    "local": "Chỉ cục bộ",
+    "appearance": "Giao diện",
+    "appearanceDescription": "Chọn cách Voxveil hiển thị theo thiết bị của bạn.",
+    "themeSystem": "Hệ thống",
+    "themeLight": "Sáng",
+    "themeDark": "Tối",
+    "edition": "Phiên bản",
+    "editionStandard": "Tiêu chuẩn",
+    "editionProSystem": "Pro System"
+  },
+  "privacy": {
+    "localOnly": "Xử lý 100% cục bộ"
+  },
+  "languages": {
+    "en": "Tiếng Anh",
+    "vi": "Tiếng Việt",
+    "zh": "Tiếng Trung",
+    "ko": "Tiếng Hàn",
+    "ja": "Tiếng Nhật",
+    "es": "Tiếng Tây Ban Nha",
+    "fr": "Tiếng Pháp"
+  }
+}

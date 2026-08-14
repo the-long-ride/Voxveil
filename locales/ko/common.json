@@ -1,0 +1,110 @@
+{
+  "app": {
+    "name": "Voxveil"
+  },
+  "common": {
+    "enabled": "활성화",
+    "ready": "준비됨",
+    "unavailable": "사용 불가"
+  },
+  "nav": {
+    "primary": "기본 탐색",
+    "mobile": "모바일 탐색",
+    "home": "홈",
+    "apps": "앱",
+    "routing": "라우팅",
+    "engine": "엔진",
+    "settings": "설정"
+  },
+  "home": {
+    "eyeline": "실시간 보컬 제어",
+    "title": "원하는 방식으로 믹스를 들으세요.",
+    "description": "기기 오디오의 보컬을 로컬에서 줄이고 분리 품질과 지연 시간을 직접 조절합니다."
+  },
+  "processing": {
+    "master": "처리",
+    "vocals": "보컬",
+    "quality": "지연 / 품질",
+    "lowLatency": "낮은 지연",
+    "highQuality": "높은 품질",
+    "mode": "처리 모드",
+    "allOutput": "전체 출력",
+    "perApp": "앱별",
+    "engine": "엔진"
+  },
+  "engine": {
+    "eyeline": "처리",
+    "title": "엔진",
+    "description": "클래식 DSP는 모델 없이 작동합니다. 상업적 사용이 검증된 로컬 모델이 설치되면 선택형 AI 분리로 품질을 높일 수 있습니다.",
+    "auto": "자동",
+    "dsp": "클래식 DSP",
+    "ai": "AI",
+    "dspDescription": "매우 가벼운 중앙 및 스펙트럼 보컬 억제.",
+    "aiDescription": "선택형 로컬 2-스템 분리. 라이선스 확인 전에는 모델을 포함하지 않습니다.",
+    "builtIn": "내장",
+    "noModel": "모델 없음",
+    "licenseRule": "정확한 체크포인트 라이선스나 재배포 권한이 불분명하면 Voxveil은 해당 모델을 배포하지 않습니다."
+  },
+  "status": {
+    "current": "현재 처리 상태",
+    "latency": "예상 지연",
+    "load": "처리 부하",
+    "output": "출력",
+    "idleLoad": "유휴",
+    "lowLoad": "낮은 CPU",
+    "mediumLoad": "중간 CPU",
+    "highLoad": "높은 CPU"
+  },
+  "apps": {
+    "eyeline": "소스 제어",
+    "title": "앱",
+    "description": "전체 기기 믹스를 처리하거나 개별 앱을 선택합니다. 통신 오디오는 기본적으로 우회합니다.",
+    "communicationBypass": "통신 • 기본 우회",
+    "category": {
+      "media": "미디어",
+      "game": "게임",
+      "communication": "통신",
+      "system": "시스템"
+    }
+  },
+  "routing": {
+    "eyeline": "오디오 경로",
+    "title": "라우팅",
+    "description": "분리를 두 번 실행하지 않고 하나의 처리 스트림을 물리 출력, 가상 엔드포인트 또는 둘 다로 보냅니다.",
+    "outputMode": "출력 모드",
+    "physical": "물리",
+    "virtual": "가상",
+    "both": "둘 다",
+    "virtualName": "Voxveil 처리 오디오"
+  },
+  "settings": {
+    "eyeline": "환경 설정",
+    "title": "설정",
+    "description": "Voxveil은 설정, 언어 리소스, 처리 및 진단을 이 기기에 보관합니다.",
+    "language": "언어",
+    "languageDescription": "로컬에 포함되며 번역 서비스에 연결하지 않습니다.",
+    "privacy": "개인정보",
+    "privacyDescription": "분석, 텔레메트리, 충돌 업로드, 클라우드 오디오 처리가 없습니다.",
+    "local": "로컬 전용",
+    "appearance": "외관",
+    "appearanceDescription": "Voxveil의 화면 표시 방식을 선택합니다.",
+    "themeSystem": "시스템",
+    "themeLight": "라이트",
+    "themeDark": "다크",
+    "edition": "에디션",
+    "editionStandard": "스탠다드",
+    "editionProSystem": "Pro System"
+  },
+  "privacy": {
+    "localOnly": "100% 로컬 처리"
+  },
+  "languages": {
+    "en": "영어",
+    "vi": "베트남어",
+    "zh": "중국어",
+    "ko": "한국어",
+    "ja": "일본어",
+    "es": "스페인어",
+    "fr": "프랑스어"
+  }
+}

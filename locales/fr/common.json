@@ -1,0 +1,110 @@
+{
+  "app": {
+    "name": "Voxveil"
+  },
+  "common": {
+    "enabled": "activé",
+    "ready": "Prêt",
+    "unavailable": "Indisponible"
+  },
+  "nav": {
+    "primary": "Navigation principale",
+    "mobile": "Navigation mobile",
+    "home": "Accueil",
+    "apps": "Applications",
+    "routing": "Routage",
+    "engine": "Moteur",
+    "settings": "Réglages"
+  },
+  "home": {
+    "eyeline": "Contrôle vocal en temps réel",
+    "title": "Écoutez le mix à votre façon.",
+    "description": "Réduisez localement les voix du son de l’appareil, avec un contrôle direct de la qualité d’isolation et de la latence."
+  },
+  "processing": {
+    "master": "Traitement",
+    "vocals": "Voix",
+    "quality": "Latence / Qualité",
+    "lowLatency": "Faible latence",
+    "highQuality": "Haute qualité",
+    "mode": "Mode de traitement",
+    "allOutput": "Toute la sortie",
+    "perApp": "Par application",
+    "engine": "Moteur"
+  },
+  "engine": {
+    "eyeline": "Traitement",
+    "title": "Moteur",
+    "description": "Le DSP classique fonctionne sans modèle. La séparation AI facultative peut améliorer l’isolation lorsqu’un modèle local autorisé commercialement est installé.",
+    "auto": "Auto",
+    "dsp": "DSP classique",
+    "ai": "AI",
+    "dspDescription": "Réduction vocale centrale et spectrale ultralégère.",
+    "aiDescription": "Séparation locale facultative en deux stems. Aucun modèle n’est inclus avant validation de sa licence.",
+    "builtIn": "Intégré",
+    "noModel": "Aucun modèle",
+    "licenseRule": "Voxveil ne distribue jamais un modèle lorsque la licence exacte du checkpoint ou les droits de redistribution sont incertains."
+  },
+  "status": {
+    "current": "État actuel du traitement",
+    "latency": "Latence estimée",
+    "load": "Charge de traitement",
+    "output": "Sortie",
+    "idleLoad": "Inactif",
+    "lowLoad": "CPU faible",
+    "mediumLoad": "CPU moyen",
+    "highLoad": "CPU élevé"
+  },
+  "apps": {
+    "eyeline": "Contrôle des sources",
+    "title": "Applications",
+    "description": "Traitez l’ensemble du mix de l’appareil ou choisissez des applications individuelles. L’audio de communication est contourné par défaut.",
+    "communicationBypass": "Communication • contournée par défaut",
+    "category": {
+      "media": "Média",
+      "game": "Jeu",
+      "communication": "Communication",
+      "system": "Système"
+    }
+  },
+  "routing": {
+    "eyeline": "Chemin audio",
+    "title": "Routage",
+    "description": "Envoyez un seul flux traité vers la sortie physique, le périphérique virtuel ou les deux sans exécuter deux fois la séparation.",
+    "outputMode": "Mode de sortie",
+    "physical": "Physique",
+    "virtual": "Virtuelle",
+    "both": "Les deux",
+    "virtualName": "Audio traité Voxveil"
+  },
+  "settings": {
+    "eyeline": "Préférences",
+    "title": "Réglages",
+    "description": "Voxveil conserve la configuration, les langues, le traitement et les diagnostics sur cet appareil.",
+    "language": "Langue",
+    "languageDescription": "Intégrée localement. Aucun service de traduction n’est contacté.",
+    "privacy": "Confidentialité",
+    "privacyDescription": "Aucune analytique, télémétrie, remontée de plantage ou traitement audio dans le cloud.",
+    "local": "Local uniquement",
+    "appearance": "Apparence",
+    "appearanceDescription": "Choisissez comment Voxveil suit les réglages d’affichage.",
+    "themeSystem": "Système",
+    "themeLight": "Clair",
+    "themeDark": "Sombre",
+    "edition": "Édition",
+    "editionStandard": "Standard",
+    "editionProSystem": "Pro System"
+  },
+  "privacy": {
+    "localOnly": "Traitement 100% local"
+  },
+  "languages": {
+    "en": "Anglais",
+    "vi": "Vietnamien",
+    "zh": "Chinois",
+    "ko": "Coréen",
+    "ja": "Japonais",
+    "es": "Espagnol",
+    "fr": "Français"
+  }
+}
