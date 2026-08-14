@@ -18,7 +18,7 @@
 
 ## Deliberately not claimed complete
 
-- Native Windows WASAPI capture/session routing.
+- Windows signed virtual endpoint/APO interception component (plain WASAPI loopback is capture-only and is not treated as output replacement).
 - Linux PipeWire capture/routing.
 - macOS Core Audio taps/virtual driver.
 - Desktop virtual audio drivers.

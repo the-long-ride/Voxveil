@@ -1,4 +1,6 @@
-use voxveil_types::{AudioSourceCategory, ProcessingEngineKind, ProcessingMode, QualityPreference, VocalLevel};
+use voxveil_types::{
+    AudioSourceCategory, ProcessingEngineKind, ProcessingMode, QualityPreference, VocalLevel,
+};
 
 #[derive(Clone, Debug)]
 pub struct SourceInfo {

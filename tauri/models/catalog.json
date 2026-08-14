@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "models": [
+    {
+      "id": "htdemucs-ft-vocals-fp16",
+      "displayName": "HT-Demucs FT Vocals FP16",
+      "fileName": "htdemucs_ft_vocals_fp16weights.onnx",
+      "downloadUrl": "https://huggingface.co/StemSplitio/htdemucs-ft-vocals-onnx/resolve/2ef0d757d3e226d0da85fb8c71514f464fcabdd0/htdemucs_ft_vocals_fp16weights.onnx?download=true",
+      "source": "StemSplitio/htdemucs-ft-vocals-onnx",
+      "sourceRevision": "2ef0d757d3e226d0da85fb8c71514f464fcabdd0",
+      "license": "MIT",
+      "sha256": "0cbe651f535415c9d26a7bb614f7d322dd5a080fa0298f2e50f478030a994dce",
+      "approximateSizeMb": 166,
+      "maxBytes": 209715200,
+      "commercialUse": true,
+      "directDownloadOnly": true
+    }
+  ]
+}

@@ -15,7 +15,7 @@ export function AppsScreen({ model }: { model: VoxveilModel }) {
               <strong>{app.name}</strong>
               <span>{app.bypassReason ? t('apps.communicationBypass') : t(`apps.category.${app.category}`)}</span>
             </div>
-            <Toggle checked={app.enabled} onChange={(enabled) => model.setAppEnabled(app.id, enabled)} label={`${app.name} ${t('common.enabled')}`} disabled={app.bypassReason === 'communication'} />
+            <Toggle checked={app.enabled} onChange={(enabled) => model.setAppEnabled(app.id, enabled)} label={`${app.name} ${t('common.enabled')}`} disabled={!model.state.perAppProcessingAvailable || app.bypassReason === 'communication'} />
           </div>
         ))}
       </div>

@@ -3,7 +3,9 @@ import type { VoxveilState } from './types';
 export const PREVIEW_STATE: VoxveilState = {
   edition: 'standard',
   masterEnabled: true,
+  backendStatus: 'ready',
   processingMode: 'all',
+  perAppProcessingAvailable: true,
   engine: 'auto',
   vocalLevel: 18,
   quality: 56,
@@ -23,7 +25,9 @@ export const PREVIEW_STATE: VoxveilState = {
 export const SAFE_NATIVE_STATE: VoxveilState = {
   edition: 'standard',
   masterEnabled: false,
+  backendStatus: 'unsupported',
   processingMode: 'all',
+  perAppProcessingAvailable: false,
   engine: 'auto',
   vocalLevel: 100,
   quality: 50,

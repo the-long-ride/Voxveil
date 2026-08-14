@@ -3,6 +3,7 @@
 mod app;
 pub mod audio;
 mod config;
+pub mod models;
 pub mod platform;
 pub mod realtime;
 pub mod routing;
@@ -11,9 +12,16 @@ pub mod separation;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let state = app::state::AppState::default();
+    let controller = platform::ProcessingController::default();
+    let snapshot = controller.snapshot();
+    let mut view_state = app::dto::AppViewState::default();
+    view_state.apply_backend(&snapshot);
+    let state = app::state::AppState::new(view_state);
+    let model_manager = models::manager::ModelManager::default();
     tauri::Builder::default()
         .manage(state)
+        .manage(controller)
+        .manage(model_manager)
         .invoke_handler(tauri::generate_handler![
             app::commands::get_app_state,
             app::commands::set_master_enabled,
@@ -25,6 +33,9 @@ pub fn run() {
             app::commands::list_audio_outputs,
             app::commands::set_app_override,
             app::commands::set_output_route,
+            models::commands::get_ai_model_status,
+            models::commands::install_ai_model,
+            models::commands::remove_ai_model,
         ])
         .run(tauri::generate_context!())
         .expect("Voxveil failed to start");

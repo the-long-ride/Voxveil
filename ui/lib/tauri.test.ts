@@ -23,6 +23,19 @@ describe('tauri client', () => {
     ]);
   });
 
+  it('maps AI model lifecycle to consent-gated commands', async () => {
+    const invoke = vi.fn().mockResolvedValue({ installed: false });
+    const client = createVoxveilClient(invoke);
+    await client.getAiModelStatus();
+    await client.installAiModel('model-a', true);
+    await client.removeAiModel('model-a');
+    expect(invoke.mock.calls).toEqual([
+      ['get_ai_model_status'],
+      ['install_ai_model', { modelId: 'model-a', acceptedTerms: true }],
+      ['remove_ai_model', { modelId: 'model-a' }],
+    ]);
+  });
+
   it('maps state reads to the state command', async () => {
     const state = { masterEnabled: true };
     const invoke = vi.fn().mockResolvedValue(state);

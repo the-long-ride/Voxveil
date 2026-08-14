@@ -5,7 +5,8 @@
   "common": {
     "enabled": "已启用",
     "ready": "就绪",
-    "unavailable": "不可用"
+    "unavailable": "不可用",
+    "cancel": "取消"
   },
   "nav": {
     "primary": "主导航",
@@ -30,7 +31,12 @@
     "mode": "处理模式",
     "allOutput": "全部输出",
     "perApp": "按应用",
-    "engine": "引擎"
+    "engine": "引擎",
+    "backendUnavailable": "处理不可用",
+    "backendComponentRequired": "此版本尚未安装 Windows 系统音频组件。在该组件可用之前，处理功能将保持关闭。",
+    "backendUnsupported": "此平台版本尚未实现系统音频处理。",
+    "backendFaulted": "音频后端初始化失败。处理功能已关闭，以保持设备音频不被修改。",
+    "backendRoutingRequired": "将 Voxveil Virtual Audio 设为 Windows 默认输出，然后返回 Voxveil。处理后的音频将转发到下方显示的物理输出设备。"
   },
   "engine": {
     "eyeline": "处理",
@@ -40,10 +46,27 @@
     "dsp": "经典 DSP",
     "ai": "AI",
     "dspDescription": "超轻量的中央声道与频谱人声抑制。",
-    "aiDescription": "可选的本地双轨分离。在许可明确前不会捆绑模型。",
+    "aiDescription": "可选的本地双轨分离。仅在用户明确同意后才下载模型。",
     "builtIn": "内置",
     "noModel": "无模型",
-    "licenseRule": "如果确切检查点许可或再分发权不明确，Voxveil 绝不会随软件发布该模型。"
+    "licenseRule": "Voxveil 不随安装包捆绑 AI 权重。只有经过审核并固定 SHA-256 的模型才会在用户明确同意后提供下载。",
+    "modelInstalled": "已安装",
+    "modelStorage": "AI 模型不会随 Voxveil 安装包提供，只会存储在本设备的 Voxveil 应用数据目录中。",
+    "modelSource": "来源：{{source}}",
+    "installModel": "安装 AI 模型",
+    "removeModel": "删除模型",
+    "downloading": "正在下载模型…",
+    "consentTitle": "下载 AI 模型？",
+    "consentDescription": "只有在你同意后，Voxveil 才会下载 {{name}}（约 {{size}} MB）。文件会存储在应用数据中，并在安装前验证完整性。",
+    "networkNotice": "此次一次性下载会连接模型托管方。不会上传音频、分析、遥测或诊断数据。",
+    "consentAgreement": "我同意按照 {{license}} 许可证下载并使用此第三方模型。",
+    "agreeAndDownload": "同意并下载",
+    "modelError": {
+      "status": "无法读取模型状态。",
+      "download": "模型下载或完整性验证失败。",
+      "remove": "无法删除模型。"
+    },
+    "runtimePending": "模型已安装。此版本尚未启用 AI 推理运行时。"
   },
   "status": {
     "current": "当前处理状态",

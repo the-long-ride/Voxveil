@@ -5,7 +5,7 @@ This procedure is required the first time lockfiles are created or whenever an a
 ## Preconditions
 
 - Use a trusted development machine and a trusted registry/network path.
-- Verify Node.js `22.16.0`, npm `10.9.2`, and the Rust toolchain from `rust-toolchain.toml`.
+- Verify Node.js `24.17.0`, npm `10.9.2`, and the Rust toolchain from `rust-toolchain.toml`.
 - Review every direct dependency change against both dependency allowlists before resolution.
 - Keep npm lifecycle scripts disabled. Do not temporarily bypass `.npmrc` to make installation succeed.
 

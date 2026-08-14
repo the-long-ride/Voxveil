@@ -6,7 +6,10 @@
       "type": "node-terminal",
       "request": "launch",
       "command": "npm run dev",
-      "cwd": "${workspaceFolder}"
+      "cwd": "${workspaceFolder}",
+      "windows": {
+        "command": "npm run dev:windows"
+      }
     }
   ]
 }

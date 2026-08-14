@@ -6,6 +6,7 @@ import { walkFilesSync } from '../lib/walk-files.mjs';
 const FORBIDDEN_DEPS = new Set(['@tauri-apps/plugin-http']);
 const REMOTE_SPECIFIER = /^(?:git\+|https?:)/i;
 const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.rs']);
+const APPROVED_RUST_NETWORK_FILE = 'tauri/models/download.rs';
 const IGNORED_DIRS = new Set(['.git', 'node_modules', 'dist', 'coverage', 'target']);
 
 export function inspectPackageJson(pkg, filePath) {
@@ -37,6 +38,9 @@ export function inspectProductionText(text, filePath) {
       [/\b(?:std|core)::net::TcpListener\b/, 'TcpListener'],
       [/\b(?:std|core)::net::ToSocketAddrs\b/, 'ToSocketAddrs'],
     ];
+    if (filePath !== APPROVED_RUST_NETWORK_FILE) {
+      checks.push([/\b(?:minreq|reqwest|ureq)::/, 'HTTP client outside approved model downloader']);
+    }
   }
   return checks
     .filter(([pattern]) => pattern.test(text))

@@ -50,6 +50,15 @@ pub enum ProcessingMode {
     PerApp,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ProcessingBackendStatus {
+    Ready,
+    ComponentRequired,
+    RoutingRequired,
+    Unsupported,
+    Faulted,
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]

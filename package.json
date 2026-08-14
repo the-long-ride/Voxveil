@@ -8,8 +8,12 @@
     "tauri"
   ],
   "scripts": {
-    "dev": "npm run tauri --workspace @voxveil/tauri-shell -- dev",
-    "build": "npm run build --workspace @voxveil/ui",
+    "dev": "npm run dev --workspace @voxveil/tauri-shell",
+    "dev:windows": "scripts\\dev-windows.cmd",
+    "build": "npm run build --workspace @voxveil/tauri-shell",
+    "build:ui": "npm run build --workspace @voxveil/ui",
+    "dev:ui": "npm run dev --workspace @voxveil/ui",
+    "tauri": "npm run tauri --workspace @voxveil/tauri-shell --",
     "test": "npm run test:quality && npm run test --workspace @voxveil/ui",
     "test:quality": "node scripts/run-node-tests.mjs",
     "coverage": "npm run coverage --workspace @voxveil/ui",
@@ -17,17 +21,17 @@
     "quality:i18n": "node scripts/quality/check-i18n.mjs .",
     "quality:network": "node scripts/quality/check-network-surface.mjs .",
     "quality:licenses": "node scripts/quality/check-license-metadata.mjs .",
-    "quality": "npm run test:quality && npm run quality:loc && npm run quality:i18n && npm run quality:network && npm run quality:licenses && npm run quality:cargo && npm run quality:tauri-security && npm run quality:hygiene && npm run quality:workflows",
-    "dev:ui": "npm run dev --workspace @voxveil/ui",
-    "tauri": "npm run tauri --workspace @voxveil/tauri-shell --",
+    "quality": "npm run test:quality && npm run quality:loc && npm run quality:i18n && npm run quality:network && npm run quality:model-delivery && npm run quality:licenses && npm run quality:cargo && npm run quality:tauri-security && npm run quality:hygiene && npm run quality:workflows",
     "typecheck": "npm run typecheck --workspace @voxveil/ui",
     "quality:workflows": "node scripts/quality/check-workflows.mjs .",
     "quality:cargo": "node scripts/quality/check-cargo-dependencies.mjs .",
     "quality:tauri-security": "node scripts/quality/check-tauri-security.mjs .",
-    "quality:hygiene": "node scripts/quality/check-repository-hygiene.mjs ."
+    "quality:hygiene": "node scripts/quality/check-repository-hygiene.mjs .",
+    "quality:model-delivery": "node scripts/quality/check-model-delivery.mjs .",
+    "windows:sound": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/windows/open-sound-settings.ps1"
   },
   "engines": {
-    "node": "^22.16.0 || ^24.0.0",
+    "node": "^24.15.0",
     "npm": "^10.9.2 || ^11.0.0"
   }
 }

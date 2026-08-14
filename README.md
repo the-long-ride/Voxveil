@@ -23,3 +23,7 @@ Native system-audio interception, virtual audio drivers, privileged Android/iOS 
 ## Privacy and networking
 
 Voxveil processing is designed to work with no network connection. The application has no telemetry, analytics, remote fonts, cloud audio processing, or generic Tauri HTTP capability. Network-dependent developer operations such as package installation, advisory lookup, and release publishing are build-time/repository operations rather than app runtime behavior.
+
+### Optional AI model
+
+Voxveil does not bundle AI weights. The Engine screen can install a reviewed model only after explicit user consent. Downloads are pinned to an approved source revision, stored under Voxveil's local application-data directory, and SHA-256 verified before installation. The model can be removed from the same screen. See `docs/specs/audio/ai-model-delivery.md`.

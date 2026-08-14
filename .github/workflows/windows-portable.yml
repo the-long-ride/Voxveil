@@ -1,0 +1,157 @@
+name: Windows Portable
+
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-portable-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build Windows app + development audio component
+    runs-on: windows-2025-vs2026
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout Voxveil
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Checkout Microsoft Windows driver samples
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: microsoft/Windows-driver-samples
+          # Pin the sample source used with the current WDK 28000 toolchain.
+          # Avoid following upstream main implicitly during a Voxveil build.
+          ref: 717778a20ba4dd2440fe609f69153a1f8a64f597
+          path: .windows-driver-samples
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3.0.0
+
+      # Match Microsoft's own Windows-driver-samples CI: restore the repository's
+      # pinned WDK/SDK NuGet packages and let Build-Samples.ps1 configure MSBuild.
+      - name: Restore Microsoft WDK and SDK NuGet packages
+        shell: pwsh
+        run: |
+          nuget restore .windows-driver-samples\packages.config `
+            -PackagesDirectory .windows-driver-samples\packages\
+          if ($LASTEXITCODE -ne 0) {
+            throw "WDK/SDK NuGet restore failed with exit code $LASTEXITCODE"
+          }
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.17.0'
+          cache: npm
+
+      - name: Select pinned Rust toolchain
+        shell: pwsh
+        run: rustup show active-toolchain
+
+      - name: Install locked dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-fund --no-audit
+
+      - name: Build unbundled Voxveil executable
+        run: npm run tauri -- build --no-bundle
+
+      - name: Build Microsoft SysVAD and DevCon using Microsoft's sample builder
+        shell: pwsh
+        run: |
+          Push-Location .windows-driver-samples
+          try {
+            # This is the same orchestration path used by Microsoft's own
+            # successful windows-2025-vs2026 CI. It initializes the VS developer
+            # environment, selects the restored WDK NuGet media, configures
+            # InfVerif, and passes the correct _NT_TARGET_VERSION to MSBuild.
+            .\Build-Samples.ps1 `
+              -Samples 'audio.sysvad','setup.devcon' `
+              -Configurations 'Release' `
+              -Platforms 'x64' `
+              -NtTargetVersion '10.0.28000' `
+              -RunMode 'NuGet' `
+              -ThrottleLimit 2 `
+              -Verbose
+          }
+          finally {
+            Pop-Location
+          }
+
+      - name: Stage portable bundle
+        id: stage
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $shortSha = '${{ github.sha }}'.Substring(0, 8)
+          $source = 'target\release\voxveil.exe'
+          if (-not (Test-Path $source)) {
+            throw "Portable executable was not produced at $source"
+          }
+
+          $driverInf = Get-ChildItem '.windows-driver-samples\audio\sysvad' -Recurse -Filter 'ComponentizedAudioSample.inf' -File |
+            Where-Object { $_.Directory.Name -eq 'package' } |
+            Select-Object -First 1
+          if (-not $driverInf) {
+            throw 'SysVAD driver package was not produced.'
+          }
+
+          $devcon = Get-ChildItem '.windows-driver-samples\setup\devcon' -Recurse -Filter 'devcon.exe' -File |
+            Where-Object { $_.FullName -match 'x64' -and $_.FullName -match 'Release' } |
+            Select-Object -First 1
+          if (-not $devcon) {
+            throw 'x64 Release DevCon executable was not produced.'
+          }
+
+          $name = "Voxveil_${version}_${shortSha}_windows-x64-portable-with-audio-component"
+          $bundle = Join-Path 'portable-dist' $name
+          $audio = Join-Path $bundle 'system-audio'
+          New-Item -ItemType Directory -Force -Path $audio | Out-Null
+
+          Copy-Item $source (Join-Path $bundle 'voxveil.exe')
+          Copy-Item $driverInf.Directory.FullName (Join-Path $audio 'driver') -Recurse
+          Copy-Item $devcon.FullName (Join-Path $audio 'devcon.exe')
+          Copy-Item 'scripts\windows\install-system-audio-component.ps1' (Join-Path $audio 'install.ps1')
+          Copy-Item 'scripts\windows\uninstall-system-audio-component.ps1' (Join-Path $audio 'uninstall.ps1')
+
+          @'
+          Voxveil Windows development bundle
+
+          1. The app is voxveil.exe.
+          2. system-audio contains a Microsoft SysVAD-derived DEVELOPMENT driver package built by GitHub Actions.
+          3. The GHA package is test-signed, so normal Secure Boot production systems will not load it.
+          4. On a dedicated development machine, prepare Windows for test-signed drivers, then run system-audio\install.ps1 as Administrator.
+          5. Set the installed SYSVAD / Virtual Audio Device endpoint as the Windows default output and restart Voxveil.
+
+          Production distribution requires a Microsoft production-signed Voxveil driver package.
+          '@ | Set-Content (Join-Path $bundle 'README-WINDOWS-AUDIO.txt')
+
+          "artifact_name=$name" >> $env:GITHUB_OUTPUT
+          "bundle_path=$bundle" >> $env:GITHUB_OUTPUT
+
+      - name: Upload portable bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ steps.stage.outputs.artifact_name }}
+          path: ${{ steps.stage.outputs.bundle_path }}/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+
+      - name: Build summary
+        shell: pwsh
+        run: |
+          "### Windows portable build" >> $env:GITHUB_STEP_SUMMARY
+          "- Artifact: ``${{ steps.stage.outputs.artifact_name }}``" >> $env:GITHUB_STEP_SUMMARY
+          "- Commit: ``${{ github.sha }}``" >> $env:GITHUB_STEP_SUMMARY
+          "- App: included" >> $env:GITHUB_STEP_SUMMARY
+          "- Development SysVAD audio component: included" >> $env:GITHUB_STEP_SUMMARY
+          "- Driver signing: test/development only; production signing is still required for normal end-user Windows" >> $env:GITHUB_STEP_SUMMARY

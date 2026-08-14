@@ -5,7 +5,9 @@ import type { VoxveilState } from '../lib/types';
 const nativeState: VoxveilState = {
   edition: 'pro-system',
   masterEnabled: true,
+  backendStatus: 'ready',
   processingMode: 'all',
+  perAppProcessingAvailable: false,
   engine: 'auto',
   vocalLevel: 12,
   quality: 50,
@@ -61,6 +63,31 @@ describe('useVoxveilState', () => {
     expect(client.setQuality).toHaveBeenCalledWith(10);
     expect(client.setOutputRoute).toHaveBeenCalledWith('physical');
     expect(client.setAppOverride).toHaveBeenCalledWith('browser', false);
+  });
+
+  it('does not optimistically enable processing when the native backend is unavailable', async () => {
+    (window as Window & { __TAURI_INTERNALS__?: object }).__TAURI_INTERNALS__ = {};
+    client.getState.mockResolvedValueOnce({ ...nativeState, masterEnabled: false, backendStatus: 'component-required' });
+    const { result } = renderHook(() => useVoxveilState());
+    await waitFor(() => expect(result.current.state.backendStatus).toBe('component-required'));
+
+    act(() => result.current.setMasterEnabled(true));
+
+    expect(result.current.state.masterEnabled).toBe(false);
+    expect(client.setMasterEnabled).not.toHaveBeenCalled();
+  });
+
+  it('refreshes backend readiness when the native window regains focus', async () => {
+    (window as Window & { __TAURI_INTERNALS__?: object }).__TAURI_INTERNALS__ = {};
+    client.getState
+      .mockResolvedValueOnce({ ...nativeState, masterEnabled: false, backendStatus: 'routing-required' })
+      .mockResolvedValueOnce({ ...nativeState, masterEnabled: false, backendStatus: 'ready' });
+    const { result } = renderHook(() => useVoxveilState());
+    await waitFor(() => expect(result.current.state.backendStatus).toBe('routing-required'));
+
+    act(() => window.dispatchEvent(new Event('focus')));
+
+    await waitFor(() => expect(result.current.state.backendStatus).toBe('ready'));
   });
 
   it('does not enable communication audio in preview mode', () => {

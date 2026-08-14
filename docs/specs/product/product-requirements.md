@@ -35,3 +35,13 @@ Uses privileged/system components where required for true system-wide processing
 ## Failure Policy
 
 Audio continuity outranks separation quality. Degrade from quality AI → balanced AI → fast AI/hybrid → Classic DSP → bypass rather than produce repeated underruns or stop playback.
+
+## Optional AI Model Acquisition
+
+- AI weights are excluded from installers and release artifacts by default.
+- Voxveil must not download an AI model automatically.
+- A user must explicitly accept a model/license/network notice before download begins.
+- Approved models are downloaded directly into device-local Voxveil application data.
+- Downloads must be revision-pinned, size-limited, and SHA-256 verified before installation.
+- Users must be able to remove downloaded model data.
+- No arbitrary model URL field is exposed to the UI.

@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const REQUIRED = ['ci.yml', 'manual-build.yml', 'release.yml'];
+const REQUIRED = ['ci.yml', 'manual-build.yml', 'release.yml', 'windows-portable.yml'];
 
 async function readWorkflow(root, file, errors) {
   try {
@@ -65,6 +65,11 @@ export async function auditWorkflows(root) {
     'cargo deny check', 'node scripts/release/verify-version.mjs',
     'node scripts/release/generate-release-metadata.mjs', 'node scripts/release/prepare-release-assets.mjs',
     'actions/upload-artifact@',
+  ], errors);
+  requireText('windows-portable.yml', workflows['windows-portable.yml'], [
+    'push:', 'branches: [master]', 'windows-2025-vs2026', 'contents: read',
+    'npm ci --ignore-scripts', 'build --no-bundle', 'target\\release\\voxveil.exe',
+    'actions/upload-artifact@', 'compression-level: 0',
   ], errors);
   return errors;
 }

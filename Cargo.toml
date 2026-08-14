@@ -1,5 +1,5 @@
 [workspace]
-members = ["tauri", "crates/voxveil-audio-core", "crates/voxveil-dsp", "crates/voxveil-routing", "crates/voxveil-model-api", "crates/voxveil-types"]
+members = ["tauri", "crates/voxveil-audio-core", "crates/voxveil-dsp", "crates/voxveil-routing", "crates/voxveil-model-api", "crates/voxveil-types", "crates/voxveil-windows-audio"]
 resolver = "2"
 
 [workspace.package]

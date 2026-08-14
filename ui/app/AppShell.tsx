@@ -5,6 +5,7 @@ import { SideNavigation } from '../components/SideNavigation';
 import { Toggle } from '../components/Toggle';
 import { AppsScreen } from '../features/apps/AppsScreen';
 import { EngineScreen } from '../features/engine/EngineScreen';
+import { useAiModelManager } from '../features/engine/useAiModelManager';
 import { HomeScreen } from '../features/home/HomeScreen';
 import { RoutingScreen } from '../features/routing/RoutingScreen';
 import { SettingsScreen } from '../features/settings/SettingsScreen';
@@ -21,11 +22,13 @@ export function AppShell({ themeMode, onThemeModeChange }: AppShellProps) {
   const { t } = useTranslation();
   const [route, setRoute] = useState<RouteId>('home');
   const model = useVoxveilState();
+  const aiModel = useAiModelManager(() => model.setEngine('auto'));
+  const processingReady = model.state.backendStatus === 'ready';
   const screens = {
-    home: <HomeScreen model={model} />,
+    home: <HomeScreen model={model} aiModelReady={aiModel.status.installed && aiModel.status.runtimeAvailable} />,
     apps: <AppsScreen model={model} />,
     routing: <RoutingScreen model={model} />,
-    engine: <EngineScreen model={model} />,
+    engine: <EngineScreen model={model} aiModel={aiModel} />,
     settings: <SettingsScreen edition={model.state.edition} themeMode={themeMode} onThemeModeChange={onThemeModeChange} />,
   };
 
@@ -37,7 +40,12 @@ export function AppShell({ themeMode, onThemeModeChange }: AppShellProps) {
           <div className="mobile-brand">{t('app.name')}</div>
           <div className="master-control">
             <span>{t('processing.master')}</span>
-            <Toggle checked={model.state.masterEnabled} onChange={model.setMasterEnabled} label={t('processing.master')} />
+            <Toggle
+              checked={model.state.masterEnabled}
+              onChange={model.setMasterEnabled}
+              label={t('processing.master')}
+              disabled={!processingReady}
+            />
           </div>
         </header>
         <main id="main-content" className="main-content">{screens[route]}</main>

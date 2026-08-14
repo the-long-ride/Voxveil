@@ -5,7 +5,8 @@
   "common": {
     "enabled": "有効",
     "ready": "準備完了",
-    "unavailable": "利用不可"
+    "unavailable": "利用不可",
+    "cancel": "キャンセル"
   },
   "nav": {
     "primary": "メインナビゲーション",
@@ -30,7 +31,12 @@
     "mode": "処理モード",
     "allOutput": "全出力",
     "perApp": "アプリ別",
-    "engine": "エンジン"
+    "engine": "エンジン",
+    "backendUnavailable": "処理を利用できません",
+    "backendComponentRequired": "このビルドには Windows システムオーディオコンポーネントがまだインストールされていません。コンポーネントが利用可能になるまで処理はオフのままです。",
+    "backendUnsupported": "このプラットフォーム向けビルドでは、システムオーディオ処理はまだ実装されていません。",
+    "backendFaulted": "オーディオバックエンドの初期化に失敗しました。デバイス音声を変更しないよう処理を無効にしました。",
+    "backendRoutingRequired": "Voxveil Virtual Audio を Windows の既定の出力に設定してから Voxveil に戻ってください。処理済み音声は下に表示される物理出力へ送られます。"
   },
   "engine": {
     "eyeline": "処理",
@@ -40,10 +46,27 @@
     "dsp": "Classic DSP",
     "ai": "AI",
     "dspDescription": "非常に軽量なセンター／スペクトル・ボーカル抑制。",
-    "aiDescription": "任意のローカル2ステム分離。ライセンス確認前はモデルを同梱しません。",
+    "aiDescription": "任意のローカル2ステム分離です。モデルはユーザーが明示的に同意した場合にのみダウンロードされます。",
     "builtIn": "内蔵",
     "noModel": "モデルなし",
-    "licenseRule": "正確なチェックポイントのライセンスまたは再配布権が不明な場合、Voxveil はそのモデルを出荷しません。"
+    "licenseRule": "Voxveil は AI 重みをインストーラーに同梱しません。審査済みで SHA-256 が固定されたモデルのみ、明示的な同意後にダウンロードできます。",
+    "modelInstalled": "インストール済み",
+    "modelStorage": "AI モデルは Voxveil のインストーラーには含まれず、この端末の Voxveil アプリデータにのみ保存されます。",
+    "modelSource": "提供元: {{source}}",
+    "installModel": "AI モデルをインストール",
+    "removeModel": "モデルを削除",
+    "downloading": "モデルをダウンロード中…",
+    "consentTitle": "AI モデルをダウンロードしますか？",
+    "consentDescription": "同意した場合のみ Voxveil は {{name}}（約 {{size}} MB）をダウンロードします。ファイルはアプリデータに保存され、インストール前に整合性を検証します。",
+    "networkNotice": "この一回限りのダウンロードではモデル提供元へ接続します。音声、分析、テレメトリ、診断データはアップロードされません。",
+    "consentAgreement": "{{license}} ライセンスに従って、このサードパーティモデルをダウンロードして使用することに同意します。",
+    "agreeAndDownload": "同意してダウンロード",
+    "modelError": {
+      "status": "モデルの状態を読み取れません。",
+      "download": "モデルのダウンロードまたは整合性検証に失敗しました。",
+      "remove": "モデルを削除できません。"
+    },
+    "runtimePending": "モデルはインストール済みです。このビルドでは AI 推論ランタイムはまだ有効化されていません。"
   },
   "status": {
     "current": "現在の処理状態",

@@ -22,7 +22,10 @@ export function useVoxveilState() {
 
   useEffect(() => {
     if (!native) return;
-    void client.getState().then(setState).catch(() => undefined);
+    const refresh = () => { void client.getState().then(setState).catch(() => undefined); };
+    refresh();
+    window.addEventListener('focus', refresh);
+    return () => window.removeEventListener('focus', refresh);
   }, [client, native]);
 
   const recover = useCallback((operation: () => Promise<unknown>) => {
@@ -37,8 +40,10 @@ export function useVoxveilState() {
     recover(operation);
   }, [recover]);
 
-  const setMasterEnabled = (masterEnabled: boolean) =>
+  const setMasterEnabled = (masterEnabled: boolean) => {
+    if (masterEnabled && state.backendStatus !== 'ready') return;
     commit({ masterEnabled }, () => client.setMasterEnabled(masterEnabled));
+  };
   const setProcessingMode = (processingMode: ProcessingMode) =>
     commit({ processingMode }, () => client.setProcessingMode(processingMode));
   const setEngine = (engine: EngineKind) =>

@@ -18,3 +18,5 @@ release-metadata/
 # Git
 *.patch
 *.diff
+# Windows kernel/virtual-audio driver source is intentionally external to the app repository.
+/platform/

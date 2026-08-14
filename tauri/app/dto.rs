@@ -1,5 +1,8 @@
 use serde::{Deserialize, Serialize};
-use voxveil_types::{AudioBypassReason, AudioSourceCategory, OutputMode, ProcessingEngineKind, ProcessingLoad, ProcessingMode};
+use voxveil_types::{
+    AudioBypassReason, AudioSourceCategory, OutputMode, ProcessingBackendStatus,
+    ProcessingEngineKind, ProcessingLoad, ProcessingMode,
+};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -17,7 +20,9 @@ pub struct AppSourceDto {
 pub struct AppViewState {
     pub edition: String,
     pub master_enabled: bool,
+    pub backend_status: ProcessingBackendStatus,
     pub processing_mode: ProcessingMode,
+    pub per_app_processing_available: bool,
     pub engine: ProcessingEngineKind,
     pub vocal_level: u8,
     pub quality: u8,
@@ -29,12 +34,30 @@ pub struct AppViewState {
     pub apps: Vec<AppSourceDto>,
 }
 
+impl AppViewState {
+    pub fn apply_backend(&mut self, snapshot: &crate::platform::BackendSnapshot) {
+        self.backend_status = snapshot.status;
+        if let Some(output) = &snapshot.physical_output {
+            self.physical_output = output.clone();
+        }
+        self.per_app_processing_available = snapshot.per_app_available;
+        if snapshot.status != ProcessingBackendStatus::Ready {
+            self.master_enabled = false;
+        }
+        if !snapshot.per_app_available {
+            self.processing_mode = ProcessingMode::All;
+        }
+    }
+}
+
 impl Default for AppViewState {
     fn default() -> Self {
         Self {
             edition: crate::config::current_edition().as_str().into(),
             master_enabled: false,
+            backend_status: crate::platform::processing_backend_status(),
             processing_mode: ProcessingMode::All,
+            per_app_processing_available: false,
             engine: ProcessingEngineKind::Auto,
             vocal_level: 100,
             quality: 50,
@@ -50,9 +73,33 @@ impl Default for AppViewState {
 
 fn default_sources() -> Vec<AppSourceDto> {
     vec![
-        AppSourceDto { id: "media".into(), name: "Media".into(), category: AudioSourceCategory::Media, enabled: true, bypass_reason: None },
-        AppSourceDto { id: "browser".into(), name: "Browser".into(), category: AudioSourceCategory::Media, enabled: true, bypass_reason: None },
-        AppSourceDto { id: "game".into(), name: "Game".into(), category: AudioSourceCategory::Game, enabled: false, bypass_reason: None },
-        AppSourceDto { id: "communication".into(), name: "Communication".into(), category: AudioSourceCategory::Communication, enabled: false, bypass_reason: Some(AudioBypassReason::Communication) },
+        AppSourceDto {
+            id: "media".into(),
+            name: "Media".into(),
+            category: AudioSourceCategory::Media,
+            enabled: true,
+            bypass_reason: None,
+        },
+        AppSourceDto {
+            id: "browser".into(),
+            name: "Browser".into(),
+            category: AudioSourceCategory::Media,
+            enabled: true,
+            bypass_reason: None,
+        },
+        AppSourceDto {
+            id: "game".into(),
+            name: "Game".into(),
+            category: AudioSourceCategory::Game,
+            enabled: false,
+            bypass_reason: None,
+        },
+        AppSourceDto {
+            id: "communication".into(),
+            name: "Communication".into(),
+            category: AudioSourceCategory::Communication,
+            enabled: false,
+            bypass_reason: Some(AudioBypassReason::Communication),
+        },
     ]
 }

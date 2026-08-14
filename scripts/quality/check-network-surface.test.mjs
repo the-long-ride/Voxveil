@@ -37,3 +37,11 @@ test('rejects Rust socket primitives in production core code', () => {
   assert.match(issues.join('\n'), /TcpStream/);
   assert.match(issues.join('\n'), /UdpSocket/);
 });
+
+
+test('allows the dedicated model HTTP client only in the approved downloader', () => {
+  assert.equal(inspectProductionText('minreq::get(url);', 'tauri/models/download.rs').length, 0);
+  const issues = inspectProductionText('minreq::get(url);', 'tauri/security/network.rs');
+  assert.equal(issues.length, 1);
+  assert.match(issues[0], /HTTP client outside approved model downloader/);
+});

@@ -39,26 +39,52 @@ mod tests {
     }
 
     fn source(category: AudioSourceCategory) -> SourceInfo {
-        SourceInfo { id: "app".into(), name: "App".into(), category }
+        SourceInfo {
+            id: "app".into(),
+            name: "App".into(),
+            category,
+        }
     }
 
     #[test]
     fn all_output_processes_media_by_default() {
-        let result = resolve_processing(global(ProcessingMode::All), &source(AudioSourceCategory::Media), None);
+        let result = resolve_processing(
+            global(ProcessingMode::All),
+            &source(AudioSourceCategory::Media),
+            None,
+        );
         assert!(result.enabled);
     }
 
     #[test]
     fn per_app_requires_explicit_enable() {
-        let result = resolve_processing(global(ProcessingMode::PerApp), &source(AudioSourceCategory::Media), None);
+        let result = resolve_processing(
+            global(ProcessingMode::PerApp),
+            &source(AudioSourceCategory::Media),
+            None,
+        );
         assert!(!result.enabled);
-        let enabled = AppOverride { enabled: Some(true), ..Default::default() };
-        assert!(resolve_processing(global(ProcessingMode::PerApp), &source(AudioSourceCategory::Media), Some(enabled)).enabled);
+        let enabled = AppOverride {
+            enabled: Some(true),
+            ..Default::default()
+        };
+        assert!(
+            resolve_processing(
+                global(ProcessingMode::PerApp),
+                &source(AudioSourceCategory::Media),
+                Some(enabled)
+            )
+            .enabled
+        );
     }
 
     #[test]
     fn communication_audio_is_bypassed_even_in_all_output_mode() {
-        let result = resolve_processing(global(ProcessingMode::All), &source(AudioSourceCategory::Communication), None);
+        let result = resolve_processing(
+            global(ProcessingMode::All),
+            &source(AudioSourceCategory::Communication),
+            None,
+        );
         assert!(!result.enabled);
         assert!(result.bypass_communication);
     }
@@ -66,8 +92,15 @@ mod tests {
     #[test]
     fn partial_override_inherits_other_global_values() {
         let quality = QualityPreference::new(0.9).unwrap();
-        let override_value = AppOverride { quality: Some(quality), ..Default::default() };
-        let result = resolve_processing(global(ProcessingMode::All), &source(AudioSourceCategory::Media), Some(override_value));
+        let override_value = AppOverride {
+            quality: Some(quality),
+            ..Default::default()
+        };
+        let result = resolve_processing(
+            global(ProcessingMode::All),
+            &source(AudioSourceCategory::Media),
+            Some(override_value),
+        );
         assert_eq!(result.quality, quality);
         assert_eq!(result.vocal_level, VocalLevel::new(0.2).unwrap());
     }

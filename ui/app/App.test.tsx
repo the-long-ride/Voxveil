@@ -47,7 +47,7 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: 'Virtual' })).toHaveAttribute('aria-pressed', 'true');
     open('Engine');
     expect(screen.getByText('No model')).toBeInTheDocument();
-    expect(screen.getByText(/never ships a model/i)).toBeInTheDocument();
+    expect(screen.getByText(/does not bundle AI weights/i)).toBeInTheDocument();
   });
 
   it('persists explicit theme choice and language locally', async () => {

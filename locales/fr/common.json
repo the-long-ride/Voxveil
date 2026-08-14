@@ -5,7 +5,8 @@
   "common": {
     "enabled": "activé",
     "ready": "Prêt",
-    "unavailable": "Indisponible"
+    "unavailable": "Indisponible",
+    "cancel": "Annuler"
   },
   "nav": {
     "primary": "Navigation principale",
@@ -30,7 +31,12 @@
     "mode": "Mode de traitement",
     "allOutput": "Toute la sortie",
     "perApp": "Par application",
-    "engine": "Moteur"
+    "engine": "Moteur",
+    "backendUnavailable": "Traitement indisponible",
+    "backendComponentRequired": "Cette version ne dispose pas encore du composant audio système Windows installé. Le traitement reste désactivé jusqu’à ce que ce composant soit disponible.",
+    "backendUnsupported": "Le traitement de l’audio système n’est pas encore implémenté pour cette version de la plateforme.",
+    "backendFaulted": "Le backend audio n’a pas pu être initialisé. Le traitement a été désactivé afin de laisser l’audio de l’appareil inchangé.",
+    "backendRoutingRequired": "Définissez Voxveil Virtual Audio comme sortie Windows par défaut, puis revenez dans Voxveil. L’audio traité sera relayé vers la sortie physique affichée ci-dessous."
   },
   "engine": {
     "eyeline": "Traitement",
@@ -40,10 +46,27 @@
     "dsp": "DSP classique",
     "ai": "AI",
     "dspDescription": "Réduction vocale centrale et spectrale ultralégère.",
-    "aiDescription": "Séparation locale facultative en deux stems. Aucun modèle n’est inclus avant validation de sa licence.",
+    "aiDescription": "Séparation locale facultative en deux stems. Le modèle n’est téléchargé qu’après consentement explicite de l’utilisateur.",
     "builtIn": "Intégré",
     "noModel": "Aucun modèle",
-    "licenseRule": "Voxveil ne distribue jamais un modèle lorsque la licence exacte du checkpoint ou les droits de redistribution sont incertains."
+    "licenseRule": "Voxveil n’intègre aucun poids d’IA dans l’installateur. Seuls des modèles approuvés et verrouillés par SHA-256 sont proposés après consentement explicite.",
+    "modelInstalled": "Installé",
+    "modelStorage": "Le modèle AI n’est pas inclus avec Voxveil. Il est stocké uniquement dans les données de l’application Voxveil sur cet appareil.",
+    "modelSource": "Source : {{source}}",
+    "installModel": "Installer le modèle AI",
+    "removeModel": "Supprimer le modèle",
+    "downloading": "Téléchargement du modèle…",
+    "consentTitle": "Télécharger le modèle AI ?",
+    "consentDescription": "Voxveil téléchargera {{name}} (~{{size}} Mo) uniquement après votre accord. Le fichier est stocké dans les données de l’application et vérifié avant installation.",
+    "networkNotice": "Ce téléchargement ponctuel contacte l’hébergeur du modèle. Aucun audio, analytique, télémétrie ou diagnostic n’est envoyé.",
+    "consentAgreement": "J’accepte de télécharger et d’utiliser ce modèle tiers sous sa licence {{license}}.",
+    "agreeAndDownload": "Accepter et télécharger",
+    "modelError": {
+      "status": "Impossible de lire l’état du modèle.",
+      "download": "Échec du téléchargement ou de la vérification d’intégrité du modèle.",
+      "remove": "Impossible de supprimer le modèle."
+    },
+    "runtimePending": "Modèle installé. Le moteur d’inférence IA n’est pas encore activé dans cette version."
   },
   "status": {
     "current": "État actuel du traitement",

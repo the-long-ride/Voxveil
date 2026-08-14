@@ -5,7 +5,8 @@
   "common": {
     "enabled": "đã bật",
     "ready": "Sẵn sàng",
-    "unavailable": "Không khả dụng"
+    "unavailable": "Không khả dụng",
+    "cancel": "Hủy"
   },
   "nav": {
     "primary": "Điều hướng chính",
@@ -30,7 +31,12 @@
     "mode": "Chế độ xử lý",
     "allOutput": "Toàn bộ âm thanh",
     "perApp": "Theo ứng dụng",
-    "engine": "Bộ xử lý"
+    "engine": "Bộ xử lý",
+    "backendUnavailable": "Xử lý chưa khả dụng",
+    "backendComponentRequired": "Bản dựng này chưa có thành phần âm thanh hệ thống Windows được cài đặt. Xử lý sẽ giữ ở trạng thái tắt cho đến khi thành phần đó sẵn sàng.",
+    "backendUnsupported": "Xử lý âm thanh hệ thống chưa được triển khai cho bản dựng trên nền tảng này.",
+    "backendFaulted": "Backend âm thanh không thể khởi tạo. Xử lý đã bị tắt để âm thanh thiết bị không bị thay đổi.",
+    "backendRoutingRequired": "Đặt Voxveil Virtual Audio làm đầu ra mặc định của Windows, sau đó quay lại Voxveil. Âm thanh đã xử lý sẽ được chuyển đến thiết bị vật lý hiển thị bên dưới."
   },
   "engine": {
     "eyeline": "Xử lý",
@@ -40,10 +46,27 @@
     "dsp": "DSP cổ điển",
     "ai": "AI",
     "dspDescription": "Giảm giọng trung tâm và theo phổ, rất nhẹ.",
-    "aiDescription": "Tách hai stem cục bộ tùy chọn. Không đóng gói mô hình trước khi giấy phép được xác minh.",
+    "aiDescription": "Tách hai stem cục bộ tùy chọn. Mô hình chỉ được tải xuống sau khi bạn đồng ý rõ ràng.",
     "builtIn": "Tích hợp",
     "noModel": "Chưa có mô hình",
-    "licenseRule": "Voxveil không bao giờ phát hành mô hình khi giấy phép checkpoint hoặc quyền phân phối lại chưa rõ ràng."
+    "licenseRule": "Voxveil không đóng gói trọng số AI. Chỉ các mô hình đã được duyệt và ghim SHA-256 mới được cung cấp để tải sau khi người dùng đồng ý.",
+    "modelInstalled": "Đã cài",
+    "modelStorage": "Mô hình AI không được đóng gói cùng Voxveil. Mô hình chỉ được lưu trong dữ liệu ứng dụng Voxveil trên thiết bị này.",
+    "modelSource": "Nguồn: {{source}}",
+    "installModel": "Cài mô hình AI",
+    "removeModel": "Xóa mô hình",
+    "downloading": "Đang tải mô hình…",
+    "consentTitle": "Tải mô hình AI?",
+    "consentDescription": "Voxveil chỉ tải {{name}} (~{{size}} MB) sau khi bạn đồng ý. Tệp được lưu trong dữ liệu ứng dụng và xác minh trước khi cài đặt.",
+    "networkNotice": "Lần tải này sẽ kết nối tới máy chủ mô hình. Không có âm thanh, phân tích, telemetry hay dữ liệu chẩn đoán nào được tải lên.",
+    "consentAgreement": "Tôi đồng ý tải và sử dụng mô hình bên thứ ba này theo giấy phép {{license}}.",
+    "agreeAndDownload": "Đồng ý & tải xuống",
+    "modelError": {
+      "status": "Không thể đọc trạng thái mô hình.",
+      "download": "Tải mô hình hoặc xác minh tính toàn vẹn thất bại.",
+      "remove": "Không thể xóa mô hình."
+    },
+    "runtimePending": "Mô hình đã cài. Runtime suy luận AI chưa được bật trong bản dựng này."
   },
   "status": {
     "current": "Trạng thái xử lý hiện tại",

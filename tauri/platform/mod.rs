@@ -1,3 +1,7 @@
+mod controller;
+
+pub use controller::{BackendSnapshot, ProcessingController};
+
 pub mod android;
 pub mod ios;
 pub mod linux;
@@ -40,4 +44,42 @@ impl PlatformCapabilities {
         virtual_output: true,
         privileged_required: true,
     };
+}
+
+use voxveil_types::ProcessingBackendStatus;
+
+#[cfg(target_os = "windows")]
+pub const fn processing_backend_status() -> ProcessingBackendStatus {
+    windows::processing_backend_status()
+}
+
+#[cfg(target_os = "linux")]
+pub const fn processing_backend_status() -> ProcessingBackendStatus {
+    linux::processing_backend_status()
+}
+
+#[cfg(target_os = "macos")]
+pub const fn processing_backend_status() -> ProcessingBackendStatus {
+    macos::processing_backend_status()
+}
+
+#[cfg(target_os = "android")]
+pub const fn processing_backend_status() -> ProcessingBackendStatus {
+    android::processing_backend_status()
+}
+
+#[cfg(target_os = "ios")]
+pub const fn processing_backend_status() -> ProcessingBackendStatus {
+    ios::processing_backend_status()
+}
+
+#[cfg(not(any(
+    target_os = "windows",
+    target_os = "linux",
+    target_os = "macos",
+    target_os = "android",
+    target_os = "ios",
+)))]
+pub const fn processing_backend_status() -> ProcessingBackendStatus {
+    ProcessingBackendStatus::Unsupported
 }

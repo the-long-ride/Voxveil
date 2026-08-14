@@ -5,7 +5,8 @@
   "common": {
     "enabled": "enabled",
     "ready": "Ready",
-    "unavailable": "Unavailable"
+    "unavailable": "Unavailable",
+    "cancel": "Cancel"
   },
   "nav": {
     "primary": "Primary navigation",
@@ -30,7 +31,12 @@
     "mode": "Processing mode",
     "allOutput": "All output",
     "perApp": "Per app",
-    "engine": "Engine"
+    "engine": "Engine",
+    "backendUnavailable": "Processing unavailable",
+    "backendComponentRequired": "The Windows system-audio component is not installed yet. GitHub Actions development bundles include it under system-audio; install it, set the virtual output as the Windows default, then restart Voxveil.",
+    "backendUnsupported": "System-audio processing is not implemented for this platform build yet.",
+    "backendFaulted": "The audio backend failed to initialize. Processing was disabled so device audio remains unmodified.",
+    "backendRoutingRequired": "Set Voxveil Virtual Audio as the Windows default output, then return to Voxveil. Processed audio will be relayed to the physical output shown below."
   },
   "engine": {
     "eyeline": "Processing",
@@ -40,10 +46,27 @@
     "dsp": "Classic DSP",
     "ai": "AI",
     "dspDescription": "Ultra-light center and spectral vocal suppression.",
-    "aiDescription": "Optional local two-stem separation. No model is bundled until licensing is cleared.",
+    "aiDescription": "Optional local two-stem separation. The model is downloaded only after explicit consent.",
     "builtIn": "Built in",
     "noModel": "No model",
-    "licenseRule": "Voxveil never ships a model when the exact checkpoint license or redistribution rights are unclear."
+    "licenseRule": "Voxveil does not bundle AI weights. Only approved, hash-pinned model downloads are offered after explicit user consent.",
+    "modelInstalled": "Installed",
+    "modelStorage": "The AI model is not bundled with Voxveil. It is stored only in Voxveil application data on this device.",
+    "modelSource": "Source: {{source}}",
+    "installModel": "Install AI model",
+    "removeModel": "Remove model",
+    "downloading": "Downloading model…",
+    "consentTitle": "Download AI model?",
+    "consentDescription": "Voxveil will download {{name}} (~{{size}} MB) only after you agree. The file is stored in application data and verified before installation.",
+    "networkNotice": "This one-time download contacts the model host. No audio, analytics, telemetry, or diagnostics are uploaded.",
+    "consentAgreement": "I agree to download and use this third-party model under its {{license}} license.",
+    "agreeAndDownload": "Agree & download",
+    "modelError": {
+      "status": "Model status could not be read.",
+      "download": "Model download or integrity verification failed.",
+      "remove": "Model could not be removed."
+    },
+    "runtimePending": "Model installed. AI inference is not enabled in this build yet."
   },
   "status": {
     "current": "Current processing status",

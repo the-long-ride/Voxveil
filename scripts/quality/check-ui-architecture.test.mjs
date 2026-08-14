@@ -83,3 +83,13 @@ test('disabled segmented options have an explicit visual state', async () => {
   const css = await read('ui/theme/components.css');
   assert.match(css, /\.segmented button:disabled/);
 });
+
+test('native processing switch is disabled until the backend is ready', async () => {
+  const shell = await read('ui/app/AppShell.tsx');
+  const types = await read('ui/lib/types.ts');
+  const home = await read('ui/features/home/HomeScreen.tsx');
+  assert.match(types, /ProcessingBackendStatus/);
+  assert.match(shell, /backendStatus\s*===\s*'ready'/);
+  assert.match(shell, /disabled=\{!processingReady\}/);
+  assert.match(home, /backend-notice/);
+});

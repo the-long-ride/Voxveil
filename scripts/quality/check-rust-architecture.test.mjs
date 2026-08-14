@@ -64,3 +64,30 @@ test('backend rejects virtual routes when no virtual output is available', async
   assert.match(commands, /virtual_output_available/);
   assert.match(commands, /OutputMode::Virtual\s*\|\s*OutputMode::Both/);
 });
+
+
+test('AI model acquisition is consent-gated, app-local and integrity checked', async () => {
+  const commands = await readFile('tauri/models/commands.rs', 'utf8');
+  const storage = await readFile('tauri/models/storage.rs', 'utf8');
+  const download = await readFile('tauri/models/download.rs', 'utf8');
+  const appCommands = await readFile('tauri/app/commands.rs', 'utf8');
+  assert.match(commands, /if !accepted_terms/);
+  assert.match(storage, /app_local_data_dir\(\)/);
+  assert.match(download, /Sha256/);
+  assert.match(download, /\.download/);
+  assert.match(appCommands, /ai_runtime_ready/);
+  const modelModule = await readFile('tauri/models/mod.rs', 'utf8');
+  assert.match(modelModule, /AI_RUNTIME_AVAILABLE:\s*bool\s*=\s*false/);
+});
+
+test('master processing cannot claim enabled without a ready audio backend', async () => {
+  const types = await readFile('crates/voxveil-types/src/processing.rs', 'utf8');
+  const dto = await readFile('tauri/app/dto.rs', 'utf8');
+  const commands = await readFile('tauri/app/commands.rs', 'utf8');
+  const windows = await readFile('tauri/platform/windows/mod.rs', 'utf8');
+  assert.match(types, /enum ProcessingBackendStatus/);
+  assert.match(dto, /pub backend_status:\s*ProcessingBackendStatus/);
+  assert.match(commands, /ProcessingBackendStatus::Ready/);
+  assert.match(commands, /processing backend is unavailable/i);
+  assert.match(windows, /ProcessingBackendStatus::ComponentRequired/);
+});
