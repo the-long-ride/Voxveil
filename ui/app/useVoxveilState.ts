@@ -71,6 +71,11 @@ export function useVoxveilState() {
       }),
       () => client.setAppOverride(id, enabled),
     );
+  const installSystemAudioComponent = useCallback(async () => {
+    if (!native) return;
+    await client.installSystemAudioComponent();
+    setState(await client.getState());
+  }, [client, native]);
 
   return {
     state,
@@ -81,6 +86,7 @@ export function useVoxveilState() {
     setQuality,
     setOutputMode,
     setAppEnabled,
+    installSystemAudioComponent,
   };
 }
 
