@@ -30,6 +30,7 @@
     <TargetName>VoxveilApo</TargetName>
     <OutDir>$(ProjectDir)out\$(Configuration)\</OutDir>
     <IntDir>$(ProjectDir)obj\$(Configuration)\</IntDir>
+    <EmbedManifest>false</EmbedManifest>
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
