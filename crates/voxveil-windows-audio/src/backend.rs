@@ -30,10 +30,7 @@ mod tests {
     #[test]
     fn ready_apo_has_priority_over_ready_relay() {
         assert_eq!(
-            select_backend(
-                &probe(RelayReadiness::Ready),
-                &probe(RelayReadiness::Ready)
-            ),
+            select_backend(&probe(RelayReadiness::Ready), &probe(RelayReadiness::Ready)),
             WindowsBackendKind::Apo
         );
     }
