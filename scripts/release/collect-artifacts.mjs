@@ -11,6 +11,12 @@ const SEARCH_ROOTS = [
   'tauri/gen/apple/build',
 ];
 const PACKAGE_PATTERN = /\.(?:msi|exe|deb|rpm|dmg|apk|aab|ipa|zip|AppImage|tar\.gz)$/i;
+const WINDOWS_SYSTEM_AUDIO_FILES = [
+  'VoxveilApo.dll',
+  'install.ps1',
+  'uninstall.ps1',
+  'README.txt',
+];
 
 async function sha256(file) {
   return createHash('sha256').update(await readFile(file)).digest('hex');
@@ -27,6 +33,21 @@ async function addWindowsPortableExecutable(candidates, root, platform) {
   }
 }
 
+async function windowsSystemAudioFiles(root, platform, edition) {
+  if (platform !== 'windows' || edition !== 'pro-system') return [];
+  const componentRoot = path.join(root, 'target/system-audio');
+  const files = await walkFiles(componentRoot, { ignoreMissing: true });
+  const byName = new Set(files.map((file) => path.basename(file)));
+  const missing = WINDOWS_SYSTEM_AUDIO_FILES.filter((name) => !byName.has(name));
+  if (missing.length > 0) {
+    throw new Error(`Windows pro-system system-audio package is incomplete: ${missing.join(', ')}`);
+  }
+  return files.map((source) => ({
+    source,
+    name: `system-audio/${path.relative(componentRoot, source).split(path.sep).join('/')}`,
+  }));
+}
+
 export async function collectArtifacts(root, platform, edition) {
   const candidates = [];
   for (const relative of SEARCH_ROOTS) {
@@ -34,22 +55,33 @@ export async function collectArtifacts(root, platform, edition) {
     candidates.push(...files.filter((file) => PACKAGE_PATTERN.test(path.basename(file))));
   }
   await addWindowsPortableExecutable(candidates, root, platform);
+  const componentFiles = await windowsSystemAudioFiles(root, platform, edition);
   if (candidates.length === 0) throw new Error(`No build artifacts found for ${platform}/${edition}`);
 
   const outputDir = path.join(root, 'dist-artifacts', `${platform}-${edition}`);
   await rm(outputDir, { recursive: true, force: true });
   await mkdir(outputDir, { recursive: true });
   const files = [];
+
+  async function copyAndDescribe(source, name) {
+    const destination = path.join(outputDir, ...name.split('/'));
+    await mkdir(path.dirname(destination), { recursive: true });
+    await copyFile(source, destination);
+    const metadata = await stat(destination);
+    files.push({ name, sha256: await sha256(destination), size: metadata.size });
+  }
+
   const usedNames = new Set();
   for (const source of candidates.sort()) {
     let name = path.basename(source);
     if (usedNames.has(name)) name = `${platform}-${edition}-${name}`;
     usedNames.add(name);
-    const destination = path.join(outputDir, name);
-    await copyFile(source, destination);
-    const metadata = await stat(destination);
-    files.push({ name, sha256: await sha256(destination), size: metadata.size });
+    await copyAndDescribe(source, name);
   }
+  for (const component of componentFiles.sort((a, b) => a.name.localeCompare(b.name))) {
+    await copyAndDescribe(component.source, component.name);
+  }
+
   const sums = files.map((file) => `${file.sha256}  ${file.name}`).join('\n') + '\n';
   await writeFile(path.join(outputDir, 'SHA256SUMS'), sums);
   await writeFile(path.join(outputDir, 'manifest.json'), JSON.stringify({
