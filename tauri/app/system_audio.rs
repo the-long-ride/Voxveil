@@ -38,7 +38,10 @@ fn installer_error_from_output(
     elevated_details: Option<&str>,
 ) -> SystemAudioInstallError {
     let mut stderr = decode_process_text(stderr);
-    if let Some(details) = elevated_details.map(str::trim).filter(|value| !value.is_empty()) {
+    if let Some(details) = elevated_details
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
         if !stderr.is_empty() {
             stderr.push_str("\n\nElevated installer details:\n");
         }
@@ -219,6 +222,10 @@ mod tests {
         assert_eq!(error.exit_code, Some(1));
         assert_eq!(error.stdout, "Preparing Voxveil APO");
         assert!(error.stderr.contains("PowerShell failed"));
-        assert!(error.stderr.contains("Access to the registry key is denied."));
+        assert!(
+            error
+                .stderr
+                .contains("Access to the registry key is denied.")
+        );
     }
 }
