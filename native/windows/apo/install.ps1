@@ -5,21 +5,18 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $Clsid = '{7E268E67-2F3C-4F0A-A09C-8B7D27B43F51}'
+$ApoInterface = '{FD7F2B29-24D0-4B5C-B177-592C39F9CA10}'
 $AudioKey = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Audio'
+$ComKey = "HKLM:\SOFTWARE\Classes\CLSID\$Clsid"
+$ApoKey = "HKLM:\SOFTWARE\Classes\AudioEngine\AudioProcessingObjects\$Clsid"
 $StateRoot = Join-Path $env:ProgramData 'Voxveil'
 $InstallRoot = Join-Path $env:ProgramFiles 'Voxveil\system-audio'
 $ProtectedBackup = Join-Path $StateRoot 'protected-audio-backup.json'
 $Marker = Join-Path $StateRoot 'apo-installed.json'
 $Control = Join-Path $StateRoot 'apo-control.bin'
-$PnpUtil = Join-Path $env:SystemRoot 'System32\pnputil.exe'
-$GeneratedExtension = Join-Path $PackageRoot 'VoxveilAudioExtension.inf'
-$script:PnpLog = New-Object System.Collections.Generic.List[string]
-$script:InstalledPackages = New-Object System.Collections.Generic.List[string]
-$script:Targets = @()
 $script:ProtectedBackupCreated = $false
-
-. (Join-Path $PackageRoot 'targets.ps1')
-. (Join-Path $PackageRoot 'extension.ps1')
+$script:ApoRegistered = $false
+$script:FxRegistered = $false
 
 function Write-InstallResult {
     param(
@@ -74,9 +71,32 @@ function Set-Dword([string]$Path, [string]$Name, [uint32]$Value) {
     New-ItemProperty -Path $Path -Name $Name -PropertyType DWord -Value $Value -Force | Out-Null
 }
 
-function Remove-LegacyGlobalRegistration {
-    Remove-Item -LiteralPath "HKLM:\SOFTWARE\Classes\CLSID\$Clsid" -Recurse -Force -ErrorAction SilentlyContinue
-    Remove-Item -LiteralPath "HKLM:\SOFTWARE\Classes\AudioEngine\AudioProcessingObjects\$Clsid" -Recurse -Force -ErrorAction SilentlyContinue
+function Register-DevelopmentApo([string]$DllPath) {
+    $com = New-Item -Path $ComKey -Force
+    $com.SetValue('', 'Voxveil Endpoint Effect', [Microsoft.Win32.RegistryValueKind]::String)
+    $inproc = New-Item -Path "$ComKey\InProcServer32" -Force
+    $inproc.SetValue('', $DllPath, [Microsoft.Win32.RegistryValueKind]::String)
+    $inproc.SetValue('ThreadingModel', 'Both', [Microsoft.Win32.RegistryValueKind]::String)
+
+    $apo = New-Item -Path $ApoKey -Force
+    $apo.SetValue('FriendlyName', 'Voxveil Endpoint Effect', [Microsoft.Win32.RegistryValueKind]::String)
+    $apo.SetValue('Copyright', 'Voxveil contributors', [Microsoft.Win32.RegistryValueKind]::String)
+    $apo.SetValue('MajorVersion', 1, [Microsoft.Win32.RegistryValueKind]::DWord)
+    $apo.SetValue('MinorVersion', 0, [Microsoft.Win32.RegistryValueKind]::DWord)
+    # APO_FLAG_INPLACE (0x1) | APO_FLAG_DEFAULT (0xE).
+    $apo.SetValue('Flags', 0x0000000f, [Microsoft.Win32.RegistryValueKind]::DWord)
+    $apo.SetValue('MinInputConnections', 1, [Microsoft.Win32.RegistryValueKind]::DWord)
+    $apo.SetValue('MaxInputConnections', 1, [Microsoft.Win32.RegistryValueKind]::DWord)
+    $apo.SetValue('MinOutputConnections', 1, [Microsoft.Win32.RegistryValueKind]::DWord)
+    $apo.SetValue('MaxOutputConnections', 1, [Microsoft.Win32.RegistryValueKind]::DWord)
+    $apo.SetValue('MaxInstances', -1, [Microsoft.Win32.RegistryValueKind]::DWord)
+    $apo.SetValue('NumAPOInterfaces', 1, [Microsoft.Win32.RegistryValueKind]::DWord)
+    $apo.SetValue('APOInterface0', $ApoInterface, [Microsoft.Win32.RegistryValueKind]::String)
+}
+
+function Remove-DevelopmentApoRegistration {
+    Remove-Item -LiteralPath $ApoKey -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $ComKey -Recurse -Force -ErrorAction SilentlyContinue
 }
 
 function Test-ApoComServer([string]$DllPath) {
@@ -84,35 +104,13 @@ function Test-ApoComServer([string]$DllPath) {
     if (-not (Test-Path -LiteralPath $checker -PathType Leaf)) {
         throw "Voxveil APO checker is missing: $checker"
     }
-    $output = & $checker $DllPath 2>&1 | Out-String
+    $output = (& $checker $DllPath 2>&1 | Out-String).Trim()
     if ($LASTEXITCODE -ne 0) {
-        throw ("Voxveil APO COM activation check failed with exit code {0}.`r`n{1}" -f $LASTEXITCODE, $output.Trim())
+        throw ("Voxveil APO COM activation check failed with exit code {0}.`r`n{1}" -f $LASTEXITCODE, $output)
     }
-}
-
-function Add-PublishedPackages([string]$Text) {
-    foreach ($match in [regex]::Matches($Text, '(?i)\boem\d+\.inf\b')) {
-        if (-not $script:InstalledPackages.Contains($match.Value.ToLowerInvariant())) {
-            $script:InstalledPackages.Add($match.Value.ToLowerInvariant())
-        }
+    if ($output) {
+        Write-Host $output
     }
-}
-
-function Invoke-PnpUtil {
-    param(
-        [string]$Label,
-        [string[]]$Arguments,
-        [switch]$AllowFailure
-    )
-    $output = (& $PnpUtil @Arguments 2>&1 | Out-String).Trim()
-    $exitCode = $LASTEXITCODE
-    $entry = "[$Label] pnputil $($Arguments -join ' ')`r`nExit code: $exitCode`r`n$output"
-    $script:PnpLog.Add($entry)
-    Add-PublishedPackages $output
-    if ($exitCode -ne 0 -and -not $AllowFailure) {
-        throw ("$Label failed with exit code $exitCode.`r`n$output")
-    }
-    return [pscustomobject]@{ ExitCode = $exitCode; Output = $output }
 }
 
 function Enable-DevelopmentAudioGraph {
@@ -123,7 +121,7 @@ function Enable-DevelopmentAudioGraph {
         $script:ProtectedBackupCreated = $true
     }
     Set-Dword $AudioKey 'DisableProtectedAudioDG' 1
-    Write-Warning 'Development build: DisableProtectedAudioDG=1 was enabled. The Voxveil uninstaller restores its prior value.'
+    Write-Warning 'Development build: DisableProtectedAudioDG=1 was enabled so the unsigned development APO can load. Uninstall restores the prior value.'
 }
 
 function Restore-ProtectedAudioIfCreated {
@@ -143,38 +141,19 @@ function Restore-ProtectedAudioIfCreated {
     }
 }
 
-function Rollback-PnpPackages {
-    $packages = @($script:InstalledPackages | Select-Object -Unique)
-    for ($index = $packages.Count - 1; $index -ge 0; $index--) {
-        $package = [string]$packages[$index]
-        if ([string]::IsNullOrWhiteSpace($package)) {
-            continue
-        }
-        try {
-            Invoke-PnpUtil -Label "Rollback $package" -Arguments @('/delete-driver', $package, '/uninstall', '/force') -AllowFailure | Out-Null
-        } catch {
-            Write-Warning "Could not roll back $package`: $($_.Exception.Message)"
-        }
+function Invoke-FxHelper([string]$Helper, [string]$Command, [switch]$AllowFailure) {
+    $output = (& $Helper $Command 2>&1 | Out-String).Trim()
+    $exitCode = $LASTEXITCODE
+    if ($output) {
+        Write-Host $output
     }
-}
-
-function Get-SetupApiTail {
-    $logPath = Join-Path $env:WINDIR 'INF\setupapi.dev.log'
-    if (-not (Test-Path -LiteralPath $logPath -PathType Leaf)) {
-        return 'setupapi.dev.log was not found.'
+    if ($exitCode -ne 0 -and -not $AllowFailure) {
+        throw "Voxveil runtime FX registration failed with exit code $exitCode.`r`n$output"
     }
-    return (Get-Content -LiteralPath $logPath -Tail 180 -ErrorAction SilentlyContinue | Out-String).Trim()
+    return $exitCode
 }
 
 function Restart-AudioStack {
-    foreach ($target in $script:Targets) {
-        try {
-            Invoke-PnpUtil -Label ("Restart audio device {0}" -f $target.instanceId) `
-                -Arguments @('/restart-device', [string]$target.instanceId) -AllowFailure | Out-Null
-        } catch {
-            Write-Warning $_.Exception.Message
-        }
-    }
     try {
         Restart-Service -Name 'AudioEndpointBuilder' -Force -ErrorAction Stop
         Start-Service -Name 'Audiosrv' -ErrorAction SilentlyContinue
@@ -189,9 +168,9 @@ if (-not (Test-Administrator)) {
 
 try {
     if ([Environment]::OSVersion.Version.Build -lt 22000) {
-        throw 'This Voxveil APO package currently requires Windows 11 build 22000 or newer.'
+        throw 'This Voxveil APO development package currently requires Windows 11 build 22000 or newer.'
     }
-    foreach ($required in @('VoxveilApo.dll', 'VoxveilApoCheck.exe', 'VoxveilApoTarget.exe', 'VoxveilApo.inf', 'targets.ps1', 'extension.ps1')) {
+    foreach ($required in @('VoxveilApo.dll', 'VoxveilApoCheck.exe', 'VoxveilApoTarget.exe', 'uninstall.ps1')) {
         $requiredPath = Join-Path $PackageRoot $required
         if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
             throw "Voxveil system-audio payload is missing: $required"
@@ -203,70 +182,52 @@ try {
     & icacls.exe $StateRoot /grant '*S-1-5-32-545:(OI)(CI)M' /T /C | Out-Null
 
     $targetDll = Join-Path $InstallRoot 'VoxveilApo.dll'
+    $targetHelper = Join-Path $InstallRoot 'VoxveilApoTarget.exe'
     Copy-Item -LiteralPath (Join-Path $PackageRoot 'VoxveilApo.dll') -Destination $targetDll -Force
+    Copy-Item -LiteralPath (Join-Path $PackageRoot 'VoxveilApoTarget.exe') -Destination $targetHelper -Force
+    Copy-Item -LiteralPath (Join-Path $PackageRoot 'VoxveilApoCheck.exe') -Destination (Join-Path $InstallRoot 'VoxveilApoCheck.exe') -Force
+    Copy-Item -LiteralPath (Join-Path $PackageRoot 'uninstall.ps1') -Destination (Join-Path $InstallRoot 'uninstall.ps1') -Force
+
     Test-ApoComServer $targetDll
-    Remove-LegacyGlobalRegistration
+    Register-DevelopmentApo $targetDll
+    $script:ApoRegistered = $true
 
-    $script:Targets = @(Get-VoxveilAudioTargets -PackageRoot $PackageRoot)
-    New-VoxveilExtensionInf -Targets $script:Targets -Path $GeneratedExtension | Out-Null
-    Copy-Item -LiteralPath (Join-Path $PackageRoot 'VoxveilApo.inf') -Destination (Join-Path $InstallRoot 'VoxveilApo.inf') -Force
-    Copy-Item -LiteralPath $GeneratedExtension -Destination (Join-Path $InstallRoot 'VoxveilAudioExtension.inf') -Force
-
-    Invoke-PnpUtil -Label 'Stage Voxveil APO package' -Arguments @('/add-driver', (Join-Path $PackageRoot 'VoxveilApo.inf')) | Out-Null
-    Invoke-PnpUtil -Label 'Install Voxveil audio extension' -Arguments @('/add-driver', $GeneratedExtension, '/install') | Out-Null
-    Invoke-PnpUtil -Label 'Scan for Voxveil APO component' -Arguments @('/scan-devices') | Out-Null
-    Invoke-PnpUtil -Label 'Bind Voxveil APO component' -Arguments @('/add-driver', (Join-Path $PackageRoot 'VoxveilApo.inf'), '/install') | Out-Null
+    Invoke-FxHelper $targetHelper '--install-fx' | Out-Null
+    $script:FxRegistered = $true
 
     Enable-DevelopmentAudioGraph
     [IO.File]::WriteAllBytes($Control, [byte[]](1, 0, 100))
 
     [pscustomobject]@{
-        Version = 2
+        Version = 3
         Clsid = $Clsid
         DllPath = $targetDll
-        Deployment = 'componentized-inf'
-        OemInfs = @($script:InstalledPackages | Select-Object -Unique)
-        Targets = $script:Targets
+        Deployment = 'runtime-interface-development'
         InstalledAtUtc = [DateTime]::UtcNow.ToString('o')
-    } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $Marker -Encoding UTF8
+    } | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $Marker -Encoding UTF8
 
     Restart-AudioStack
-    $message = "Voxveil system audio component installed through Windows PnP on $($script:Targets.Count) render device(s)."
-    $details = ($script:PnpLog -join "`r`n`r`n")
-    Write-InstallResult -Success $true -Message $message -Details $details
-    Write-Host $message
-    Write-Host 'Restart Voxveil, then enable Processing.'
+    Write-InstallResult -Success $true -Message 'Voxveil Windows system audio component installed.'
+    Write-Host 'Voxveil APO installed through runtime KSCATEGORY_AUDIO interface registration.'
     exit 0
 } catch {
-    $failure = $_
-    Rollback-PnpPackages
+    $message = $_.Exception.Message
+    if ($script:FxRegistered) {
+        try {
+            $helper = Join-Path $InstallRoot 'VoxveilApoTarget.exe'
+            if (Test-Path -LiteralPath $helper -PathType Leaf) {
+                Invoke-FxHelper $helper '--remove-fx' -AllowFailure | Out-Null
+            }
+        } catch {
+            Write-Warning "Could not roll back Voxveil FX registration: $($_.Exception.Message)"
+        }
+    }
+    if ($script:ApoRegistered) {
+        Remove-DevelopmentApoRegistration
+    }
     Restore-ProtectedAudioIfCreated
-    Remove-Item -LiteralPath $Marker -Force -ErrorAction SilentlyContinue
-    Remove-Item -LiteralPath $Control -Force -ErrorAction SilentlyContinue
-
-    $lines = @(
-        "Message: $($failure.Exception.Message)",
-        "Category: $($failure.CategoryInfo)",
-        "FullyQualifiedErrorId: $($failure.FullyQualifiedErrorId)"
-    )
-    if ($failure.InvocationInfo.PositionMessage) {
-        $lines += $failure.InvocationInfo.PositionMessage
-    }
-    if ($failure.ScriptStackTrace) {
-        $lines += "ScriptStackTrace: $($failure.ScriptStackTrace)"
-    }
-    if ($script:Targets.Count -gt 0) {
-        $lines += "DiscoveredTargets:`r`n$($script:Targets | ConvertTo-Json -Depth 6)"
-    }
-    if (Test-Path -LiteralPath $GeneratedExtension -PathType Leaf) {
-        $lines += "GeneratedExtensionInf:`r`n$(Get-Content -LiteralPath $GeneratedExtension -Raw)"
-    }
-    if ($script:PnpLog.Count -gt 0) {
-        $lines += "PnPUtil:`r`n$($script:PnpLog -join "`r`n`r`n")"
-    }
-    $lines += "SetupApiDevLogTail:`r`n$(Get-SetupApiTail)"
-    $details = ($lines -join "`r`n`r`n").Trim()
-    Write-InstallResult -Success $false -Message $failure.Exception.Message -Details $details
+    $details = "$message`r`nThis development path does not enable Windows Test Mode and does not install a driver package."
+    Write-InstallResult -Success $false -Message 'Voxveil Windows system-audio installation failed.' -Details $details
     Write-Error $details
     exit 1
 }
