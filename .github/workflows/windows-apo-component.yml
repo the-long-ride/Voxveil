@@ -1,10 +1,7 @@
 name: Windows APO Component
 
 on:
-  push:
-    branches: [build/windows-apo-final-check]
-  pull_request:
-    branches: [feat/windows-apo-component]
+  workflow_dispatch:
 
 permissions:
   contents: read
