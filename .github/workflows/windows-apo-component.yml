@@ -13,11 +13,17 @@ permissions:
 jobs:
   native:
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.17.0'
+      - name: Install locked JavaScript dependencies
+        run: npm ci --ignore-scripts --no-fund --no-audit
       - name: Verify APO package contract
         run: node --test scripts/ci/check-apo-package.test.mjs
       - name: Parse installer scripts
@@ -32,6 +38,16 @@ jobs:
               throw "PowerShell parser errors in $script"
             }
           }
+      - name: UI tests
+        run: npm test --workspace @voxveil/ui
+      - name: UI typecheck
+        run: npm run typecheck --workspace @voxveil/ui
+      - name: Select pinned Rust toolchain
+        run: rustup show active-toolchain
+      - name: Rust formatting
+        run: cargo fmt --all -- --check
+      - name: Rust APO and Tauri tests
+        run: cargo test -p voxveil-windows-audio -p voxveil-tauri
       - name: Locate MSBuild
         id: msbuild
         shell: pwsh
