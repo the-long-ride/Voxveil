@@ -152,12 +152,18 @@ jobs:
       - name: Install locked dependencies without lifecycle scripts
         run: npm ci --ignore-scripts --no-fund --no-audit
       - name: Generate Windows bundle icons
-        if: matrix.platform == 'windows'
+        if: matrix.platform == 'windows' && github.event_name == 'workflow_dispatch'
         run: npm run tauri --workspace @voxveil/tauri-shell -- icon icons/128x128@2x.png
       - name: Build selected variant
+        if: github.event_name == 'workflow_dispatch'
         env:
           VOXVEIL_EDITION: ${{ matrix.edition }}
         run: node scripts/build/build-variant.mjs --platform ${{ matrix.platform }} --edition ${{ matrix.edition }}
+      - name: Build portable Windows binary
+        if: github.event_name == 'pull_request'
+        env:
+          VOXVEIL_EDITION: ${{ matrix.edition }}
+        run: npm run tauri --workspace @voxveil/tauri-shell -- build --no-bundle --config tauri.windows.conf.json
       - name: Verify Windows portable executable
         if: matrix.platform == 'windows'
         shell: pwsh
