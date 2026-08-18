@@ -1,0 +1,4 @@
+LIBRARY "VoxveilApo"
+EXPORTS
+    DllCanUnloadNow PRIVATE
+    DllGetClassObject PRIVATE
