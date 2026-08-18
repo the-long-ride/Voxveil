@@ -2,6 +2,7 @@ $ErrorActionPreference = 'Stop'
 $Clsid = '{7E268E67-2F3C-4F0A-A09C-8B7D27B43F51}'
 $SingleEfx = '{D04E05A6-594B-4FB6-A80D-01AF5EED7D1D},7'
 $CompositeEfx = '{D04E05A6-594B-4FB6-A80D-01AF5EED7D1D},15'
+$DisableSysFx = '{1DA5D803-D492-4EDD-8C23-E0C0FFEE7F0E},5'
 $AudioKey = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Audio'
 $RenderRoot = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\MMDevices\Audio\Render'
 $StateRoot = Join-Path $env:ProgramData 'Voxveil'
@@ -38,6 +39,12 @@ function Restore-Endpoint($backup) {
         New-ItemProperty -Path $fx -Name $SingleEfx -PropertyType String -Value ([string]$backup.SingleValue) -Force | Out-Null
     } else {
         Remove-ItemProperty -Path $fx -Name $SingleEfx -Force -ErrorAction SilentlyContinue
+    }
+
+    if ($backup.SysFxExists) {
+        New-ItemProperty -Path $fx -Name $DisableSysFx -PropertyType DWord -Value ([uint32]$backup.SysFxValue) -Force | Out-Null
+    } else {
+        Remove-ItemProperty -Path $fx -Name $DisableSysFx -Force -ErrorAction SilentlyContinue
     }
 }
 
