@@ -1,10 +1,6 @@
 name: Windows APO Component
 
 on:
-  push:
-    branches: [feat/windows-apo-component]
-  pull_request:
-    branches: [feat/windows-apo-component]
   workflow_dispatch:
 
 permissions:
