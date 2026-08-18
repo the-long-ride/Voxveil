@@ -2,12 +2,13 @@
 #include <setupapi.h>
 
 #include <algorithm>
-#include <cctype>
+#include <cwctype>
 #include <iostream>
 #include <map>
 #include <set>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -181,7 +182,7 @@ std::vector<InterfaceRecord> enumerateInterfaces(const GUID& interfaceClass,
 
 std::wstring folded(std::wstring value) {
     std::transform(value.begin(), value.end(), value.begin(), [](wchar_t ch) {
-        return static_cast<wchar_t>(towlower(ch));
+        return static_cast<wchar_t>(std::towlower(ch));
     });
     return value;
 }
@@ -251,7 +252,7 @@ void printJson(const std::vector<Target>& targets) {
 bool selfTest() {
     const std::wstring path =
         LR"(\\?\HDAUDIO#FUNC_01&VEN_1234#A#{DDA54A40-1E4C-11D1-A050-405705C10000}\Topology)";
-    return referenceFromPath(path) == L"Topology" && referenceFromPath(L"plain") .empty();
+    return referenceFromPath(path) == L"Topology" && referenceFromPath(L"plain").empty();
 }
 
 } // namespace
