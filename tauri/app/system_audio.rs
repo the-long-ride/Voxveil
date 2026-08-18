@@ -8,9 +8,6 @@ use std::{fs, path::Path, process::Command};
 const APO_DLL: &[u8] = include_bytes!("../generated-system-audio/VoxveilApo.dll");
 const APO_CHECKER: &[u8] = include_bytes!("../generated-system-audio/VoxveilApoCheck.exe");
 const APO_TARGET: &[u8] = include_bytes!("../generated-system-audio/VoxveilApoTarget.exe");
-const APO_INF: &str = include_str!("../../native/windows/apo/VoxveilApo.inf");
-const TARGETS_SCRIPT: &str = include_str!("../../native/windows/apo/targets.ps1");
-const EXTENSION_SCRIPT: &str = include_str!("../../native/windows/apo/extension.ps1");
 const INSTALL_SCRIPT: &str = include_str!("../../native/windows/apo/install.ps1");
 const UNINSTALL_SCRIPT: &str = include_str!("../../native/windows/apo/uninstall.ps1");
 
@@ -82,9 +79,6 @@ pub fn verify_embedded_payload() -> Result<(), String> {
     validate_pe_payload("VoxveilApoCheck.exe", APO_CHECKER)?;
     validate_pe_payload("VoxveilApoTarget.exe", APO_TARGET)?;
     for (name, text) in [
-        ("VoxveilApo.inf", APO_INF),
-        ("targets.ps1", TARGETS_SCRIPT),
-        ("extension.ps1", EXTENSION_SCRIPT),
         ("install.ps1", INSTALL_SCRIPT),
         ("uninstall.ps1", UNINSTALL_SCRIPT),
     ] {
@@ -110,9 +104,6 @@ fn stage_embedded_package(root: &Path) -> Result<(), String> {
             .map_err(|error| format!("failed to stage embedded {name}: {error}"))?;
     }
     for (name, text) in [
-        ("VoxveilApo.inf", APO_INF),
-        ("targets.ps1", TARGETS_SCRIPT),
-        ("extension.ps1", EXTENSION_SCRIPT),
         ("install.ps1", INSTALL_SCRIPT),
         ("uninstall.ps1", UNINSTALL_SCRIPT),
     ] {
@@ -236,11 +227,13 @@ mod tests {
             Some(1),
             b"Preparing Voxveil APO\n",
             b"PowerShell failed\n",
-            Some("PnP package staging was rejected."),
+            Some("Runtime KSCATEGORY_AUDIO registration was rejected."),
         );
         assert_eq!(error.exit_code, Some(1));
         assert_eq!(error.stdout, "Preparing Voxveil APO");
         assert!(error.stderr.contains("PowerShell failed"));
-        assert!(error.stderr.contains("PnP package staging was rejected."));
+        assert!(error
+            .stderr
+            .contains("Runtime KSCATEGORY_AUDIO registration was rejected."));
     }
 }
