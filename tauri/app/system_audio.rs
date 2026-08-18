@@ -89,7 +89,9 @@ pub fn verify_embedded_payload() -> Result<(), String> {
         ("uninstall.ps1", UNINSTALL_SCRIPT),
     ] {
         if text.trim().is_empty() {
-            return Err(format!("embedded Windows system-audio text payload is empty: {name}"));
+            return Err(format!(
+                "embedded Windows system-audio text payload is empty: {name}"
+            ));
         }
     }
     Ok(())
