@@ -16,12 +16,24 @@ async function sha256(file) {
   return createHash('sha256').update(await readFile(file)).digest('hex');
 }
 
+async function addWindowsPortableExecutable(candidates, root, platform) {
+  if (platform !== 'windows') return;
+  const executable = path.join(root, 'target/release/voxveil.exe');
+  try {
+    const metadata = await stat(executable);
+    if (metadata.isFile()) candidates.push(executable);
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+  }
+}
+
 export async function collectArtifacts(root, platform, edition) {
   const candidates = [];
   for (const relative of SEARCH_ROOTS) {
     const files = await walkFiles(path.join(root, relative), { ignoreMissing: true });
     candidates.push(...files.filter((file) => PACKAGE_PATTERN.test(path.basename(file))));
   }
+  await addWindowsPortableExecutable(candidates, root, platform);
   if (candidates.length === 0) throw new Error(`No build artifacts found for ${platform}/${edition}`);
 
   const outputDir = path.join(root, 'dist-artifacts', `${platform}-${edition}`);
