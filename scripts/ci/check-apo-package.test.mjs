@@ -11,29 +11,40 @@ function read(name) {
   return fs.readFileSync(path.join(apoRoot, name), 'utf8');
 }
 
-test('APO development package has install and uninstall entry points', () => {
-  for (const file of ['install.ps1', 'uninstall.ps1', 'README.txt']) {
+test('APO development package has install, uninstall, and native checker sources', () => {
+  for (const file of [
+    'install.ps1',
+    'uninstall.ps1',
+    'README.txt',
+    'com_smoke.cpp',
+    'VoxveilApoCheck.vcxproj',
+  ]) {
     assert.equal(fs.existsSync(path.join(apoRoot, file)), true, `${file} must exist`);
   }
 });
 
-test('installer registers the same CLSID as the native component', () => {
+test('installer registers the same CLSID as the native component and checker', () => {
   const native = read('voxveil_apo.cpp').toUpperCase();
+  const checker = read('com_smoke.cpp').toLowerCase();
   const install = read('install.ps1').toUpperCase();
   const uninstall = read('uninstall.ps1').toUpperCase();
   assert.match(install, /7E268E67-2F3C-4F0A-A09C-8B7D27B43F51/);
   assert.match(uninstall, /7E268E67-2F3C-4F0A-A09C-8B7D27B43F51/);
   for (const part of ['7e268e67', '0x2f3c', '0x4f0a']) {
     assert.match(native.toLowerCase(), new RegExp(part));
+    assert.match(checker, new RegExp(part));
   }
   assert.equal(clsid.length > 0, true);
 });
 
-test('installer verifies that the registered COM server can activate', () => {
+test('installer validates the DLL through the native COM checker', () => {
   const install = read('install.ps1');
+  const checker = read('com_smoke.cpp');
   assert.match(install, /Test-ApoComServer/);
-  assert.match(install, /GetTypeFromCLSID/);
-  assert.match(install, /Activator\]::CreateInstance/);
+  assert.match(install, /VoxveilApoCheck\.exe/);
+  assert.match(checker, /DllGetClassObject/);
+  assert.match(checker, /IClassFactory::CreateInstance/);
+  assert.match(checker, /IAudioProcessingObject/);
 });
 
 test('installer preserves existing endpoint effects and uses composite EFX', () => {
@@ -69,8 +80,10 @@ test('development protected-audio change is disclosed and restored', () => {
   assert.match(uninstall, /protected-audio-backup\.json/i);
 });
 
-test('APO project is manifest-free and statically links the C++ runtime', () => {
+test('APO and checker are statically linked for portable development use', () => {
   const project = read('VoxveilApo.vcxproj');
+  const checker = read('VoxveilApoCheck.vcxproj');
   assert.match(project, /<EmbedManifest>false<\/EmbedManifest>/i);
   assert.match(project, /<RuntimeLibrary[^>]*>MultiThreaded<\/RuntimeLibrary>/i);
+  assert.match(checker, /<RuntimeLibrary>MultiThreaded<\/RuntimeLibrary>/i);
 });
