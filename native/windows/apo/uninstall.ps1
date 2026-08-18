@@ -107,7 +107,8 @@ foreach ($package in $packages) {
 
 Remove-LegacyGlobalRegistration
 Restore-ProtectedAudio
-Restart-AudioStack $(if ($markerData) { $markerData.Targets } else { @() })
+$targets = if ($markerData) { @($markerData.Targets) } else { @() }
+Restart-AudioStack $targets
 
 Remove-Item -LiteralPath $InstallRoot -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath $Marker -Force -ErrorAction SilentlyContinue
