@@ -13,6 +13,7 @@ const SEARCH_ROOTS = [
 const PACKAGE_PATTERN = /\.(?:msi|exe|deb|rpm|dmg|apk|aab|ipa|zip|AppImage|tar\.gz)$/i;
 const WINDOWS_SYSTEM_AUDIO_FILES = [
   'VoxveilApo.dll',
+  'VoxveilApoCheck.exe',
   'install.ps1',
   'uninstall.ps1',
   'README.txt',
