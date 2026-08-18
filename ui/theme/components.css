@@ -76,11 +76,18 @@
 .consent-dialog p { color: var(--text-muted); font-size: 13px; line-height: 1.55; }
 .consent-check { display: flex; gap: 12px; align-items: flex-start; font-size: 13px; line-height: 1.45; }
 .consent-check input { width: 18px; height: 18px; flex: 0 0 auto; margin: 1px 0 0; }
+.install-error-summary { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 3px; }
+.install-error-details-button { min-height: 32px; padding-inline: 10px; font-size: 12px; }
+.install-error-dialog { width: min(680px, 100%); max-height: min(82vh, 720px); grid-template-rows: auto minmax(0, 1fr) auto; }
+.install-error-dialog-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+.install-error-dialog-heading > div { display: grid; gap: 6px; }
+.install-error-output { min-height: 120px; max-height: 380px; margin: 0; overflow: auto; padding: 14px 16px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-subtle); color: var(--text); font-family: var(--font-mono); font-size: 11px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
 
 @media (max-width: 620px) {
   .model-manager-header { align-items: flex-start; flex-direction: column; gap: 8px; }
   .dialog-actions { flex-direction: column-reverse; }
   .dialog-actions .action-button { width: 100%; }
+  .install-error-dialog { max-height: 88vh; }
 }
 
 .backend-notice { display: grid; gap: 5px; padding: 16px 0; border-block: 1px solid var(--border); }
