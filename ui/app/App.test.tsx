@@ -59,6 +59,6 @@ describe('App', () => {
 
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'vi' } });
     expect(localStorage.getItem('voxveil.language')).toBe('vi');
-    expect(await screen.findByText('Cài đặt')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Cài đặt' })).toBeInTheDocument();
   });
 });
