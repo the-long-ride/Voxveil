@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 #[cfg(target_os = "windows")]
 use std::{fs, path::Path, process::Command};
 
@@ -5,6 +7,56 @@ const APO_DLL: &[u8] = include_bytes!("../generated-system-audio/VoxveilApo.dll"
 const APO_CHECKER: &[u8] = include_bytes!("../generated-system-audio/VoxveilApoCheck.exe");
 const INSTALL_SCRIPT: &str = include_str!("../../native/windows/apo/install.ps1");
 const UNINSTALL_SCRIPT: &str = include_str!("../../native/windows/apo/uninstall.ps1");
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SystemAudioInstallError {
+    message: String,
+    exit_code: Option<i32>,
+    stdout: String,
+    stderr: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct InstallerResult {
+    success: bool,
+    message: String,
+    details: String,
+}
+
+fn decode_process_text(bytes: &[u8]) -> String {
+    String::from_utf8_lossy(bytes).trim().to_string()
+}
+
+fn installer_error_from_output(
+    exit_code: Option<i32>,
+    stdout: &[u8],
+    stderr: &[u8],
+    elevated_details: Option<&str>,
+) -> SystemAudioInstallError {
+    let mut stderr = decode_process_text(stderr);
+    if let Some(details) = elevated_details.map(str::trim).filter(|value| !value.is_empty()) {
+        if !stderr.is_empty() {
+            stderr.push_str("\n\nElevated installer details:\n");
+        }
+        stderr.push_str(details);
+    }
+    SystemAudioInstallError {
+        message: "Windows system-audio installation failed".to_string(),
+        exit_code,
+        stdout: decode_process_text(stdout),
+        stderr,
+    }
+}
+
+fn simple_install_error(message: impl Into<String>) -> SystemAudioInstallError {
+    SystemAudioInstallError {
+        message: message.into(),
+        exit_code: None,
+        stdout: String::new(),
+        stderr: String::new(),
+    }
+}
 
 fn validate_pe_payload(name: &str, bytes: &[u8]) -> Result<(), String> {
     if bytes.len() < 2 || &bytes[..2] != b"MZ" {
@@ -59,17 +111,27 @@ fn windows_powershell() -> std::path::PathBuf {
 }
 
 #[cfg(target_os = "windows")]
-fn run_embedded_installer() -> Result<(), String> {
-    verify_embedded_payload()?;
+fn read_installer_result(path: &Path) -> Option<InstallerResult> {
+    let text = fs::read_to_string(path).ok()?;
+    serde_json::from_str(text.trim_start_matches('\u{feff}').trim()).ok()
+}
+
+#[cfg(target_os = "windows")]
+fn run_embedded_installer() -> Result<(), SystemAudioInstallError> {
+    verify_embedded_payload().map_err(simple_install_error)?;
     let package = temporary_package_root();
     if package.exists() {
-        fs::remove_dir_all(&package)
-            .map_err(|error| format!("failed to reset temporary system-audio package: {error}"))?;
+        fs::remove_dir_all(&package).map_err(|error| {
+            simple_install_error(format!(
+                "failed to reset temporary system-audio package: {error}"
+            ))
+        })?;
     }
-    stage_embedded_package(&package)?;
+    stage_embedded_package(&package).map_err(simple_install_error)?;
 
     let installer = package.join("install.ps1");
-    let status = Command::new(windows_powershell())
+    let result_path = package.join("install-result.json");
+    let output = Command::new(windows_powershell())
         .arg("-NoProfile")
         .arg("-ExecutionPolicy")
         .arg("Bypass")
@@ -77,29 +139,45 @@ fn run_embedded_installer() -> Result<(), String> {
         .arg(&installer)
         .arg("-PackageRoot")
         .arg(&package)
-        .status()
+        .arg("-ResultPath")
+        .arg(&result_path)
+        .output()
         .map_err(|error| {
-            format!("failed to launch embedded Windows system-audio installer: {error}")
-        });
+            simple_install_error(format!(
+                "failed to launch embedded Windows system-audio installer: {error}"
+            ))
+        })?;
 
-    let cleanup = fs::remove_dir_all(&package);
-    let status = status?;
-    if !status.success() {
-        return Err(format!(
-            "Windows system-audio installer exited with status {}",
-            status.code().unwrap_or(-1)
-        ));
+    let elevated = read_installer_result(&result_path);
+    let elevated_failed = elevated.as_ref().is_some_and(|result| !result.success);
+    if !output.status.success() || elevated_failed {
+        let details = elevated.as_ref().map(|result| {
+            if result.details.trim().is_empty() {
+                result.message.as_str()
+            } else {
+                result.details.as_str()
+            }
+        });
+        let error = installer_error_from_output(
+            output.status.code(),
+            &output.stdout,
+            &output.stderr,
+            details,
+        );
+        let _ = fs::remove_dir_all(&package);
+        return Err(error);
     }
-    if let Err(error) = cleanup {
-        return Err(format!(
+
+    fs::remove_dir_all(&package).map_err(|error| {
+        simple_install_error(format!(
             "system-audio component installed, but temporary package cleanup failed: {error}"
-        ));
-    }
+        ))
+    })?;
     Ok(())
 }
 
 #[tauri::command]
-pub fn install_windows_audio_component() -> Result<(), String> {
+pub fn install_windows_audio_component() -> Result<(), SystemAudioInstallError> {
     #[cfg(target_os = "windows")]
     {
         run_embedded_installer()
@@ -107,7 +185,9 @@ pub fn install_windows_audio_component() -> Result<(), String> {
 
     #[cfg(not(target_os = "windows"))]
     {
-        Err("Windows system-audio installation is unavailable on this platform".into())
+        Err(simple_install_error(
+            "Windows system-audio installation is unavailable on this platform",
+        ))
     }
 }
 
