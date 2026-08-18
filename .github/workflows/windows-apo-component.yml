@@ -26,6 +26,8 @@ jobs:
         run: node --test scripts/ci/check-apo-package.test.mjs
       - name: Verify artifact collector
         run: node --test scripts/release/collect-artifacts.test.mjs
+      - name: Verify scrollbar styling
+        run: node --test scripts/ci/check-scrollbar.test.mjs
       - name: Parse installer scripts
         shell: pwsh
         run: |
