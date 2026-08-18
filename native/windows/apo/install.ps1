@@ -1,5 +1,6 @@
 param(
-    [string]$PackageRoot = $PSScriptRoot
+    [string]$PackageRoot = $PSScriptRoot,
+    [string]$ResultPath = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -17,6 +18,26 @@ $ProtectedBackup = Join-Path $StateRoot 'protected-audio-backup.json'
 $Marker = Join-Path $StateRoot 'apo-installed.json'
 $Control = Join-Path $StateRoot 'apo-control.bin'
 
+function Write-InstallResult {
+    param(
+        [bool]$Success,
+        [string]$Message,
+        [string]$Details = ''
+    )
+    if (-not $ResultPath) {
+        return
+    }
+    $parent = Split-Path -Parent $ResultPath
+    if ($parent) {
+        New-Item -ItemType Directory -Path $parent -Force | Out-Null
+    }
+    [pscustomobject]@{
+        success = $Success
+        message = $Message
+        details = $Details
+    } | ConvertTo-Json -Compress | Set-Content -LiteralPath $ResultPath -Encoding UTF8
+}
+
 function Test-Administrator {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
     $principal = [Security.Principal.WindowsPrincipal]::new($identity)
@@ -28,8 +49,11 @@ function Invoke-ElevatedSelf {
     $arguments = @(
         '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"{0}"' -f $PSCommandPath),
         '-PackageRoot', ('"{0}"' -f $PackageRoot)
-    ) -join ' '
-    $process = Start-Process -FilePath $powerShell -Verb RunAs -ArgumentList $arguments -Wait -PassThru
+    )
+    if ($ResultPath) {
+        $arguments += @('-ResultPath', ('"{0}"' -f $ResultPath))
+    }
+    $process = Start-Process -FilePath $powerShell -Verb RunAs -ArgumentList ($arguments -join ' ') -Wait -PassThru
     exit $process.ExitCode
 }
 
@@ -144,34 +168,55 @@ if (-not (Test-Administrator)) {
     Invoke-ElevatedSelf
 }
 
-$sourceDll = Join-Path $PackageRoot 'VoxveilApo.dll'
-if (-not (Test-Path -LiteralPath $sourceDll -PathType Leaf)) {
-    throw "VoxveilApo.dll was not found in package root: $PackageRoot"
+try {
+    $sourceDll = Join-Path $PackageRoot 'VoxveilApo.dll'
+    if (-not (Test-Path -LiteralPath $sourceDll -PathType Leaf)) {
+        throw "VoxveilApo.dll was not found in package root: $PackageRoot"
+    }
+
+    New-Item -ItemType Directory -Path $StateRoot -Force | Out-Null
+    New-Item -ItemType Directory -Path $InstallRoot -Force | Out-Null
+    & icacls.exe $StateRoot /grant '*S-1-5-32-545:(OI)(CI)M' /T /C | Out-Null
+
+    $targetDll = Join-Path $InstallRoot 'VoxveilApo.dll'
+    Copy-Item -LiteralPath $sourceDll -Destination $targetDll -Force
+    Test-ApoComServer $targetDll
+    Register-Apo $targetDll
+    $endpointCount = Attach-Endpoints
+    if ($endpointCount -eq 0) {
+        throw 'No Windows render endpoints were found; Voxveil APO was not marked installed.'
+    }
+    Enable-DevelopmentAudioGraph
+    [IO.File]::WriteAllBytes($Control, [byte[]](1, 0, 100))
+
+    [pscustomobject]@{
+        Version = 1
+        Clsid = $Clsid
+        DllPath = $targetDll
+        EndpointCount = $endpointCount
+        InstalledAtUtc = [DateTime]::UtcNow.ToString('o')
+    } | ConvertTo-Json | Set-Content -LiteralPath $Marker -Encoding UTF8
+
+    Restart-AudioServices
+    $message = "Voxveil system audio component installed on $endpointCount render endpoint(s)."
+    Write-InstallResult -Success $true -Message $message
+    Write-Host $message
+    Write-Host 'Restart Voxveil, then enable Processing.'
+    exit 0
+} catch {
+    $lines = @(
+        "Message: $($_.Exception.Message)",
+        "Category: $($_.CategoryInfo)",
+        "FullyQualifiedErrorId: $($_.FullyQualifiedErrorId)"
+    )
+    if ($_.InvocationInfo.PositionMessage) {
+        $lines += $_.InvocationInfo.PositionMessage
+    }
+    if ($_.ScriptStackTrace) {
+        $lines += "ScriptStackTrace: $($_.ScriptStackTrace)"
+    }
+    $details = ($lines -join "`r`n").Trim()
+    Write-InstallResult -Success $false -Message $_.Exception.Message -Details $details
+    Write-Error $details
+    exit 1
 }
-
-New-Item -ItemType Directory -Path $StateRoot -Force | Out-Null
-New-Item -ItemType Directory -Path $InstallRoot -Force | Out-Null
-& icacls.exe $StateRoot /grant '*S-1-5-32-545:(OI)(CI)M' /T /C | Out-Null
-
-$targetDll = Join-Path $InstallRoot 'VoxveilApo.dll'
-Copy-Item -LiteralPath $sourceDll -Destination $targetDll -Force
-Test-ApoComServer $targetDll
-Register-Apo $targetDll
-$endpointCount = Attach-Endpoints
-if ($endpointCount -eq 0) {
-    throw 'No Windows render endpoints were found; Voxveil APO was not marked installed.'
-}
-Enable-DevelopmentAudioGraph
-[IO.File]::WriteAllBytes($Control, [byte[]](1, 0, 100))
-
-[pscustomobject]@{
-    Version = 1
-    Clsid = $Clsid
-    DllPath = $targetDll
-    EndpointCount = $endpointCount
-    InstalledAtUtc = [DateTime]::UtcNow.ToString('o')
-} | ConvertTo-Json | Set-Content -LiteralPath $Marker -Encoding UTF8
-
-Restart-AudioServices
-Write-Host "Voxveil system audio component installed on $endpointCount render endpoint(s)."
-Write-Host 'Restart Voxveil, then enable Processing.'
