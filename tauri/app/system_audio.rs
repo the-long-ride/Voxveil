@@ -1,5 +1,7 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
+#[cfg(target_os = "windows")]
+use serde::Deserialize;
 #[cfg(target_os = "windows")]
 use std::{fs, path::Path, process::Command};
 
@@ -17,6 +19,7 @@ pub struct SystemAudioInstallError {
     stderr: String,
 }
 
+#[cfg(target_os = "windows")]
 #[derive(Debug, Deserialize)]
 struct InstallerResult {
     success: bool,
