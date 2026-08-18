@@ -30,8 +30,9 @@ impl WindowsAudioBackend {
     }
 
     pub fn probe(&mut self) -> BackendProbe {
-        let apo_probe = self.apo.probe();
+        let mut apo_probe = self.apo.probe();
         let relay_probe = self.relay.probe();
+        enrich_apo_output(&mut apo_probe, &relay_probe);
         self.active = backend::select_backend(&apo_probe, &relay_probe);
         match self.active {
             WindowsBackendKind::Apo => apo_probe,
@@ -47,7 +48,10 @@ impl WindowsAudioBackend {
         let apo_probe = self.apo.probe();
         if apo_probe.readiness == RelayReadiness::Ready {
             self.active = WindowsBackendKind::Apo;
-            self.apo.set_enabled(enabled, vocal_level)
+            let mut result = self.apo.set_enabled(enabled, vocal_level)?;
+            let relay_probe = self.relay.probe();
+            enrich_apo_output(&mut result, &relay_probe);
+            Ok(result)
         } else {
             self.active = WindowsBackendKind::Relay;
             self.relay.set_enabled(enabled, vocal_level)
@@ -67,6 +71,13 @@ impl WindowsAudioBackend {
 
     pub fn active_kind(&self) -> WindowsBackendKind {
         self.active
+    }
+}
+
+#[cfg(windows)]
+fn enrich_apo_output(apo: &mut BackendProbe, relay: &BackendProbe) {
+    if apo.physical_output.is_none() {
+        apo.physical_output.clone_from(&relay.physical_output);
     }
 }
 
