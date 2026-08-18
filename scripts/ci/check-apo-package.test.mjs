@@ -29,6 +29,13 @@ test('installer registers the same CLSID as the native component', () => {
   assert.equal(clsid.length > 0, true);
 });
 
+test('installer verifies that the registered COM server can activate', () => {
+  const install = read('install.ps1');
+  assert.match(install, /Test-ApoComServer/);
+  assert.match(install, /GetTypeFromCLSID/);
+  assert.match(install, /Activator\]::CreateInstance/);
+});
+
 test('installer preserves existing endpoint effects and uses composite EFX', () => {
   const install = read('install.ps1');
   const uninstall = read('uninstall.ps1');
@@ -49,7 +56,8 @@ test('development protected-audio change is disclosed and restored', () => {
   assert.match(uninstall, /protected-audio-backup\.json/i);
 });
 
-test('APO project disables embedded manifest for protected audio compatibility', () => {
+test('APO project is manifest-free and statically links the C++ runtime', () => {
   const project = read('VoxveilApo.vcxproj');
   assert.match(project, /<EmbedManifest>false<\/EmbedManifest>/i);
+  assert.match(project, /<RuntimeLibrary[^>]*>MultiThreaded<\/RuntimeLibrary>/i);
 });
