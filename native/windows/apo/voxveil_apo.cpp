@@ -1,7 +1,6 @@
 #include "voxveil_apo.h"
 #include "voxveil_dsp.h"
 
-#include <algorithm>
 #include <cstring>
 
 const CLSID CLSID_VoxveilApo = {
@@ -85,8 +84,8 @@ STDMETHODIMP_(void) CVoxveilApo::APOProcess(
         return;
     }
 
-    auto* input_samples = static_cast<float*>(input->pBuffer);
-    auto* output_samples = static_cast<float*>(output->pBuffer);
+    auto* input_samples = reinterpret_cast<float*>(input->pBuffer);
+    auto* output_samples = reinterpret_cast<float*>(output->pBuffer);
     if (input_samples == nullptr || output_samples == nullptr) {
         output->u32BufferFlags = BUFFER_INVALID;
         output->u32ValidFrameCount = 0;
