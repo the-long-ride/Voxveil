@@ -91,33 +91,24 @@ jobs:
           }
           & $checker $dll
           if ($LASTEXITCODE -ne 0) { throw "Native APO activation checker failed with exit code $LASTEXITCODE" }
-      - name: Stage system-audio package
-        shell: pwsh
-        run: |
-          $target = 'target/system-audio'
-          New-Item -ItemType Directory -Path $target -Force | Out-Null
-          Copy-Item 'native/windows/apo/out/Release/VoxveilApo.dll' "$target/VoxveilApo.dll" -Force
-          Copy-Item 'native/windows/apo/out/Release/VoxveilApoCheck.exe' "$target/VoxveilApoCheck.exe" -Force
-          Copy-Item 'native/windows/apo/install.ps1' "$target/install.ps1" -Force
-          Copy-Item 'native/windows/apo/uninstall.ps1' "$target/uninstall.ps1" -Force
-          Copy-Item 'native/windows/apo/README.txt' "$target/README.txt" -Force
-      - name: Build portable Windows pro-system application
+      - name: Build standalone Windows pro-system application
         env:
           VOXVEIL_EDITION: pro-system
         run: npm run tauri --workspace @voxveil/tauri-shell -- build --no-bundle --config tauri.windows.conf.json
-      - name: Verify Windows binaries
+      - name: Verify standalone executable embeds system audio payload
         shell: pwsh
         run: |
-          foreach ($file in @('target/release/voxveil.exe', 'target/system-audio/VoxveilApo.dll', 'target/system-audio/VoxveilApoCheck.exe')) {
-            if (-not (Test-Path $file -PathType Leaf)) { throw "Missing $file" }
-            Get-Item $file | Format-List FullName,Length,LastWriteTime
-          }
-      - name: Collect pro-system artifact
+          $exe = 'target/release/voxveil.exe'
+          if (-not (Test-Path $exe -PathType Leaf)) { throw "Missing $exe" }
+          Get-Item $exe | Format-List FullName,Length,LastWriteTime
+          & $exe --verify-embedded-system-audio
+          if ($LASTEXITCODE -ne 0) { throw "Embedded system-audio verification failed with exit code $LASTEXITCODE" }
+      - name: Collect standalone pro-system artifact
         run: node scripts/release/collect-artifacts.mjs --platform windows --edition pro-system
-      - name: Upload Windows pro-system artifact
+      - name: Upload standalone Windows executable
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: Voxveil-windows-pro-system-apo
+          name: Voxveil-windows-pro-system-single-exe
           path: dist-artifacts/windows-pro-system/
           if-no-files-found: error
           retention-days: 14
