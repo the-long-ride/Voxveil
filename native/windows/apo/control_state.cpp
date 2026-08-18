@@ -1,11 +1,11 @@
 #include "control_state.h"
 
+#include <windows.h>
+
 #include <array>
 #include <chrono>
-#include <cstdlib>
 #include <filesystem>
 #include <fstream>
-#include <string>
 
 namespace voxveil {
 namespace {
