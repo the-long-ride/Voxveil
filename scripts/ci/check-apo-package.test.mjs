@@ -39,14 +39,16 @@ test('production INF sources remain available for a future signed release', () =
   assert.match(extension, /PKEY_CompositeFX_EndpointEffectClsid/i);
 });
 
-test('runtime target helper uses SetupAPI device-interface storage for FX registration', () => {
+test('runtime target helper uses KSCATEGORY_AUDIO device-interface storage for FX registration', () => {
   const source = read('target_discovery.cpp');
   const project = read('VoxveilApoTarget.vcxproj');
   assert.match(source, /SetupDiGetClassDevsW/);
   assert.match(source, /SetupDiEnumDeviceInterfaces/);
   assert.match(source, /SetupDiGetDeviceInterfaceDetailW/);
   assert.match(source, /SetupDiCreateDeviceInterfaceRegKeyW?/);
+  assert.match(source, /SetupDiOpenDeviceInterfaceRegKeyW?/);
   assert.match(source, /RegCreateKeyExW/);
+  assert.match(source, /6994ad04/i);
   assert.match(source, /FX\\\\0|L"FX\\\\0"/);
   assert.match(source, /D04E05A6-594B-4FB6-A80D-01AF5EED7D1D/i);
   assert.match(source, /CompositeFX_EndpointEffectClsid|\},15/);
@@ -57,6 +59,20 @@ test('runtime target helper uses SetupAPI device-interface storage for FX regist
   assert.match(project, /setupapi\.lib/i);
   assert.match(project, /advapi32\.lib/i);
   assert.match(project, /<RuntimeLibrary>MultiThreaded<\/RuntimeLibrary>/i);
+});
+
+test('development installer registers the APO COM and AudioEngine metadata without a driver package', () => {
+  const install = read('install.ps1');
+  const uninstall = read('uninstall.ps1');
+  assert.match(install, /Register-DevelopmentApo/i);
+  assert.match(install, /SOFTWARE\\Classes\\CLSID/i);
+  assert.match(install, /AudioEngine\\AudioProcessingObjects/i);
+  assert.match(install, /InProcServer32/i);
+  assert.match(install, /ThreadingModel/i);
+  assert.match(install, /FD7F2B29-24D0-4B5C-B177-592C39F9CA10/i);
+  assert.match(uninstall, /Remove-DevelopmentApoRegistration/i);
+  assert.match(uninstall, /SOFTWARE\\Classes\\CLSID/i);
+  assert.match(uninstall, /AudioEngine\\AudioProcessingObjects/i);
 });
 
 test('development installer uses runtime interface registration and avoids driver/Test Mode hacks', () => {
