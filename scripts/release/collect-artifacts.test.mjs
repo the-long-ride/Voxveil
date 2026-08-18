@@ -37,49 +37,17 @@ test('windows collection includes the raw voxveil executable beside installers',
   );
 });
 
-test('windows pro-system collection requires and preserves the system-audio package', async () => {
+test('windows pro-system collection is a self-contained executable', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'voxveil-artifacts-'));
   const releaseDir = path.join(root, 'target/release');
-  const componentDir = path.join(root, 'target/system-audio');
   await mkdir(releaseDir, { recursive: true });
-  await mkdir(componentDir, { recursive: true });
-  await writeFile(path.join(releaseDir, 'voxveil.exe'), 'portable');
-  for (const file of [
-    'VoxveilApo.dll',
-    'VoxveilApoCheck.exe',
-    'install.ps1',
-    'uninstall.ps1',
-    'README.txt',
-  ]) {
-    await writeFile(path.join(componentDir, file), file);
-  }
+  await writeFile(path.join(releaseDir, 'voxveil.exe'), 'portable-with-embedded-apo');
 
   const result = await collectArtifacts(root, 'windows', 'pro-system');
-  assert.deepEqual(
-    result.files.map((file) => file.name).sort(),
-    [
-      'system-audio/README.txt',
-      'system-audio/VoxveilApo.dll',
-      'system-audio/VoxveilApoCheck.exe',
-      'system-audio/install.ps1',
-      'system-audio/uninstall.ps1',
-      'voxveil.exe',
-    ],
-  );
+  assert.deepEqual(result.files.map((file) => file.name), ['voxveil.exe']);
   const sums = await readFile(path.join(result.outputDir, 'SHA256SUMS'), 'utf8');
-  assert.match(sums, /system-audio\/VoxveilApo\.dll/);
-  assert.match(sums, /system-audio\/VoxveilApoCheck\.exe/);
-});
-
-test('windows pro-system collection rejects a missing system-audio package', async () => {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'voxveil-artifacts-'));
-  const releaseDir = path.join(root, 'target/release');
-  await mkdir(releaseDir, { recursive: true });
-  await writeFile(path.join(releaseDir, 'voxveil.exe'), 'portable');
-  await assert.rejects(
-    () => collectArtifacts(root, 'windows', 'pro-system'),
-    /system-audio package/i,
-  );
+  assert.match(sums, /^[a-f0-9]{64}  voxveil\.exe\n$/);
+  assert.doesNotMatch(sums, /system-audio/i);
 });
 
 test('non-Windows collection does not include the raw Windows executable', async () => {
