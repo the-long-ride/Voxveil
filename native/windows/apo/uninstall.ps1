@@ -1,14 +1,11 @@
 $ErrorActionPreference = 'Stop'
 $Clsid = '{7E268E67-2F3C-4F0A-A09C-8B7D27B43F51}'
-$SingleEfx = '{D04E05A6-594B-4FB6-A80D-01AF5EED7D1D},7'
-$CompositeEfx = '{D04E05A6-594B-4FB6-A80D-01AF5EED7D1D},15'
-$DisableSysFx = '{1DA5D803-D492-4EDD-8C23-E0C0FFEE7F0E},5'
 $AudioKey = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Audio'
-$RenderRoot = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\MMDevices\Audio\Render'
 $StateRoot = Join-Path $env:ProgramData 'Voxveil'
 $InstallRoot = Join-Path $env:ProgramFiles 'Voxveil\system-audio'
-$EndpointBackup = Join-Path $StateRoot 'endpoint-backup.json'
+$Marker = Join-Path $StateRoot 'apo-installed.json'
 $ProtectedBackup = Join-Path $StateRoot 'protected-audio-backup.json'
+$PnpUtil = Join-Path $env:SystemRoot 'System32\pnputil.exe'
 
 function Test-Administrator {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -23,33 +20,33 @@ function Invoke-ElevatedSelf {
     exit $process.ExitCode
 }
 
-function Restore-Endpoint($backup) {
-    $fx = Join-Path (Join-Path $RenderRoot $backup.Endpoint) 'FxProperties'
-    if (-not (Test-Path -LiteralPath $fx)) {
+function Invoke-PnpDelete([string]$Package) {
+    if ([string]::IsNullOrWhiteSpace($Package) -or $Package -notmatch '^(?i)oem\d+\.inf$') {
         return
     }
-
-    if ($backup.CompositeExists) {
-        New-ItemProperty -Path $fx -Name $CompositeEfx -PropertyType MultiString -Value @($backup.CompositeValue) -Force | Out-Null
-    } else {
-        Remove-ItemProperty -Path $fx -Name $CompositeEfx -Force -ErrorAction SilentlyContinue
+    $output = (& $PnpUtil /delete-driver $Package /uninstall /force 2>&1 | Out-String).Trim()
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warning "Could not remove PnP package $Package (exit $LASTEXITCODE): $output"
+    } elseif ($output) {
+        Write-Host $output
     }
+}
 
-    if ($backup.SingleExists) {
-        New-ItemProperty -Path $fx -Name $SingleEfx -PropertyType String -Value ([string]$backup.SingleValue) -Force | Out-Null
-    } else {
-        Remove-ItemProperty -Path $fx -Name $SingleEfx -Force -ErrorAction SilentlyContinue
-    }
-
-    if ($backup.SysFxExists) {
-        New-ItemProperty -Path $fx -Name $DisableSysFx -PropertyType DWord -Value ([uint32]$backup.SysFxValue) -Force | Out-Null
-    } else {
-        Remove-ItemProperty -Path $fx -Name $DisableSysFx -Force -ErrorAction SilentlyContinue
+function Find-VoxveilDriverPackages {
+    try {
+        $drivers = @(Get-WindowsDriver -Online -All -ErrorAction Stop | Where-Object {
+            $_.ProviderName -eq 'Voxveil' -or
+            ([string]$_.OriginalFileName -match '(?i)Voxveil(?:Apo|AudioExtension)\.inf$')
+        })
+        return @($drivers | ForEach-Object { [string]$_.Driver } | Where-Object { $_ -match '^(?i)oem\d+\.inf$' })
+    } catch {
+        Write-Warning "Could not enumerate Voxveil driver-store packages through DISM: $($_.Exception.Message)"
+        return @()
     }
 }
 
 function Restore-ProtectedAudio {
-    if (-not (Test-Path -LiteralPath $ProtectedBackup)) {
+    if (-not (Test-Path -LiteralPath $ProtectedBackup -PathType Leaf)) {
         return
     }
     $backup = Get-Content -LiteralPath $ProtectedBackup -Raw | ConvertFrom-Json
@@ -57,16 +54,31 @@ function Restore-ProtectedAudio {
         New-Item -Path $AudioKey -Force | Out-Null
         New-ItemProperty -Path $AudioKey -Name 'DisableProtectedAudioDG' -PropertyType DWord -Value ([uint32]$backup.Value) -Force | Out-Null
     } else {
-        Remove-ItemProperty -Path $AudioKey -Name 'DisableProtectedAudioDG' -Force -ErrorAction SilentlyContinue
+        Remove-ItemProperty -LiteralPath $AudioKey -Name 'DisableProtectedAudioDG' -Force -ErrorAction SilentlyContinue
     }
 }
 
-function Restart-AudioServices {
+function Remove-LegacyGlobalRegistration {
+    Remove-Item -LiteralPath "HKLM:\SOFTWARE\Classes\AudioEngine\AudioProcessingObjects\$Clsid" -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath "HKLM:\SOFTWARE\Classes\CLSID\$Clsid" -Recurse -Force -ErrorAction SilentlyContinue
+}
+
+function Restart-AudioStack($Targets) {
+    foreach ($target in @($Targets)) {
+        $instanceId = [string]$target.instanceId
+        if ([string]::IsNullOrWhiteSpace($instanceId)) {
+            continue
+        }
+        $output = (& $PnpUtil /restart-device $instanceId 2>&1 | Out-String).Trim()
+        if ($LASTEXITCODE -ne 0 -and $output) {
+            Write-Warning $output
+        }
+    }
     try {
         Restart-Service -Name 'AudioEndpointBuilder' -Force -ErrorAction Stop
         Start-Service -Name 'Audiosrv' -ErrorAction SilentlyContinue
     } catch {
-        Write-Warning "Audio services could not be restarted automatically: $($_.Exception.Message). Reboot Windows to complete removal."
+        Write-Warning "Audio services could not be restarted automatically: $($_.Exception.Message). Restart Windows to complete removal."
     }
 }
 
@@ -74,22 +86,33 @@ if (-not (Test-Administrator)) {
     Invoke-ElevatedSelf
 }
 
-if (Test-Path -LiteralPath $EndpointBackup) {
-    $backups = @(Get-Content -LiteralPath $EndpointBackup -Raw | ConvertFrom-Json)
-    foreach ($backup in $backups) {
-        Restore-Endpoint $backup
+$markerData = $null
+if (Test-Path -LiteralPath $Marker -PathType Leaf) {
+    try {
+        $markerData = Get-Content -LiteralPath $Marker -Raw | ConvertFrom-Json
+    } catch {
+        Write-Warning "Could not parse Voxveil installation marker: $($_.Exception.Message)"
     }
 }
 
-Remove-Item -LiteralPath "HKLM:\SOFTWARE\Classes\AudioEngine\AudioProcessingObjects\$Clsid" -Recurse -Force -ErrorAction SilentlyContinue
-Remove-Item -LiteralPath "HKLM:\SOFTWARE\Classes\CLSID\$Clsid" -Recurse -Force -ErrorAction SilentlyContinue
+$packages = @()
+if ($markerData) {
+    $packages += @($markerData.OemInfs)
+}
+$packages += @(Find-VoxveilDriverPackages)
+$packages = @($packages | ForEach-Object { [string]$_ } | Where-Object { $_ } | Select-Object -Unique)
+foreach ($package in $packages) {
+    Invoke-PnpDelete $package
+}
+
+Remove-LegacyGlobalRegistration
 Restore-ProtectedAudio
-Restart-AudioServices
+Restart-AudioStack $(if ($markerData) { $markerData.Targets } else { @() })
 
 Remove-Item -LiteralPath $InstallRoot -Recurse -Force -ErrorAction SilentlyContinue
-Remove-Item -LiteralPath (Join-Path $StateRoot 'apo-installed.json') -Force -ErrorAction SilentlyContinue
+Remove-Item -LiteralPath $Marker -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath (Join-Path $StateRoot 'apo-control.bin') -Force -ErrorAction SilentlyContinue
-Remove-Item -LiteralPath $EndpointBackup -Force -ErrorAction SilentlyContinue
+Remove-Item -LiteralPath (Join-Path $StateRoot 'endpoint-backup.json') -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath $ProtectedBackup -Force -ErrorAction SilentlyContinue
 
-Write-Host 'Voxveil system audio component removed and previous endpoint effects restored.'
+Write-Host 'Voxveil system audio component and its PnP packages were removed.'
