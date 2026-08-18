@@ -13,7 +13,7 @@ permissions:
 jobs:
   native:
     runs-on: windows-latest
-    timeout-minutes: 35
+    timeout-minutes: 55
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -26,6 +26,8 @@ jobs:
         run: npm ci --ignore-scripts --no-fund --no-audit
       - name: Verify APO package contract
         run: node --test scripts/ci/check-apo-package.test.mjs
+      - name: Verify artifact collector
+        run: node --test scripts/release/collect-artifacts.test.mjs
       - name: Parse installer scripts
         shell: pwsh
         run: |
@@ -69,9 +71,32 @@ jobs:
         run: |
           & '${{ steps.msbuild.outputs.path }}' native/windows/apo/VoxveilApo.vcxproj /m /p:Configuration=Release /p:Platform=x64
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Verify APO DLL
+      - name: Stage system-audio package
         shell: pwsh
         run: |
-          $dll = 'native/windows/apo/out/Release/VoxveilApo.dll'
-          if (-not (Test-Path $dll -PathType Leaf)) { throw "Missing $dll" }
-          Get-Item $dll | Format-List FullName,Length,LastWriteTime
+          $target = 'target/system-audio'
+          New-Item -ItemType Directory -Path $target -Force | Out-Null
+          Copy-Item 'native/windows/apo/out/Release/VoxveilApo.dll' "$target/VoxveilApo.dll" -Force
+          Copy-Item 'native/windows/apo/install.ps1' "$target/install.ps1" -Force
+          Copy-Item 'native/windows/apo/uninstall.ps1' "$target/uninstall.ps1" -Force
+          Copy-Item 'native/windows/apo/README.txt' "$target/README.txt" -Force
+      - name: Build portable Windows pro-system application
+        env:
+          VOXVEIL_EDITION: pro-system
+        run: npm run tauri --workspace @voxveil/tauri-shell -- build --no-bundle --config tauri.windows.conf.json
+      - name: Verify Windows binaries
+        shell: pwsh
+        run: |
+          foreach ($file in @('target/release/voxveil.exe', 'target/system-audio/VoxveilApo.dll')) {
+            if (-not (Test-Path $file -PathType Leaf)) { throw "Missing $file" }
+            Get-Item $file | Format-List FullName,Length,LastWriteTime
+          }
+      - name: Collect pro-system artifact
+        run: node scripts/release/collect-artifacts.mjs --platform windows --edition pro-system
+      - name: Upload Windows pro-system artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: Voxveil-windows-pro-system-apo
+          path: dist-artifacts/windows-pro-system/
+          if-no-files-found: error
+          retention-days: 14
