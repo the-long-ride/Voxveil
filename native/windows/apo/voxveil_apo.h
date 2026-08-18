@@ -11,7 +11,7 @@
 
 extern const CLSID CLSID_VoxveilApo;
 
-class ATL_NO_VTABLE CVoxveilApo final :
+class ATL_NO_VTABLE CVoxveilApo :
     public CComObjectRootEx<CComMultiThreadModel>,
     public CBaseAudioProcessingObject,
     public IAudioSystemEffects {
