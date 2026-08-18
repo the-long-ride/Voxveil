@@ -6,7 +6,8 @@
     "enabled": "enabled",
     "ready": "Ready",
     "unavailable": "Unavailable",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "close": "Close"
   },
   "nav": {
     "primary": "Primary navigation",
@@ -33,10 +34,17 @@
     "perApp": "Per app",
     "engine": "Engine",
     "backendUnavailable": "Processing unavailable",
-    "backendComponentRequired": "The Windows system-audio component is not installed yet. GitHub Actions development bundles include it under system-audio; install it, set the virtual output as the Windows default, then restart Voxveil.",
+    "backendComponentRequired": "The Windows system-audio component is not installed yet. Install the embedded component to attach Voxveil to your Windows audio endpoints.",
     "backendUnsupported": "System-audio processing is not implemented for this platform build yet.",
     "backendFaulted": "The audio backend failed to initialize. Processing was disabled so device audio remains unmodified.",
-    "backendRoutingRequired": "Set Voxveil Virtual Audio as the Windows default output, then return to Voxveil. Processed audio will be relayed to the physical output shown below."
+    "backendRoutingRequired": "Set Voxveil Virtual Audio as the Windows default output, then return to Voxveil. Processed audio will be relayed to the physical output shown below.",
+    "installSystemAudio": "Install system audio component",
+    "installingSystemAudio": "Installing…",
+    "viewErrorDetails": "View details",
+    "installErrorTitle": "System audio installation failed",
+    "installErrorDescription": "Voxveil captured the installer output below.",
+    "copyErrorDetails": "Copy details",
+    "errorDetailsCopied": "Copied"
   },
   "engine": {
     "eyeline": "Processing",
