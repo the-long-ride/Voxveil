@@ -1,2 +1,2 @@
 Temporary CI marker for Windows APO native compilation.
-Retry: ATL wrapper inheritance and APO UINT_PTR buffer casts fixed.
+Retry: verify package scripts, manifest settings, and updated APO source.
