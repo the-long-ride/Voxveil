@@ -44,7 +44,13 @@ test('windows pro-system collection requires and preserves the system-audio pack
   await mkdir(releaseDir, { recursive: true });
   await mkdir(componentDir, { recursive: true });
   await writeFile(path.join(releaseDir, 'voxveil.exe'), 'portable');
-  for (const file of ['VoxveilApo.dll', 'install.ps1', 'uninstall.ps1', 'README.txt']) {
+  for (const file of [
+    'VoxveilApo.dll',
+    'VoxveilApoCheck.exe',
+    'install.ps1',
+    'uninstall.ps1',
+    'README.txt',
+  ]) {
     await writeFile(path.join(componentDir, file), file);
   }
 
@@ -54,6 +60,7 @@ test('windows pro-system collection requires and preserves the system-audio pack
     [
       'system-audio/README.txt',
       'system-audio/VoxveilApo.dll',
+      'system-audio/VoxveilApoCheck.exe',
       'system-audio/install.ps1',
       'system-audio/uninstall.ps1',
       'voxveil.exe',
@@ -61,6 +68,7 @@ test('windows pro-system collection requires and preserves the system-audio pack
   );
   const sums = await readFile(path.join(result.outputDir, 'SHA256SUMS'), 'utf8');
   assert.match(sums, /system-audio\/VoxveilApo\.dll/);
+  assert.match(sums, /system-audio\/VoxveilApoCheck\.exe/);
 });
 
 test('windows pro-system collection rejects a missing system-audio package', async () => {
