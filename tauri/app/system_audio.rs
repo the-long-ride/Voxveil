@@ -124,4 +124,18 @@ mod tests {
     fn valid_pe_signature_is_accepted() {
         assert!(validate_pe_payload("payload.dll", b"MZpayload").is_ok());
     }
+
+    #[test]
+    fn installer_failure_preserves_process_and_elevated_details() {
+        let error = installer_error_from_output(
+            Some(1),
+            b"Preparing Voxveil APO\n",
+            b"PowerShell failed\n",
+            Some("Access to the registry key is denied."),
+        );
+        assert_eq!(error.exit_code, Some(1));
+        assert_eq!(error.stdout, "Preparing Voxveil APO");
+        assert!(error.stderr.contains("PowerShell failed"));
+        assert!(error.stderr.contains("Access to the registry key is denied."));
+    }
 }
