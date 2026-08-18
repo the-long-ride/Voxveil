@@ -11,6 +11,10 @@ function read(name) {
   return fs.readFileSync(path.join(apoRoot, name), 'utf8');
 }
 
+function readRepo(relativePath) {
+  return fs.readFileSync(path.join(root, relativePath), 'utf8');
+}
+
 test('APO development package has install, uninstall, and native checker sources', () => {
   for (const file of [
     'install.ps1',
@@ -21,6 +25,22 @@ test('APO development package has install, uninstall, and native checker sources
   ]) {
     assert.equal(fs.existsSync(path.join(apoRoot, file)), true, `${file} must exist`);
   }
+});
+
+test('single Windows binary embeds the complete system-audio installer payload', () => {
+  const systemAudio = readRepo('tauri/app/system_audio.rs');
+  const build = readRepo('tauri/build.rs');
+
+  assert.match(systemAudio, /include_bytes!\([^)]*VoxveilApo\.dll/i);
+  assert.match(systemAudio, /include_bytes!\([^)]*VoxveilApoCheck\.exe/i);
+  assert.match(systemAudio, /include_str!\([^)]*install\.ps1/i);
+  assert.match(systemAudio, /include_str!\([^)]*uninstall\.ps1/i);
+  assert.doesNotMatch(systemAudio, /installer_path_for_exe/);
+  assert.doesNotMatch(systemAudio, /join\("system-audio"\)\.join\("install\.ps1"\)/);
+
+  assert.match(build, /VoxveilApo\.dll/);
+  assert.match(build, /VoxveilApoCheck\.exe/);
+  assert.match(build, /OUT_DIR/);
 });
 
 test('installer registers the same CLSID as the native component and checker', () => {
