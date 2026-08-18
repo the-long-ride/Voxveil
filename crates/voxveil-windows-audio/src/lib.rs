@@ -40,11 +40,7 @@ impl WindowsAudioBackend {
         }
     }
 
-    pub fn set_enabled(
-        &mut self,
-        enabled: bool,
-        vocal_level: u8,
-    ) -> Result<BackendProbe, String> {
+    pub fn set_enabled(&mut self, enabled: bool, vocal_level: u8) -> Result<BackendProbe, String> {
         let apo_probe = self.apo.probe();
         if apo_probe.readiness == RelayReadiness::Ready {
             self.active = WindowsBackendKind::Apo;
