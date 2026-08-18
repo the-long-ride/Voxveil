@@ -1,2 +1,2 @@
 Temporary CI marker for Windows APO native compilation.
-Retry: VS2026 v145 toolset selected for DSP tests.
+Retry: ATL wrapper inheritance and APO UINT_PTR buffer casts fixed.
