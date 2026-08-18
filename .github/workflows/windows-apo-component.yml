@@ -1,0 +1,45 @@
+name: Windows APO Component
+
+on:
+  push:
+    branches: [feat/windows-apo-component]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Locate MSBuild
+        id: msbuild
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $path = & $vswhere -latest -requires Microsoft.Component.MSBuild -find 'MSBuild\**\Bin\MSBuild.exe' | Select-Object -First 1
+          if (-not $path) { throw 'MSBuild was not found' }
+          "path=$path" >> $env:GITHUB_OUTPUT
+      - name: Build native DSP tests
+        shell: pwsh
+        run: |
+          & '${{ steps.msbuild.outputs.path }}' native/windows/apo/VoxveilApoTests.vcxproj /m /p:Configuration=Release /p:Platform=x64
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Run native DSP tests
+        shell: pwsh
+        run: native/windows/apo/out/Release/VoxveilApoTests.exe
+      - name: Build endpoint APO
+        shell: pwsh
+        run: |
+          & '${{ steps.msbuild.outputs.path }}' native/windows/apo/VoxveilApo.vcxproj /m /p:Configuration=Release /p:Platform=x64
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify APO DLL
+        shell: pwsh
+        run: |
+          $dll = 'native/windows/apo/out/Release/VoxveilApo.dll'
+          if (-not (Test-Path $dll -PathType Leaf)) { throw "Missing $dll" }
+          Get-Item $dll | Format-List FullName,Length,LastWriteTime
