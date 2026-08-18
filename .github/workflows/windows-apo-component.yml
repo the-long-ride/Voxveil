@@ -50,14 +50,16 @@ jobs:
         run: cargo fmt --all -- --check
       - name: Rust APO and Tauri tests
         run: cargo test -p voxveil-windows-audio -p voxveil-tauri
-      - name: Locate MSBuild
+      - name: Locate Visual Studio build tools
         id: msbuild
         shell: pwsh
         run: |
           $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $installation = & $vswhere -latest -requires Microsoft.Component.MSBuild -property installationPath
           $path = & $vswhere -latest -requires Microsoft.Component.MSBuild -find 'MSBuild\**\Bin\MSBuild.exe' | Select-Object -First 1
-          if (-not $path) { throw 'MSBuild was not found' }
+          if (-not $installation -or -not $path) { throw 'Visual Studio build tools were not found' }
           "path=$path" >> $env:GITHUB_OUTPUT
+          "installation=$installation" >> $env:GITHUB_OUTPUT
       - name: Build native DSP tests
         shell: pwsh
         run: |
@@ -71,6 +73,37 @@ jobs:
         run: |
           & '${{ steps.msbuild.outputs.path }}' native/windows/apo/VoxveilApo.vcxproj /m /p:Configuration=Release /p:Platform=x64
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify self-contained APO COM server
+        shell: pwsh
+        run: |
+          $dll = (Resolve-Path 'native/windows/apo/out/Release/VoxveilApo.dll').Path
+          $dumpbin = Get-ChildItem -Path '${{ steps.msbuild.outputs.installation }}\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe' |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1
+          if (-not $dumpbin) { throw 'dumpbin.exe was not found' }
+          $dependencies = (& $dumpbin.FullName /DEPENDENTS $dll | Out-String)
+          Write-Host $dependencies
+          if ($dependencies -match '(?im)\b(?:MSVCP|VCRUNTIME)\d+(?:_\d+)?\.dll\b') {
+            throw 'VoxveilApo.dll still depends on the Visual C++ Redistributable'
+          }
+
+          $clsid = '{7E268E67-2F3C-4F0A-A09C-8B7D27B43F51}'
+          $root = "HKCU:\Software\Classes\CLSID\$clsid"
+          $inproc = Join-Path $root 'InprocServer32'
+          try {
+            New-Item -Path $inproc -Force | Out-Null
+            Set-Item -Path $inproc -Value $dll
+            New-ItemProperty -Path $inproc -Name ThreadingModel -PropertyType String -Value Both -Force | Out-Null
+            $type = [Type]::GetTypeFromCLSID([Guid]$clsid)
+            if ($null -eq $type) { throw 'APO COM type could not be resolved' }
+            $instance = [Activator]::CreateInstance($type)
+            if ($null -eq $instance) { throw 'APO COM server returned no object' }
+            if ([Runtime.InteropServices.Marshal]::IsComObject($instance)) {
+              [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($instance)
+            }
+          } finally {
+            Remove-Item -Path $root -Recurse -Force -ErrorAction SilentlyContinue
+          }
       - name: Stage system-audio package
         shell: pwsh
         run: |
