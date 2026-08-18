@@ -27,7 +27,9 @@ install.ps1 sets the Windows test/development value DisableProtectedAudioDG=1 an
 previous state. uninstall.ps1 restores the previous value exactly.
 
 The installer also backs up existing endpoint-effect registry values before adding Voxveil as a
-composite endpoint effect. uninstall.ps1 restores those values.
+composite endpoint effect. It temporarily enables Windows system effects/audio enhancements on
+those endpoints so the APO is not bypassed. uninstall.ps1 restores the previous endpoint effect
+registrations and each endpoint's prior system-effects setting.
 
 Uninstall
 ---------
@@ -36,7 +38,8 @@ Run:
   powershell.exe -ExecutionPolicy Bypass -File .\uninstall.ps1
 
 The script requests elevation, removes Voxveil APO registration, restores prior endpoint effects,
-restores DisableProtectedAudioDG, and restarts Windows audio services where possible.
+restores endpoint system-effects preferences, restores DisableProtectedAudioDG, and restarts
+Windows audio services where possible.
 
 Notes
 -----
