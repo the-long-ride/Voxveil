@@ -144,7 +144,9 @@ function Restore-ProtectedAudioIfCreated {
 }
 
 function Rollback-PnpPackages {
-    foreach ($package in @($script:InstalledPackages | Select-Object -Unique)[-1..0]) {
+    $packages = @($script:InstalledPackages | Select-Object -Unique)
+    for ($index = $packages.Count - 1; $index -ge 0; $index--) {
+        $package = [string]$packages[$index]
         if ([string]::IsNullOrWhiteSpace($package)) {
             continue
         }
