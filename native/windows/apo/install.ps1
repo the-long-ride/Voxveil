@@ -7,6 +7,7 @@ $Clsid = '{7E268E67-2F3C-4F0A-A09C-8B7D27B43F51}'
 $ApoInterface = '{FD7F2B29-24D0-4B5C-B177-592C39F9CA10}'
 $SingleEfx = '{D04E05A6-594B-4FB6-A80D-01AF5EED7D1D},7'
 $CompositeEfx = '{D04E05A6-594B-4FB6-A80D-01AF5EED7D1D},15'
+$DisableSysFx = '{1DA5D803-D492-4EDD-8C23-E0C0FFEE7F0E},5'
 $AudioKey = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Audio'
 $RenderRoot = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\MMDevices\Audio\Render'
 $StateRoot = Join-Path $env:ProgramData 'Voxveil'
@@ -105,12 +106,15 @@ function Attach-Endpoints {
         New-Item -Path $fx -Force | Out-Null
         $single = Get-RegistryValueInfo $fx $SingleEfx
         $composite = Get-RegistryValueInfo $fx $CompositeEfx
+        $sysFx = Get-RegistryValueInfo $fx $DisableSysFx
         $backups += [pscustomobject]@{
             Endpoint = $endpoint.PSChildName
             SingleExists = $single.Exists
             SingleValue = $single.Value
             CompositeExists = $composite.Exists
             CompositeValue = @($composite.Value)
+            SysFxExists = $sysFx.Exists
+            SysFxValue = $sysFx.Value
         }
 
         $effects = @()
@@ -125,6 +129,7 @@ function Attach-Endpoints {
         if ($single.Exists) {
             Remove-ItemProperty -Path $fx -Name $SingleEfx -Force -ErrorAction SilentlyContinue
         }
+        New-ItemProperty -Path $fx -Name $DisableSysFx -PropertyType DWord -Value 0 -Force | Out-Null
     }
 
     $backups | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $EndpointBackup -Encoding UTF8
