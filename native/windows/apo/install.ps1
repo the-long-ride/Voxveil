@@ -26,9 +26,7 @@ function Test-Administrator {
 function Invoke-ElevatedSelf {
     $powerShell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
     $arguments = @(
-        '-NoProfile',
-        '-ExecutionPolicy', 'Bypass',
-        '-File', ('"{0}"' -f $PSCommandPath),
+        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"{0}"' -f $PSCommandPath),
         '-PackageRoot', ('"{0}"' -f $PackageRoot)
     ) -join ' '
     $process = Start-Process -FilePath $powerShell -Verb RunAs -ArgumentList $arguments -Wait -PassThru
@@ -38,10 +36,7 @@ function Invoke-ElevatedSelf {
 function Get-RegistryValueInfo([string]$Path, [string]$Name) {
     try {
         $item = Get-ItemProperty -LiteralPath $Path -Name $Name -ErrorAction Stop
-        return [pscustomobject]@{
-            Exists = $true
-            Value = $item.PSObject.Properties[$Name].Value
-        }
+        return [pscustomobject]@{ Exists = $true; Value = $item.PSObject.Properties[$Name].Value }
     } catch {
         return [pscustomobject]@{ Exists = $false; Value = $null }
     }
@@ -76,22 +71,14 @@ function Register-Apo([string]$DllPath) {
     New-ItemProperty -Path $apo -Name 'APOInterface0' -Value $ApoInterface -PropertyType String -Force | Out-Null
 }
 
-function Test-ApoComServer {
-    $type = [Type]::GetTypeFromCLSID([Guid]$Clsid)
-    if ($null -eq $type) {
-        throw 'Voxveil APO COM class could not be resolved after registration.'
+function Test-ApoComServer([string]$DllPath) {
+    $checker = Join-Path $PackageRoot 'VoxveilApoCheck.exe'
+    if (-not (Test-Path -LiteralPath $checker -PathType Leaf)) {
+        throw "Voxveil APO checker is missing: $checker"
     }
-
-    $instance = $null
-    try {
-        $instance = [Activator]::CreateInstance($type)
-        if ($null -eq $instance) {
-            throw 'Voxveil APO COM class returned no object instance.'
-        }
-    } finally {
-        if ($null -ne $instance -and [Runtime.InteropServices.Marshal]::IsComObject($instance)) {
-            [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($instance)
-        }
+    & $checker $DllPath
+    if ($LASTEXITCODE -ne 0) {
+        throw "Voxveil APO COM activation check failed with exit code $LASTEXITCODE"
     }
 }
 
@@ -168,8 +155,8 @@ New-Item -ItemType Directory -Path $InstallRoot -Force | Out-Null
 
 $targetDll = Join-Path $InstallRoot 'VoxveilApo.dll'
 Copy-Item -LiteralPath $sourceDll -Destination $targetDll -Force
+Test-ApoComServer $targetDll
 Register-Apo $targetDll
-Test-ApoComServer
 $endpointCount = Attach-Endpoints
 if ($endpointCount -eq 0) {
     throw 'No Windows render endpoints were found; Voxveil APO was not marked installed.'
