@@ -1,3 +1,4 @@
+#[cfg(target_os = "windows")]
 use std::{fs, path::Path, process::Command};
 
 const APO_DLL: &[u8] = include_bytes!("../generated-system-audio/VoxveilApo.dll");
@@ -21,6 +22,7 @@ pub fn verify_embedded_payload() -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(target_os = "windows")]
 fn stage_embedded_package(root: &Path) -> Result<(), String> {
     fs::create_dir_all(root)
         .map_err(|error| format!("failed to create temporary system-audio package: {error}"))?;
