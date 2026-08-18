@@ -11,6 +11,7 @@ coverage/
 dist-artifacts/
 release-artifacts/
 release-metadata/
+tauri/generated-system-audio/
 
 *.tsbuildinfo
 
