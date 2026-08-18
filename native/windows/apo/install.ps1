@@ -146,6 +146,9 @@ $targetDll = Join-Path $InstallRoot 'VoxveilApo.dll'
 Copy-Item -LiteralPath $sourceDll -Destination $targetDll -Force
 Register-Apo $targetDll
 $endpointCount = Attach-Endpoints
+if ($endpointCount -eq 0) {
+    throw 'No Windows render endpoints were found; Voxveil APO was not marked installed.'
+}
 Enable-DevelopmentAudioGraph
 [IO.File]::WriteAllBytes($Control, [byte[]](1, 0, 100))
 
