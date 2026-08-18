@@ -45,6 +45,19 @@ test('installer preserves existing endpoint effects and uses composite EFX', () 
   assert.match(uninstall, /Restore-Endpoint/i);
 });
 
+test('installer preserves and enables the endpoint system-effects setting', () => {
+  const install = read('install.ps1');
+  const uninstall = read('uninstall.ps1');
+  for (const text of [install, uninstall]) {
+    assert.match(text, /1DA5D803-D492-4EDD-8C23-E0C0FFEE7F0E\},5/i);
+  }
+  assert.match(install, /SysFxExists/);
+  assert.match(install, /SysFxValue/);
+  assert.match(install, /PropertyType DWord -Value 0/);
+  assert.match(uninstall, /backup\.SysFxExists/);
+  assert.match(uninstall, /backup\.SysFxValue/);
+});
+
 test('development protected-audio change is disclosed and restored', () => {
   const install = read('install.ps1');
   const uninstall = read('uninstall.ps1');
