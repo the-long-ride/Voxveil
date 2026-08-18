@@ -10,7 +10,11 @@ fn stage_embedded_windows_audio_payload() {
     let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
     let native_out = manifest_dir.join("../native/windows/apo/out/Release");
 
-    for name in ["VoxveilApo.dll", "VoxveilApoCheck.exe"] {
+    for name in [
+        "VoxveilApo.dll",
+        "VoxveilApoCheck.exe",
+        "VoxveilApoTarget.exe",
+    ] {
         let destination = generated.join(name);
         if target_os == "windows" && edition == "pro-system" {
             let source = native_out.join(name);
@@ -46,10 +50,18 @@ fn stage_embedded_windows_audio_payload() {
 
 fn main() {
     println!("cargo:rerun-if-env-changed=VOXVEIL_EDITION");
-    println!("cargo:rerun-if-changed=../native/windows/apo/out/Release/VoxveilApo.dll");
-    println!("cargo:rerun-if-changed=../native/windows/apo/out/Release/VoxveilApoCheck.exe");
-    println!("cargo:rerun-if-changed=../native/windows/apo/install.ps1");
-    println!("cargo:rerun-if-changed=../native/windows/apo/uninstall.ps1");
+    for path in [
+        "../native/windows/apo/out/Release/VoxveilApo.dll",
+        "../native/windows/apo/out/Release/VoxveilApoCheck.exe",
+        "../native/windows/apo/out/Release/VoxveilApoTarget.exe",
+        "../native/windows/apo/VoxveilApo.inf",
+        "../native/windows/apo/targets.ps1",
+        "../native/windows/apo/extension.ps1",
+        "../native/windows/apo/install.ps1",
+        "../native/windows/apo/uninstall.ps1",
+    ] {
+        println!("cargo:rerun-if-changed={path}");
+    }
     stage_embedded_windows_audio_payload();
     tauri_build::build();
 }
