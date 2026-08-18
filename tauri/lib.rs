@@ -10,6 +10,10 @@ pub mod routing;
 pub mod security;
 pub mod separation;
 
+pub fn verify_embedded_system_audio_payload() -> Result<(), String> {
+    app::system_audio::verify_embedded_payload()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let controller = platform::ProcessingController::default();
