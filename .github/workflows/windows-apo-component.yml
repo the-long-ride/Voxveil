@@ -68,48 +68,38 @@ jobs:
       - name: Run native DSP tests
         shell: pwsh
         run: native/windows/apo/out/Release/VoxveilApoTests.exe
-      - name: Build endpoint APO
+      - name: Build endpoint APO and activation checker
         shell: pwsh
         run: |
           & '${{ steps.msbuild.outputs.path }}' native/windows/apo/VoxveilApo.vcxproj /m /p:Configuration=Release /p:Platform=x64
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & '${{ steps.msbuild.outputs.path }}' native/windows/apo/VoxveilApoCheck.vcxproj /m /p:Configuration=Release /p:Platform=x64
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Verify self-contained APO COM server
         shell: pwsh
         run: |
           $dll = (Resolve-Path 'native/windows/apo/out/Release/VoxveilApo.dll').Path
+          $checker = (Resolve-Path 'native/windows/apo/out/Release/VoxveilApoCheck.exe').Path
           $dumpbin = Get-ChildItem -Path '${{ steps.msbuild.outputs.installation }}\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe' |
             Sort-Object FullName -Descending |
             Select-Object -First 1
           if (-not $dumpbin) { throw 'dumpbin.exe was not found' }
-          $dependencies = (& $dumpbin.FullName /DEPENDENTS $dll | Out-String)
-          Write-Host $dependencies
-          if ($dependencies -match '(?im)\b(?:MSVCP|VCRUNTIME)\d+(?:_\d+)?\.dll\b') {
-            throw 'VoxveilApo.dll still depends on the Visual C++ Redistributable'
-          }
-
-          $clsid = '{7E268E67-2F3C-4F0A-A09C-8B7D27B43F51}'
-          $root = "HKCU:\Software\Classes\CLSID\$clsid"
-          $inproc = Join-Path $root 'InprocServer32'
-          try {
-            New-Item -Path $inproc -Force | Out-Null
-            Set-Item -Path $inproc -Value $dll
-            New-ItemProperty -Path $inproc -Name ThreadingModel -PropertyType String -Value Both -Force | Out-Null
-            $type = [Type]::GetTypeFromCLSID([Guid]$clsid)
-            if ($null -eq $type) { throw 'APO COM type could not be resolved' }
-            $instance = [Activator]::CreateInstance($type)
-            if ($null -eq $instance) { throw 'APO COM server returned no object' }
-            if ([Runtime.InteropServices.Marshal]::IsComObject($instance)) {
-              [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($instance)
+          foreach ($binary in @($dll, $checker)) {
+            $dependencies = (& $dumpbin.FullName /DEPENDENTS $binary | Out-String)
+            Write-Host $dependencies
+            if ($dependencies -match '(?im)\b(?:MSVCP|VCRUNTIME)\d+(?:_\d+)?\.dll\b') {
+              throw "$binary still depends on the Visual C++ Redistributable"
             }
-          } finally {
-            Remove-Item -Path $root -Recurse -Force -ErrorAction SilentlyContinue
           }
+          & $checker $dll
+          if ($LASTEXITCODE -ne 0) { throw "Native APO activation checker failed with exit code $LASTEXITCODE" }
       - name: Stage system-audio package
         shell: pwsh
         run: |
           $target = 'target/system-audio'
           New-Item -ItemType Directory -Path $target -Force | Out-Null
           Copy-Item 'native/windows/apo/out/Release/VoxveilApo.dll' "$target/VoxveilApo.dll" -Force
+          Copy-Item 'native/windows/apo/out/Release/VoxveilApoCheck.exe' "$target/VoxveilApoCheck.exe" -Force
           Copy-Item 'native/windows/apo/install.ps1' "$target/install.ps1" -Force
           Copy-Item 'native/windows/apo/uninstall.ps1' "$target/uninstall.ps1" -Force
           Copy-Item 'native/windows/apo/README.txt' "$target/README.txt" -Force
@@ -120,7 +110,7 @@ jobs:
       - name: Verify Windows binaries
         shell: pwsh
         run: |
-          foreach ($file in @('target/release/voxveil.exe', 'target/system-audio/VoxveilApo.dll')) {
+          foreach ($file in @('target/release/voxveil.exe', 'target/system-audio/VoxveilApo.dll', 'target/system-audio/VoxveilApoCheck.exe')) {
             if (-not (Test-Path $file -PathType Leaf)) { throw "Missing $file" }
             Get-Item $file | Format-List FullName,Length,LastWriteTime
           }
