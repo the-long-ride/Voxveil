@@ -1,0 +1,64 @@
+[Version]
+Signature="$WINDOWS NT$"
+Class=AudioProcessingObject
+ClassGuid={5989fce8-9cd0-467d-8a6a-5419e31529d4}
+Provider=%ProviderName%
+DriverVer=08/18/2026,0.1.0.0
+PnpLockDown=1
+
+[Manufacturer]
+%MfgName%=ApoComponents,NTamd64.10.0...22000
+
+[ApoComponents.NTamd64.10.0...22000]
+%Apo.ComponentDesc%=ApoComponent_Install,SWC\VEN_VOXV&CID_APO
+
+[ApoComponent_Install]
+CopyFiles=Apo_CopyFiles
+AddReg=Apo_AddReg
+
+[ApoComponent_Install.HW]
+AddReg=FriendlyName_AddReg
+
+[ApoComponent_Install.Services]
+AddService=,2
+
+[Apo_CopyFiles]
+VoxveilApo.dll
+
+[Apo_AddReg]
+HKR,Classes\CLSID\%VOXVEIL_APO_CLSID%,,,%Apo.FriendlyName%
+HKR,Classes\CLSID\%VOXVEIL_APO_CLSID%\InProcServer32,,0x00020000,%13%\VoxveilApo.dll
+HKR,Classes\CLSID\%VOXVEIL_APO_CLSID%\InProcServer32,ThreadingModel,,"Both"
+
+HKR,AudioEngine\AudioProcessingObjects\%VOXVEIL_APO_CLSID%,"FriendlyName",,%Apo.FriendlyName%
+HKR,AudioEngine\AudioProcessingObjects\%VOXVEIL_APO_CLSID%,"Copyright",,"Voxveil contributors"
+HKR,AudioEngine\AudioProcessingObjects\%VOXVEIL_APO_CLSID%,"MajorVersion",0x00010001,1
+HKR,AudioEngine\AudioProcessingObjects\%VOXVEIL_APO_CLSID%,"MinorVersion",0x00010001,0
+HKR,AudioEngine\AudioProcessingObjects\%VOXVEIL_APO_CLSID%,"Flags",0x00010001,0x0000000e
+HKR,AudioEngine\AudioProcessingObjects\%VOXVEIL_APO_CLSID%,"MinInputConnections",0x00010001,1
+HKR,AudioEngine\AudioProcessingObjects\%VOXVEIL_APO_CLSID%,"MaxInputConnections",0x00010001,1
+HKR,AudioEngine\AudioProcessingObjects\%VOXVEIL_APO_CLSID%,"MinOutputConnections",0x00010001,1
+HKR,AudioEngine\AudioProcessingObjects\%VOXVEIL_APO_CLSID%,"MaxOutputConnections",0x00010001,1
+HKR,AudioEngine\AudioProcessingObjects\%VOXVEIL_APO_CLSID%,"MaxInstances",0x00010001,0xffffffff
+HKR,AudioEngine\AudioProcessingObjects\%VOXVEIL_APO_CLSID%,"NumAPOInterfaces",0x00010001,1
+HKR,AudioEngine\AudioProcessingObjects\%VOXVEIL_APO_CLSID%,"APOInterface0",,"{FD7F2B29-24D0-4B5C-B177-592C39F9CA10}"
+
+[FriendlyName_AddReg]
+HKR,,FriendlyName,,%Apo.ComponentDesc%
+
+[SourceDisksNames]
+1=%DiskName%
+
+[SourceDisksFiles]
+VoxveilApo.dll=1
+
+[DestinationDirs]
+Apo_CopyFiles=13
+
+[Strings]
+MfgName="Voxveil"
+ProviderName="Voxveil"
+DiskName="Voxveil Audio Processing Object"
+Apo.ComponentDesc="Voxveil Audio Processing Object"
+Apo.FriendlyName="Voxveil Endpoint Effect"
+VOXVEIL_APO_CLSID="{7E268E67-2F3C-4F0A-A09C-8B7D27B43F51}"
