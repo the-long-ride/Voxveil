@@ -82,7 +82,9 @@ export function HomeScreen({ model, aiModelReady }: { model: VoxveilModel; aiMod
     try {
       await model.installSystemAudioComponent();
     } catch (error) {
-      setInstallError(normalizeInstallError(error));
+      const normalized = normalizeInstallError(error);
+      setInstallError(normalized);
+      setShowInstallErrorDetails(true);
     } finally {
       setInstalling(false);
     }
@@ -109,18 +111,19 @@ export function HomeScreen({ model, aiModelReady }: { model: VoxveilModel; aiMod
                   ? t('processing.installingSystemAudio', { defaultValue: 'Installing…' })
                   : t('processing.installSystemAudio', { defaultValue: 'Install system audio component' })}
               </button>
+              <button
+                type="button"
+                className="action-button is-subtle install-error-details-button"
+                disabled={!installError}
+                onClick={() => setShowInstallErrorDetails(true)}
+              >
+                {t('processing.viewErrorDetails', { defaultValue: 'View details' })}
+              </button>
             </div>
           )}
           {installError && (
             <div className="install-error-summary">
               <span className="model-error">{installError.message}</span>
-              <button
-                type="button"
-                className="action-button is-subtle install-error-details-button"
-                onClick={() => setShowInstallErrorDetails(true)}
-              >
-                {t('processing.viewErrorDetails', { defaultValue: 'View details' })}
-              </button>
             </div>
           )}
         </div>
