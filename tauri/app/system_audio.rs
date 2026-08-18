@@ -232,8 +232,10 @@ mod tests {
         assert_eq!(error.exit_code, Some(1));
         assert_eq!(error.stdout, "Preparing Voxveil APO");
         assert!(error.stderr.contains("PowerShell failed"));
-        assert!(error
-            .stderr
-            .contains("Runtime KSCATEGORY_AUDIO registration was rejected."));
+        assert!(
+            error
+                .stderr
+                .contains("Runtime KSCATEGORY_AUDIO registration was rejected.")
+        );
     }
 }
