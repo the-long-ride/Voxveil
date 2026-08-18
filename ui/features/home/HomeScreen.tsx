@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ScreenIntro } from '../../components/ScreenIntro';
 import { RangeControl } from '../../components/RangeControl';
@@ -30,6 +31,21 @@ function backendLabelKey(status: Exclude<ProcessingBackendStatus, 'ready'>): str
 export function HomeScreen({ model, aiModelReady }: { model: VoxveilModel; aiModelReady: boolean }) {
   const { t } = useTranslation();
   const { state } = model;
+  const [installing, setInstalling] = useState(false);
+  const [installError, setInstallError] = useState<string | null>(null);
+
+  const installSystemAudio = async () => {
+    setInstalling(true);
+    setInstallError(null);
+    try {
+      await model.installSystemAudioComponent();
+    } catch (error) {
+      setInstallError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setInstalling(false);
+    }
+  };
+
   return (
     <section className="screen" aria-labelledby="home-title">
       <ScreenIntro id="home-title" title={t('home.title')} description={t('home.description')} />
@@ -38,6 +54,16 @@ export function HomeScreen({ model, aiModelReady }: { model: VoxveilModel; aiMod
         <div className="backend-notice" role="status">
           <strong>{t('processing.backendUnavailable')}</strong>
           <span>{t(backendLabelKey(state.backendStatus))}</span>
+          {state.backendStatus === 'component-required' && (
+            <div className="model-actions">
+              <button type="button" className="action-button" disabled={installing} onClick={() => void installSystemAudio()}>
+                {installing
+                  ? t('processing.installingSystemAudio', { defaultValue: 'Installing…' })
+                  : t('processing.installSystemAudio', { defaultValue: 'Install system audio component' })}
+              </button>
+            </div>
+          )}
+          {installError && <span className="model-error">{installError}</span>}
         </div>
       )}
 
