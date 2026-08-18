@@ -125,7 +125,7 @@ jobs:
           ref: ${{ inputs.ref }}
           persist-credentials: false
       - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.1
         with:
           node-version: '24.17.0'
       - name: Install Linux Tauri system packages
@@ -141,7 +141,16 @@ jobs:
         env:
           VOXVEIL_EDITION: ${{ matrix.edition }}
         run: node scripts/build/build-variant.mjs --platform ${{ matrix.platform }} --edition ${{ matrix.edition }}
-      - name: Collect and checksum package
+      - name: Verify Windows portable executable
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          $binary = 'target/release/voxveil.exe'
+          if (-not (Test-Path -LiteralPath $binary -PathType Leaf)) {
+            throw "Expected portable Windows binary was not produced: $binary"
+          }
+          Get-Item -LiteralPath $binary | Format-List FullName, Length, LastWriteTime
+      - name: Collect and checksum packages and portable binary
         run: node scripts/release/collect-artifacts.mjs --platform ${{ matrix.platform }} --edition ${{ matrix.edition }}
       - name: Upload verified package
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
