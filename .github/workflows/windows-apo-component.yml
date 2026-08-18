@@ -121,3 +121,5 @@ jobs:
           path: dist-artifacts/windows-pro-system/
           if-no-files-found: error
           retention-days: 14
+
+# isolated collector RED verification head
