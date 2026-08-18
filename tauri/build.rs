@@ -2,6 +2,7 @@ use std::{env, fs, path::PathBuf};
 
 fn stage_embedded_windows_audio_payload() {
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"));
+    let out_dir = PathBuf::from(env::var("OUT_DIR").expect("OUT_DIR"));
     let generated = manifest_dir.join("generated-system-audio");
     fs::create_dir_all(&generated).expect("create generated system-audio directory");
 
@@ -32,6 +33,12 @@ fn stage_embedded_windows_audio_payload() {
             });
         }
     }
+
+    fs::write(
+        out_dir.join("voxveil-embedded-system-audio.txt"),
+        format!("target_os={target_os}\nedition={edition}\n"),
+    )
+    .expect("write embedded system-audio build marker");
 }
 
 fn main() {
