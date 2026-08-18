@@ -1,2 +1,2 @@
 Temporary CI marker for Windows APO native compilation.
-Retry: verify package scripts, manifest settings, and updated APO source.
+Retry: verify Rust probe/control, Tauri installer command, UI tests, and native APO.
