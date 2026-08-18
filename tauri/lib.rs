@@ -33,6 +33,7 @@ pub fn run() {
             app::commands::list_audio_outputs,
             app::commands::set_app_override,
             app::commands::set_output_route,
+            app::system_audio::install_windows_audio_component,
             models::commands::get_ai_model_status,
             models::commands::install_ai_model,
             models::commands::remove_ai_model,
