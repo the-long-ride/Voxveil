@@ -6,7 +6,8 @@
     "enabled": "đã bật",
     "ready": "Sẵn sàng",
     "unavailable": "Không khả dụng",
-    "cancel": "Hủy"
+    "cancel": "Hủy",
+    "close": "Đóng"
   },
   "nav": {
     "primary": "Điều hướng chính",
@@ -33,10 +34,17 @@
     "perApp": "Theo ứng dụng",
     "engine": "Bộ xử lý",
     "backendUnavailable": "Xử lý chưa khả dụng",
-    "backendComponentRequired": "Bản dựng này chưa có thành phần âm thanh hệ thống Windows được cài đặt. Xử lý sẽ giữ ở trạng thái tắt cho đến khi thành phần đó sẵn sàng.",
+    "backendComponentRequired": "Thành phần âm thanh hệ thống Windows chưa được cài. Hãy cài thành phần được nhúng trong Voxveil để gắn hiệu ứng vào các đầu ra âm thanh Windows.",
     "backendUnsupported": "Xử lý âm thanh hệ thống chưa được triển khai cho bản dựng trên nền tảng này.",
     "backendFaulted": "Backend âm thanh không thể khởi tạo. Xử lý đã bị tắt để âm thanh thiết bị không bị thay đổi.",
-    "backendRoutingRequired": "Đặt Voxveil Virtual Audio làm đầu ra mặc định của Windows, sau đó quay lại Voxveil. Âm thanh đã xử lý sẽ được chuyển đến thiết bị vật lý hiển thị bên dưới."
+    "backendRoutingRequired": "Đặt Voxveil Virtual Audio làm đầu ra mặc định của Windows, sau đó quay lại Voxveil. Âm thanh đã xử lý sẽ được chuyển đến thiết bị vật lý hiển thị bên dưới.",
+    "installSystemAudio": "Cài thành phần âm thanh hệ thống",
+    "installingSystemAudio": "Đang cài…",
+    "viewErrorDetails": "Xem chi tiết",
+    "installErrorTitle": "Cài đặt âm thanh hệ thống thất bại",
+    "installErrorDescription": "Voxveil đã ghi lại thông tin lỗi từ trình cài đặt bên dưới.",
+    "copyErrorDetails": "Sao chép chi tiết",
+    "errorDetailsCopied": "Đã sao chép"
   },
   "engine": {
     "eyeline": "Xử lý",
