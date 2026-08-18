@@ -15,8 +15,11 @@ function readRepo(relativePath) {
   return fs.readFileSync(path.join(root, relativePath), 'utf8');
 }
 
-test('APO development package has install, uninstall, and native checker sources', () => {
+test('APO package contains componentized deployment sources', () => {
   for (const file of [
+    'VoxveilApo.inf',
+    'targets.ps1',
+    'extension.ps1',
     'install.ps1',
     'uninstall.ps1',
     'README.txt',
@@ -27,34 +30,58 @@ test('APO development package has install, uninstall, and native checker sources
   }
 });
 
-test('single Windows binary embeds the complete system-audio installer payload', () => {
+test('APO INF follows the Windows 11 componentized APO model', () => {
+  const inf = read('VoxveilApo.inf');
+  assert.match(inf, /Class\s*=\s*AudioProcessingObject/i);
+  assert.match(inf, /5989fce8-9cd0-467d-8a6a-5419e31529d4/i);
+  assert.match(inf, /SWC\\VEN_VOXV&CID_APO/i);
+  assert.match(inf, /HKR,Classes\\CLSID/i);
+  assert.match(inf, /HKR,AudioEngine\\AudioProcessingObjects/i);
+  assert.match(inf, /VoxveilApo\.dll/i);
+  assert.match(inf, /7E268E67-2F3C-4F0A-A09C-8B7D27B43F51/i);
+});
+
+test('extension generator uses AddComponent and endpoint EFX properties', () => {
+  const extension = read('extension.ps1');
+  assert.match(extension, /AddComponent\s*=\s*VoxveilApo/i);
+  assert.match(extension, /VEN_VOXV&CID_APO/i);
+  assert.match(extension, /PKEY_CompositeFX_EndpointEffectClsid/i);
+  assert.match(extension, /D04E05A6-594B-4FB6-A80D-01AF5EED7D1D\},15/i);
+  assert.match(extension, /PKEY_EFX_ProcessingModes_Supported_For_Streaming/i);
+  assert.match(extension, /C18E2F7E-933D-4965-B7D1-1EEF228D2AF3/i);
+  assert.match(extension, /AddInterface/i);
+});
+
+test('installer uses PnP packages and never mutates protected MMDevices FxProperties', () => {
+  const install = read('install.ps1');
+  const uninstall = read('uninstall.ps1');
+  assert.match(install, /pnputil(?:\.exe)?/i);
+  assert.match(install, /\/add-driver/i);
+  assert.match(install, /VoxveilApo\.inf/i);
+  assert.match(install, /VoxveilAudioExtension\.inf/i);
+  assert.doesNotMatch(install, /MMDevices\\Audio\\Render/i);
+  assert.doesNotMatch(install, /New-Item\s+-Path\s+\$fx/i);
+  assert.doesNotMatch(uninstall, /MMDevices\\Audio\\Render/i);
+  assert.doesNotMatch(uninstall, /Restore-Endpoint/i);
+  assert.match(uninstall, /\/delete-driver/i);
+});
+
+test('single Windows binary embeds the complete INF deployment payload', () => {
   const systemAudio = readRepo('tauri/app/system_audio.rs');
   const build = readRepo('tauri/build.rs');
 
   assert.match(systemAudio, /include_bytes!\([^)]*VoxveilApo\.dll/i);
   assert.match(systemAudio, /include_bytes!\([^)]*VoxveilApoCheck\.exe/i);
-  assert.match(systemAudio, /include_str!\([^)]*install\.ps1/i);
-  assert.match(systemAudio, /include_str!\([^)]*uninstall\.ps1/i);
+  for (const name of ['VoxveilApo.inf', 'targets.ps1', 'extension.ps1', 'install.ps1', 'uninstall.ps1']) {
+    assert.match(systemAudio, new RegExp(`include_str!\\([^)]*${name.replace('.', '\\.')} ` .trim(), 'i'));
+  }
   assert.doesNotMatch(systemAudio, /installer_path_for_exe/);
-  assert.doesNotMatch(systemAudio, /join\("system-audio"\)\.join\("install\.ps1"\)/);
 
   assert.match(build, /VoxveilApo\.dll/);
   assert.match(build, /VoxveilApoCheck\.exe/);
-  assert.match(build, /OUT_DIR/);
-});
-
-test('installer registers the same CLSID as the native component and checker', () => {
-  const native = read('voxveil_apo.cpp').toUpperCase();
-  const checker = read('com_smoke.cpp').toLowerCase();
-  const install = read('install.ps1').toUpperCase();
-  const uninstall = read('uninstall.ps1').toUpperCase();
-  assert.match(install, /7E268E67-2F3C-4F0A-A09C-8B7D27B43F51/);
-  assert.match(uninstall, /7E268E67-2F3C-4F0A-A09C-8B7D27B43F51/);
-  for (const part of ['7e268e67', '0x2f3c', '0x4f0a']) {
-    assert.match(native.toLowerCase(), new RegExp(part));
-    assert.match(checker, new RegExp(part));
-  }
-  assert.equal(clsid.length > 0, true);
+  assert.match(build, /VoxveilApo\.inf/);
+  assert.match(build, /targets\.ps1/);
+  assert.match(build, /extension\.ps1/);
 });
 
 test('installer validates the DLL through the native COM checker', () => {
@@ -65,36 +92,17 @@ test('installer validates the DLL through the native COM checker', () => {
   assert.match(checker, /DllGetClassObject/);
   assert.match(checker, /IClassFactory::CreateInstance/);
   assert.match(checker, /IAudioProcessingObject/);
+  assert.equal(clsid.length > 0, true);
 });
 
-test('installer preserves existing endpoint effects and uses composite EFX', () => {
-  const install = read('install.ps1');
-  const uninstall = read('uninstall.ps1');
-  assert.match(install, /D04E05A6-594B-4FB6-A80D-01AF5EED7D1D\},15/i);
-  assert.match(install, /endpoint-backup\.json/i);
-  assert.match(uninstall, /endpoint-backup\.json/i);
-  assert.match(uninstall, /Restore-Endpoint/i);
-});
-
-test('installer preserves and enables the endpoint system-effects setting', () => {
-  const install = read('install.ps1');
-  const uninstall = read('uninstall.ps1');
-  for (const text of [install, uninstall]) {
-    assert.match(text, /1DA5D803-D492-4EDD-8C23-E0C0FFEE7F0E\},5/i);
-  }
-  assert.match(install, /SysFxExists/);
-  assert.match(install, /SysFxValue/);
-  assert.match(install, /PropertyType DWord -Value 0/);
-  assert.match(uninstall, /backup\.SysFxExists/);
-  assert.match(uninstall, /backup\.SysFxValue/);
-});
-
-test('development protected-audio change is disclosed and restored', () => {
+test('development protected-audio change is disclosed and restored without enabling test mode', () => {
   const install = read('install.ps1');
   const uninstall = read('uninstall.ps1');
   const readme = read('README.txt');
   for (const text of [install, uninstall, readme]) {
     assert.match(text, /DisableProtectedAudioDG/i);
+    assert.doesNotMatch(text, /bcdedit/i);
+    assert.doesNotMatch(text, /testsigning/i);
   }
   assert.match(install, /protected-audio-backup\.json/i);
   assert.match(uninstall, /protected-audio-backup\.json/i);
