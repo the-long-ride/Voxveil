@@ -89,6 +89,9 @@ jobs:
         run: node scripts/ci/require-lockfiles.mjs
       - name: Install locked dependencies without lifecycle scripts
         run: npm ci --ignore-scripts --no-fund --no-audit
+      - name: Verify Windows APO package contract
+        if: inputs.platform == 'windows' && (inputs.edition == 'pro-system' || inputs.edition == 'all')
+        run: node --test scripts/ci/check-apo-package.test.mjs scripts/release/collect-artifacts.test.mjs
       - name: Run source quality gates
         run: npm run quality
       - name: Run UI coverage gate
@@ -137,7 +140,42 @@ jobs:
         run: node scripts/ci/require-lockfiles.mjs
       - name: Install locked dependencies without lifecycle scripts
         run: npm ci --ignore-scripts --no-fund --no-audit
+      - name: Locate MSBuild for Windows APO
+        if: matrix.platform == 'windows' && matrix.edition == 'pro-system'
+        id: msbuild
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $path = & $vswhere -latest -requires Microsoft.Component.MSBuild -find 'MSBuild\**\Bin\MSBuild.exe' | Select-Object -First 1
+          if (-not $path) { throw 'MSBuild was not found' }
+          "path=$path" >> $env:GITHUB_OUTPUT
+      - name: Build and test Windows APO
+        if: matrix.platform == 'windows' && matrix.edition == 'pro-system'
+        shell: pwsh
+        run: |
+          & '${{ steps.msbuild.outputs.path }}' native/windows/apo/VoxveilApoTests.vcxproj /m /p:Configuration=Release /p:Platform=x64
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & native/windows/apo/out/Release/VoxveilApoTests.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & '${{ steps.msbuild.outputs.path }}' native/windows/apo/VoxveilApo.vcxproj /m /p:Configuration=Release /p:Platform=x64
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Stage Windows system-audio component
+        if: matrix.platform == 'windows' && matrix.edition == 'pro-system'
+        shell: pwsh
+        run: |
+          $target = 'target/system-audio'
+          New-Item -ItemType Directory -Path $target -Force | Out-Null
+          Copy-Item 'native/windows/apo/out/Release/VoxveilApo.dll' "$target/VoxveilApo.dll" -Force
+          Copy-Item 'native/windows/apo/install.ps1' "$target/install.ps1" -Force
+          Copy-Item 'native/windows/apo/uninstall.ps1' "$target/uninstall.ps1" -Force
+          Copy-Item 'native/windows/apo/README.txt' "$target/README.txt" -Force
+      - name: Build Windows pro-system portable application
+        if: matrix.platform == 'windows' && matrix.edition == 'pro-system'
+        env:
+          VOXVEIL_EDITION: pro-system
+        run: npm run tauri --workspace @voxveil/tauri-shell -- build --no-bundle --config tauri.windows.conf.json
       - name: Build selected variant
+        if: matrix.platform != 'windows' || matrix.edition != 'pro-system'
         env:
           VOXVEIL_EDITION: ${{ matrix.edition }}
         run: node scripts/build/build-variant.mjs --platform ${{ matrix.platform }} --edition ${{ matrix.edition }}
@@ -150,6 +188,13 @@ jobs:
             throw "Expected portable Windows binary was not produced: $binary"
           }
           Get-Item -LiteralPath $binary | Format-List FullName, Length, LastWriteTime
+      - name: Verify Windows APO package
+        if: matrix.platform == 'windows' && matrix.edition == 'pro-system'
+        shell: pwsh
+        run: |
+          foreach ($file in @('target/system-audio/VoxveilApo.dll', 'target/system-audio/install.ps1', 'target/system-audio/uninstall.ps1', 'target/system-audio/README.txt')) {
+            if (-not (Test-Path -LiteralPath $file -PathType Leaf)) { throw "Expected system-audio file was not produced: $file" }
+          }
       - name: Collect and checksum packages and portable binary
         run: node scripts/release/collect-artifacts.mjs --platform ${{ matrix.platform }} --edition ${{ matrix.edition }}
       - name: Upload verified package
