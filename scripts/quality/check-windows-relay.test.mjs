@@ -42,8 +42,9 @@ test('portable Windows workflow includes a development system-audio component', 
   assert.match(workflow, /windows-2025-vs2026/);
   assert.match(workflow, /microsoft\/Windows-driver-samples/);
   assert.match(workflow, /microsoft\/setup-msbuild@[0-9a-f]{40}/);
-  assert.match(workflow, /audio\\sysvad\\sysvad\.sln/);
-  assert.match(workflow, /setup\\devcon\\devcon\.sln/);
+  assert.match(workflow, /Build-Samples\.ps1/);
+  assert.match(workflow, /-Samples 'audio\.sysvad','setup\.devcon'/);
+  assert.match(workflow, /-NtTargetVersion '10\.0\.28000'/);
   assert.match(workflow, /system-audio/);
   assert.match(install, /Root\\Sysvad_ComponentizedAudioSample/);
   assert.match(install, /test-signed/i);
@@ -58,7 +59,6 @@ test('Windows relay captures the virtual render endpoint through WASAPI loopback
   assert.match(relay, /initialize_client\(&format, &Direction::Capture, &mode\)/);
   assert.doesNotMatch(relay, /is_virtual_capture_name/);
 });
-
 
 test('WASAPI COM initialization converts HRESULT before Rust error mapping', async () => {
   const source = await read('crates/voxveil-windows-audio/src/relay.rs');
