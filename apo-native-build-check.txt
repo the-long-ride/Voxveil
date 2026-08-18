@@ -1,2 +1,2 @@
 Temporary CI marker for Windows APO native compilation.
-Final retry: static CRT, COM activation smoke test, full Windows APO artifact verification.
+Retry: native COM checker, static CRT, SysFx preservation, and full artifact verification.
