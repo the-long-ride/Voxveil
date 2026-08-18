@@ -8,7 +8,9 @@ const UNINSTALL_SCRIPT: &str = include_str!("../../native/windows/apo/uninstall.
 
 fn validate_pe_payload(name: &str, bytes: &[u8]) -> Result<(), String> {
     if bytes.len() < 2 || &bytes[..2] != b"MZ" {
-        return Err(format!("embedded Windows system-audio payload is invalid: {name}"));
+        return Err(format!(
+            "embedded Windows system-audio payload is invalid: {name}"
+        ));
     }
     Ok(())
 }
@@ -45,10 +47,7 @@ fn stage_embedded_package(root: &Path) -> Result<(), String> {
 
 #[cfg(target_os = "windows")]
 fn temporary_package_root() -> std::path::PathBuf {
-    std::env::temp_dir().join(format!(
-        "voxveil-system-audio-{}",
-        std::process::id()
-    ))
+    std::env::temp_dir().join(format!("voxveil-system-audio-{}", std::process::id()))
 }
 
 #[cfg(target_os = "windows")]
@@ -79,7 +78,9 @@ fn run_embedded_installer() -> Result<(), String> {
         .arg("-PackageRoot")
         .arg(&package)
         .status()
-        .map_err(|error| format!("failed to launch embedded Windows system-audio installer: {error}"));
+        .map_err(|error| {
+            format!("failed to launch embedded Windows system-audio installer: {error}")
+        });
 
     let cleanup = fs::remove_dir_all(&package);
     let status = status?;
