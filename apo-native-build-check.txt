@@ -1,2 +1,2 @@
 Temporary CI marker for Windows APO native compilation.
-Retry: UI test queries fixed; continue Rust, native APO, and packaging verification.
+Retry: full UI/Rust/native/APO/package/portable artifact verification.
