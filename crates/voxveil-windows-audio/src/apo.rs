@@ -71,11 +71,7 @@ impl ApoBackend {
         }
     }
 
-    pub fn set_enabled(
-        &mut self,
-        enabled: bool,
-        vocal_level: u8,
-    ) -> Result<BackendProbe, String> {
+    pub fn set_enabled(&mut self, enabled: bool, vocal_level: u8) -> Result<BackendProbe, String> {
         let probe = self.probe();
         if probe.readiness != RelayReadiness::Ready {
             return Err(probe
@@ -91,7 +87,10 @@ impl ApoBackend {
         if self.probe().readiness != RelayReadiness::Ready {
             return;
         }
-        let enabled = self.read_control().map(|bytes| bytes[1] != 0).unwrap_or(false);
+        let enabled = self
+            .read_control()
+            .map(|bytes| bytes[1] != 0)
+            .unwrap_or(false);
         let _ = self.write_control(enabled, value);
     }
 
@@ -151,10 +150,8 @@ mod tests {
                 .duration_since(UNIX_EPOCH)
                 .expect("clock should be after epoch")
                 .as_nanos();
-            let root = std::env::temp_dir().join(format!(
-                "voxveil-apo-{name}-{}-{nonce}",
-                std::process::id()
-            ));
+            let root = std::env::temp_dir()
+                .join(format!("voxveil-apo-{name}-{}-{nonce}", std::process::id()));
             let state = root.join("state");
             let install = root.join("install");
             fs::create_dir_all(&state).expect("state root");
@@ -204,7 +201,10 @@ mod tests {
         roots.install_component([1, 0, 100]);
         let mut backend = ApoBackend::with_roots(roots.state.clone(), roots.install.clone());
         backend.set_enabled(true, 25).expect("enable APO");
-        assert_eq!(fs::read(roots.state.join("apo-control.bin")).unwrap(), [1, 1, 25]);
+        assert_eq!(
+            fs::read(roots.state.join("apo-control.bin")).unwrap(),
+            [1, 1, 25]
+        );
     }
 
     #[test]
@@ -213,6 +213,9 @@ mod tests {
         roots.install_component([1, 1, 40]);
         let backend = ApoBackend::with_roots(roots.state.clone(), roots.install.clone());
         backend.set_vocal_level(250);
-        assert_eq!(fs::read(roots.state.join("apo-control.bin")).unwrap(), [1, 1, 100]);
+        assert_eq!(
+            fs::read(roots.state.join("apo-control.bin")).unwrap(),
+            [1, 1, 100]
+        );
     }
 }
