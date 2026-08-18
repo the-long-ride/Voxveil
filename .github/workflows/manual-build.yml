@@ -20,6 +20,10 @@ on:
         default: all
         type: choice
         options: [all, standard, pro-system]
+  push:
+    branches: [feat/windows-apo-backend]
+    paths:
+      - .github/workflows/manual-build.yml
 
 permissions:
   contents: read
@@ -35,7 +39,7 @@ jobs:
       - name: Checkout requested ref
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ inputs.ref || github.ref }}
           persist-credentials: false
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -45,8 +49,8 @@ jobs:
         id: build_matrix
         shell: bash
         env:
-          SELECTED_PLATFORM: ${{ inputs.platform }}
-          SELECTED_EDITION: ${{ inputs.edition }}
+          SELECTED_PLATFORM: ${{ inputs.platform || 'windows' }}
+          SELECTED_EDITION: ${{ inputs.edition || 'pro-system' }}
         run: |
           node <<'NODE'
           const fs = require('node:fs');
@@ -122,10 +126,10 @@ jobs:
       - name: Checkout requested ref
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ inputs.ref || github.ref }}
           persist-credentials: false
       - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.1
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '24.17.0'
       - name: Install Linux Tauri system packages
