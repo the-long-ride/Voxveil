@@ -423,14 +423,14 @@ size_t mutateTopologyAudioInterfaces(bool install) {
             HKEY interfaceKey = install
                 ? SetupDiCreateDeviceInterfaceRegKeyW(info, &interfaceData, 0,
                                                       KEY_READ | KEY_WRITE, nullptr, nullptr)
-                : SetupDiOpenDeviceInterfaceRegKeyW(info, &interfaceData, 0,
-                                                    KEY_READ | KEY_WRITE);
+                : SetupDiOpenDeviceInterfaceRegKey(info, &interfaceData, 0,
+                                                   KEY_READ | KEY_WRITE);
             if (interfaceKey == INVALID_HANDLE_VALUE) {
                 if (!install && GetLastError() == ERROR_FILE_NOT_FOUND) {
                     continue;
                 }
                 throw win32Error(install ? "SetupDiCreateDeviceInterfaceRegKeyW"
-                                         : "SetupDiOpenDeviceInterfaceRegKeyW");
+                                         : "SetupDiOpenDeviceInterfaceRegKey");
             }
             const bool didChange = install ? installFx(interfaceKey) : removeFx(interfaceKey);
             RegCloseKey(interfaceKey);
