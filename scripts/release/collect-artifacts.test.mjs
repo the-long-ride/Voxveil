@@ -30,10 +30,47 @@ test('windows collection includes the raw voxveil executable beside installers',
   await writeFile(path.join(installerDir, 'Voxveil_0.1.0_x64.msi'), 'installer');
   await writeFile(path.join(releaseDir, 'voxveil.exe'), 'portable');
 
-  const result = await collectArtifacts(root, 'windows', 'pro-system');
+  const result = await collectArtifacts(root, 'windows', 'standard');
   assert.deepEqual(
     result.files.map((file) => file.name).sort(),
     ['Voxveil_0.1.0_x64.msi', 'voxveil.exe'],
+  );
+});
+
+test('windows pro-system collection requires and preserves the system-audio package', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'voxveil-artifacts-'));
+  const releaseDir = path.join(root, 'target/release');
+  const componentDir = path.join(root, 'target/system-audio');
+  await mkdir(releaseDir, { recursive: true });
+  await mkdir(componentDir, { recursive: true });
+  await writeFile(path.join(releaseDir, 'voxveil.exe'), 'portable');
+  for (const file of ['VoxveilApo.dll', 'install.ps1', 'uninstall.ps1', 'README.txt']) {
+    await writeFile(path.join(componentDir, file), file);
+  }
+
+  const result = await collectArtifacts(root, 'windows', 'pro-system');
+  assert.deepEqual(
+    result.files.map((file) => file.name).sort(),
+    [
+      'system-audio/README.txt',
+      'system-audio/VoxveilApo.dll',
+      'system-audio/install.ps1',
+      'system-audio/uninstall.ps1',
+      'voxveil.exe',
+    ],
+  );
+  const sums = await readFile(path.join(result.outputDir, 'SHA256SUMS'), 'utf8');
+  assert.match(sums, /system-audio\/VoxveilApo\.dll/);
+});
+
+test('windows pro-system collection rejects a missing system-audio package', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'voxveil-artifacts-'));
+  const releaseDir = path.join(root, 'target/release');
+  await mkdir(releaseDir, { recursive: true });
+  await writeFile(path.join(releaseDir, 'voxveil.exe'), 'portable');
+  await assert.rejects(
+    () => collectArtifacts(root, 'windows', 'pro-system'),
+    /system-audio package/i,
   );
 });
 
