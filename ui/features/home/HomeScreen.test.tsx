@@ -21,7 +21,7 @@ function modelWithInstallFailure(error: unknown): VoxveilModel {
 }
 
 describe('HomeScreen system audio installation', () => {
-  it('shows structured installer details and copies them', async () => {
+  it('keeps diagnostics visible and opens details automatically when installation fails', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
@@ -40,11 +40,14 @@ describe('HomeScreen system audio installation', () => {
       </I18nextProvider>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Install system audio component' }));
-    expect(await screen.findByText('Windows system-audio installation failed')).toBeInTheDocument();
+    const detailsButton = screen.getByRole('button', { name: 'View details' });
+    expect(detailsButton).toBeVisible();
+    expect(detailsButton).toBeDisabled();
 
-    fireEvent.click(screen.getByRole('button', { name: 'View details' }));
-    const dialog = screen.getByRole('dialog', { name: 'System audio installation failed' });
+    fireEvent.click(screen.getByRole('button', { name: 'Install system audio component' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'System audio installation failed' });
+    expect(screen.getByRole('button', { name: 'View details' })).toBeEnabled();
     expect(within(dialog).getByText(/Exit code: 1/)).toBeInTheDocument();
     expect(within(dialog).getByText(/Preparing Voxveil APO/)).toBeInTheDocument();
     expect(within(dialog).getByText(/Access to the registry key is denied/)).toBeInTheDocument();
@@ -55,5 +58,8 @@ describe('HomeScreen system audio installation', () => {
 
     fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
     expect(screen.queryByRole('dialog', { name: 'System audio installation failed' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'View details' }));
+    expect(screen.getByRole('dialog', { name: 'System audio installation failed' })).toBeInTheDocument();
   });
 });
