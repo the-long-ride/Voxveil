@@ -1,2 +1,2 @@
 Temporary CI marker for Windows APO native compilation.
-Retry: all rustfmt diffs applied; continue Rust/native/APO/portable artifact verification.
+Final retry: static CRT, COM activation smoke test, full Windows APO artifact verification.
