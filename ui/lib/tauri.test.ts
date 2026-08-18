@@ -23,6 +23,13 @@ describe('tauri client', () => {
     ]);
   });
 
+  it('maps Windows system audio installation to its dedicated command', async () => {
+    const invoke = vi.fn().mockResolvedValue(undefined);
+    const client = createVoxveilClient(invoke);
+    await client.installSystemAudioComponent();
+    expect(invoke).toHaveBeenCalledWith('install_windows_audio_component');
+  });
+
   it('maps AI model lifecycle to consent-gated commands', async () => {
     const invoke = vi.fn().mockResolvedValue({ installed: false });
     const client = createVoxveilClient(invoke);
