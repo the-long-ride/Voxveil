@@ -18,6 +18,20 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Verify APO package contract
+        run: node --test scripts/ci/check-apo-package.test.mjs
+      - name: Parse installer scripts
+        shell: pwsh
+        run: |
+          foreach ($script in @('native/windows/apo/install.ps1', 'native/windows/apo/uninstall.ps1')) {
+            $tokens = $null
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $script), [ref]$tokens, [ref]$errors)
+            if ($errors.Count -gt 0) {
+              $errors | Format-List
+              throw "PowerShell parser errors in $script"
+            }
+          }
       - name: Locate MSBuild
         id: msbuild
         shell: pwsh
