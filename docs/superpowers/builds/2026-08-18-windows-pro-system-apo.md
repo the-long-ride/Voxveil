@@ -5,4 +5,4 @@ Temporary build marker used to trigger the Manual Build workflow for the APO fea
 - Platform: windows
 - Edition: pro-system
 - Source base: feat/windows-apo-backend
-- Retry: stale Windows workflow quality assertion fixed
+- Retry: artifact-only PR preflight enabled
