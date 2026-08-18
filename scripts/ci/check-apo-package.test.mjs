@@ -20,6 +20,8 @@ test('APO package contains componentized deployment sources', () => {
     'VoxveilApo.inf',
     'targets.ps1',
     'extension.ps1',
+    'target_discovery.cpp',
+    'VoxveilApoTarget.vcxproj',
     'install.ps1',
     'uninstall.ps1',
     'README.txt',
@@ -39,6 +41,20 @@ test('APO INF follows the Windows 11 componentized APO model', () => {
   assert.match(inf, /HKR,AudioEngine\\AudioProcessingObjects/i);
   assert.match(inf, /VoxveilApo\.dll/i);
   assert.match(inf, /7E268E67-2F3C-4F0A-A09C-8B7D27B43F51/i);
+});
+
+test('target discovery uses SetupAPI instead of localized command text', () => {
+  const source = read('target_discovery.cpp');
+  const project = read('VoxveilApoTarget.vcxproj');
+  const targets = read('targets.ps1');
+  assert.match(source, /SetupDiGetClassDevsW/);
+  assert.match(source, /SetupDiEnumDeviceInterfaces/);
+  assert.match(source, /SetupDiGetDeviceInterfaceDetailW/);
+  assert.match(source, /SetupDiGetDeviceRegistryPropertyW/);
+  assert.match(project, /setupapi\.lib/i);
+  assert.match(project, /<RuntimeLibrary>MultiThreaded<\/RuntimeLibrary>/i);
+  assert.match(targets, /VoxveilApoTarget\.exe/);
+  assert.doesNotMatch(targets, /pnputil[^\n]*enum-(?:interfaces|devices)/i);
 });
 
 test('extension generator uses AddComponent and endpoint EFX properties', () => {
@@ -72,13 +88,15 @@ test('single Windows binary embeds the complete INF deployment payload', () => {
 
   assert.match(systemAudio, /include_bytes!\([^)]*VoxveilApo\.dll/i);
   assert.match(systemAudio, /include_bytes!\([^)]*VoxveilApoCheck\.exe/i);
+  assert.match(systemAudio, /include_bytes!\([^)]*VoxveilApoTarget\.exe/i);
   for (const name of ['VoxveilApo.inf', 'targets.ps1', 'extension.ps1', 'install.ps1', 'uninstall.ps1']) {
-    assert.match(systemAudio, new RegExp(`include_str!\\([^)]*${name.replace('.', '\\.')} ` .trim(), 'i'));
+    assert.match(systemAudio, new RegExp(`include_str!\\([^)]*${name.replace('.', '\\.')}`, 'i'));
   }
   assert.doesNotMatch(systemAudio, /installer_path_for_exe/);
 
   assert.match(build, /VoxveilApo\.dll/);
   assert.match(build, /VoxveilApoCheck\.exe/);
+  assert.match(build, /VoxveilApoTarget\.exe/);
   assert.match(build, /VoxveilApo\.inf/);
   assert.match(build, /targets\.ps1/);
   assert.match(build, /extension\.ps1/);
