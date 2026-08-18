@@ -29,7 +29,10 @@ fn stage_embedded_windows_audio_payload() {
             });
         } else {
             fs::write(&destination, []).unwrap_or_else(|error| {
-                panic!("failed to create placeholder {}: {error}", destination.display())
+                panic!(
+                    "failed to create placeholder {}: {error}",
+                    destination.display()
+                )
             });
         }
     }
