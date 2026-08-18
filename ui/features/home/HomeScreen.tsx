@@ -28,22 +28,70 @@ function backendLabelKey(status: Exclude<ProcessingBackendStatus, 'ready'>): str
   return BACKEND_KEYS[status];
 }
 
+type InstallErrorDetails = {
+  message: string;
+  exitCode: number | null;
+  stdout: string;
+  stderr: string;
+};
+
+function normalizeInstallError(error: unknown): InstallErrorDetails {
+  if (error && typeof error === 'object') {
+    const value = error as Record<string, unknown>;
+    return {
+      message: typeof value.message === 'string' ? value.message : 'Windows system-audio installation failed',
+      exitCode: typeof value.exitCode === 'number' ? value.exitCode : null,
+      stdout: typeof value.stdout === 'string' ? value.stdout : '',
+      stderr: typeof value.stderr === 'string' ? value.stderr : '',
+    };
+  }
+  if (error instanceof Error) {
+    return { message: error.message, exitCode: null, stdout: '', stderr: '' };
+  }
+  if (typeof error === 'string') {
+    try {
+      return normalizeInstallError(JSON.parse(error) as unknown);
+    } catch {
+      return { message: error, exitCode: null, stdout: '', stderr: '' };
+    }
+  }
+  return { message: String(error), exitCode: null, stdout: '', stderr: '' };
+}
+
+function formatInstallErrorDetails(error: InstallErrorDetails): string {
+  const sections = [`Message: ${error.message}`];
+  if (error.exitCode !== null) sections.push(`Exit code: ${error.exitCode}`);
+  if (error.stdout) sections.push(`stdout:\n${error.stdout}`);
+  if (error.stderr) sections.push(`stderr:\n${error.stderr}`);
+  return sections.join('\n\n');
+}
+
 export function HomeScreen({ model, aiModelReady }: { model: VoxveilModel; aiModelReady: boolean }) {
   const { t } = useTranslation();
   const { state } = model;
   const [installing, setInstalling] = useState(false);
-  const [installError, setInstallError] = useState<string | null>(null);
+  const [installError, setInstallError] = useState<InstallErrorDetails | null>(null);
+  const [showInstallErrorDetails, setShowInstallErrorDetails] = useState(false);
+  const [detailsCopied, setDetailsCopied] = useState(false);
 
   const installSystemAudio = async () => {
     setInstalling(true);
     setInstallError(null);
+    setShowInstallErrorDetails(false);
+    setDetailsCopied(false);
     try {
       await model.installSystemAudioComponent();
     } catch (error) {
-      setInstallError(error instanceof Error ? error.message : String(error));
+      setInstallError(normalizeInstallError(error));
     } finally {
       setInstalling(false);
     }
+  };
+
+  const copyInstallErrorDetails = async () => {
+    if (!installError) return;
+    await navigator.clipboard.writeText(formatInstallErrorDetails(installError));
+    setDetailsCopied(true);
   };
 
   return (
@@ -63,7 +111,18 @@ export function HomeScreen({ model, aiModelReady }: { model: VoxveilModel; aiMod
               </button>
             </div>
           )}
-          {installError && <span className="model-error">{installError}</span>}
+          {installError && (
+            <div className="install-error-summary">
+              <span className="model-error">{installError.message}</span>
+              <button
+                type="button"
+                className="action-button is-subtle install-error-details-button"
+                onClick={() => setShowInstallErrorDetails(true)}
+              >
+                {t('processing.viewErrorDetails', { defaultValue: 'View details' })}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -89,6 +148,38 @@ export function HomeScreen({ model, aiModelReady }: { model: VoxveilModel; aiMod
         <div><span>{t('status.load')}</span><strong>{t(loadLabelKey(state.load))}</strong></div>
         <div><span>{t('status.output')}</span><strong>{state.physicalOutput}</strong></div>
       </div>
+
+      {showInstallErrorDetails && installError && (
+        <div className="dialog-backdrop" role="presentation" onMouseDown={() => setShowInstallErrorDetails(false)}>
+          <div
+            className="consent-dialog install-error-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="install-error-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="install-error-dialog-heading">
+              <div>
+                <h2 id="install-error-title">
+                  {t('processing.installErrorTitle', { defaultValue: 'System audio installation failed' })}
+                </h2>
+                <p>{t('processing.installErrorDescription', { defaultValue: 'Voxveil captured the installer output below.' })}</p>
+              </div>
+            </div>
+            <pre className="install-error-output">{formatInstallErrorDetails(installError)}</pre>
+            <div className="dialog-actions">
+              <button type="button" className="action-button is-subtle" onClick={() => void copyInstallErrorDetails()}>
+                {detailsCopied
+                  ? t('processing.errorDetailsCopied', { defaultValue: 'Copied' })
+                  : t('processing.copyErrorDetails', { defaultValue: 'Copy details' })}
+              </button>
+              <button type="button" className="action-button" onClick={() => setShowInstallErrorDetails(false)}>
+                {t('common.close', { defaultValue: 'Close' })}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
