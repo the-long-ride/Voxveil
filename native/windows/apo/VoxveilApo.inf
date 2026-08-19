@@ -20,6 +20,9 @@ AddReg=Apo_AddReg
 [ApoComponent_Install.HW]
 AddReg=FriendlyName_AddReg
 
+[ApoComponent_Install.Services]
+AddService=,2
+
 [Apo_CopyFiles]
 VoxveilApo.dll
 
@@ -52,6 +55,12 @@ VoxveilApo.dll=1
 
 [DestinationDirs]
 Apo_CopyFiles=13
+
+[SignatureAttributes]
+VoxveilApo.dll=SignatureAttributes.PETrust
+
+[SignatureAttributes.PETrust]
+PETrust=true
 
 [Strings]
 MfgName="Voxveil"
