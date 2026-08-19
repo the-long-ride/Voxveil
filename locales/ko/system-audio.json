@@ -1,0 +1,16 @@
+{
+  "title": "Windows 시스템 오디오",
+  "description": "감지된 재생 출력",
+  "backendDescription": "Voxveil이 아래에서 Windows 재생 출력을 감지했습니다. 드라이버 바인딩과 호환성은 자동으로 확인됩니다.",
+  "default": "기본값",
+  "readyToInstall": "설치 준비됨",
+  "signedComponentRequired": "서명된 구성 요소 필요",
+  "ambiguous": "드라이버 토폴로지가 불명확함",
+  "install": "설치",
+  "installing": "설치 중…",
+  "installAll": "호환되는 모든 출력에 설치",
+  "refresh": "새로 고침",
+  "refreshing": "새로 고치는 중…",
+  "detecting": "재생 출력을 감지하는 중…",
+  "none": "감지된 재생 출력이 없습니다."
+}
