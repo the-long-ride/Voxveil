@@ -39,7 +39,7 @@ $template = Join-Path $root 'VoxveilApoExtension.inf.template'
 $generator = Join-Path $root 'new-apo-extension-inf.ps1'
 $control = Join-Path $root 'voxveil-control.exe'
 
-foreach ($required in @($apoInf, $apoDll, $template, $generator)) {
+foreach ($required in @($apoInf, $apoDll)) {
   if (-not (Test-Path $required)) { throw "Required system-audio file not found: $required" }
 }
 
@@ -48,12 +48,15 @@ New-Item -ItemType Directory -Force -Path $work | Out-Null
 try {
   Copy-Item $apoInf, $apoDll -Destination $work
   $extensionInf = Join-Path $work 'VoxveilApoExtension.inf'
-  & $generator -HardwareId $HardwareId -ReferenceString $ReferenceString -TemplatePath $template -OutputPath $extensionInf
-
-  $inf2cat = Find-WdkTool 'Inf2Cat.exe'
-  $signtool = Find-WdkTool 'signtool.exe'
 
   if ($TestSign) {
+    foreach ($required in @($template, $generator)) {
+      if (-not (Test-Path $required)) { throw "Required development packaging file not found: $required" }
+    }
+    & $generator -HardwareId $HardwareId -ReferenceString $ReferenceString -TemplatePath $template -OutputPath $extensionInf
+
+    $inf2cat = Find-WdkTool 'Inf2Cat.exe'
+    $signtool = Find-WdkTool 'signtool.exe'
     if (-not $inf2cat -or -not $signtool) {
       throw 'TestSign requires the Windows Driver Kit (Inf2Cat.exe and signtool.exe). Install the WDK first.'
     }
@@ -64,10 +67,9 @@ try {
       Write-Warning 'Enable TESTSIGNING on a dedicated development machine; Secure Boot may need to be disabled.'
     }
 
-    $subject = 'CN=Voxveil Development APO'
     $certificate = New-SelfSignedCertificate `
       -Type CodeSigningCert `
-      -Subject $subject `
+      -Subject 'CN=Voxveil Development APO' `
       -CertStoreLocation 'Cert:\LocalMachine\My' `
       -KeyExportPolicy Exportable `
       -HashAlgorithm SHA256 `
@@ -91,11 +93,20 @@ try {
       if ($LASTEXITCODE -ne 0) { throw "Failed to sign catalog: $($_.Name)" }
     }
   } else {
+    $prebuiltExtension = Join-Path $root 'VoxveilApoExtension.inf'
     $apoCat = Join-Path $root 'VoxveilApo.cat'
     $extensionCat = Join-Path $root 'VoxveilApoExtension.cat'
-    if (-not (Test-Path $apoCat) -or -not (Test-Path $extensionCat)) {
-      throw 'Signed catalogs are missing. Use -TestSign on a WDK development machine or provide production-signed VoxveilApo.cat and VoxveilApoExtension.cat.'
+    foreach ($required in @($prebuiltExtension, $apoCat, $extensionCat)) {
+      if (-not (Test-Path $required)) {
+        throw 'Production install requires a prebuilt device-specific VoxveilApoExtension.inf and its matching production-signed catalogs.'
+      }
     }
+
+    $prebuiltText = Get-Content $prebuiltExtension -Raw
+    if (-not $prebuiltText.Contains($HardwareId) -or -not $prebuiltText.Contains($ReferenceString)) {
+      throw 'The prebuilt production Extension INF does not match the requested HardwareId/ReferenceString.'
+    }
+    Copy-Item $prebuiltExtension $extensionInf
     Copy-Item $apoCat, $extensionCat -Destination $work
   }
 
