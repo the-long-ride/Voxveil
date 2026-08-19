@@ -60,7 +60,7 @@ test('system audio discovery fails closed instead of guessing topology', async (
   assert.match(helper, /Multiple topology references/);
   assert.match(helper, /DEVPKEY_Device_HardwareIds/);
   assert.match(helper, /DEVPKEY_Device_DriverInfPath/);
-  assert.match(helper, /KSCATEGORY_TOPOLOGY/i);
+  assert.match(helper, /DDA54A40-1E4C-11D1-A050-405705C10000/i);
 });
 
 test('browser install flow uses opaque endpoint id and never raw driver identifiers', async () => {
