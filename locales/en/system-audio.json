@@ -1,0 +1,16 @@
+{
+  "title": "Windows System Audio",
+  "description": "Detected playback outputs",
+  "backendDescription": "Voxveil detected your Windows playback outputs below. Driver binding and compatibility are resolved automatically.",
+  "default": "Default",
+  "readyToInstall": "Ready to install",
+  "signedComponentRequired": "Signed component required",
+  "ambiguous": "Ambiguous driver topology",
+  "install": "Install",
+  "installing": "Installing…",
+  "installAll": "Install all compatible outputs",
+  "refresh": "Refresh",
+  "refreshing": "Refreshing…",
+  "detecting": "Detecting playback outputs…",
+  "none": "No playback outputs detected."
+}
