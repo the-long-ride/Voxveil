@@ -34,6 +34,7 @@
     "engine": "엔진",
     "backendUnavailable": "처리를 사용할 수 없음",
     "backendComponentRequired": "이 빌드에는 Windows 시스템 오디오 구성 요소가 아직 설치되어 있지 않습니다. 해당 구성 요소를 사용할 수 있을 때까지 처리는 꺼진 상태로 유지됩니다.",
+    "installComponent": "구성 요소 설치",
     "backendUnsupported": "이 플랫폼 빌드에는 시스템 오디오 처리가 아직 구현되지 않았습니다.",
     "backendFaulted": "오디오 백엔드를 초기화하지 못했습니다. 장치 오디오가 변경되지 않도록 처리를 비활성화했습니다.",
     "backendRoutingRequired": "Voxveil Virtual Audio를 Windows 기본 출력으로 설정한 다음 Voxveil로 돌아오세요. 처리된 오디오는 아래 표시된 물리 출력으로 전달됩니다."
