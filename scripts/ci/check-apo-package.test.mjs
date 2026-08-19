@@ -19,7 +19,7 @@ function assertNoTestModeCommands(text) {
   assert.doesNotMatch(text, /\/set\s+testsigning\s+(?:on|yes|1)/i);
 }
 
-test('Windows 11 APO package is componentized and catalog-backed', () => {
+test('Windows 11 APO development package is componentized and catalog-backed', () => {
   const inf = read('VoxveilApo.inf');
   assert.match(inf, /Class\s*=\s*AudioProcessingObject/i);
   assert.match(inf, /5989fce8-9cd0-467d-8a6a-5419e31529d4/i);
@@ -27,8 +27,9 @@ test('Windows 11 APO package is componentized and catalog-backed', () => {
   assert.match(inf, /SWC\\VEN_VOXV&CID_APO/i);
   assert.match(inf, /%13%\\VoxveilApo\.dll/i);
   assert.match(inf, /\[ApoComponent_Install\.Services\][\s\S]*AddService\s*=\s*,2/i);
-  assert.match(inf, /\[SignatureAttributes\][\s\S]*VoxveilApo\.dll\s*=\s*SignatureAttributes\.PETrust/i);
-  assert.match(inf, /\[SignatureAttributes\.PETrust\][\s\S]*PETrust\s*=\s*true/i);
+  // PETrust is an additional HLK/certification signature. The locally signed
+  // development package deliberately does not request it.
+  assert.doesNotMatch(inf, /SignatureAttributes\.PETrust|PETrust\s*=\s*true/i);
 });
 
 test('Extension INF generator targets exactly one render device and adds the APO component', () => {
