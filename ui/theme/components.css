@@ -86,3 +86,4 @@
 .backend-notice { display: grid; gap: 5px; padding: 16px 0; border-block: 1px solid var(--border); }
 .backend-notice strong { font-size: 13px; font-weight: 600; }
 .backend-notice span { max-width: 680px; color: var(--text-muted); font-size: 12px; line-height: 1.5; }
+.backend-notice .action-button { justify-self: start; margin-top: 8px; }
