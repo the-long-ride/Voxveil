@@ -24,7 +24,7 @@ test('Windows 11 APO development package is componentized and catalog-backed', (
   assert.match(inf, /Class\s*=\s*AudioProcessingObject/i);
   assert.match(inf, /5989fce8-9cd0-467d-8a6a-5419e31529d4/i);
   assert.match(inf, /CatalogFile\s*=\s*VoxveilApo\.cat/i);
-  assert.match(inf, /SWC\\VEN_VOXV&CID_APO/i);
+  assert.match(inf, /APO\\VEN_VOXV&CID_APO/i);
   assert.match(inf, /%13%\\VoxveilApo\.dll/i);
   assert.match(inf, /\[ApoComponent_Install\.Services\][\s\S]*AddService\s*=\s*,2/i);
   // PETrust is an additional HLK/certification signature. The locally signed
