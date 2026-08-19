@@ -40,7 +40,8 @@ impl WindowsAudioBackend {
                 .to_string()
         })?;
 
-        run_control(&control, &["vocal", &self.vocal_level.to_string()])?;
+        let percent = self.vocal_level.to_string();
+        run_control(&control, &["vocal", percent.as_str()])?;
         run_control(&control, &["enabled", if enabled { "1" } else { "0" }])?;
 
         let probe = self.probe();
@@ -56,7 +57,7 @@ impl WindowsAudioBackend {
     pub fn set_vocal_level(&self, value: u8) {
         if let Some(control) = control_executable() {
             let percent = value.min(100).to_string();
-            let _ = run_control(&control, &["vocal", &percent]);
+            let _ = run_control(&control, &["vocal", percent.as_str()]);
         }
     }
 
