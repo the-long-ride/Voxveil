@@ -11,6 +11,7 @@
     "dev": "npm run dev --workspace @voxveil/tauri-shell",
     "dev:windows": "scripts\\dev-windows.cmd",
     "build": "npm run build --workspace @voxveil/tauri-shell",
+    "build:windows": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/windows/build-windows.ps1",
     "build:ui": "npm run build --workspace @voxveil/ui",
     "dev:ui": "npm run dev --workspace @voxveil/ui",
     "tauri": "npm run tauri --workspace @voxveil/tauri-shell --",
