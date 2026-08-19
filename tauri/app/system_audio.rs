@@ -33,6 +33,51 @@ fn select_installable_endpoint(
 }
 
 #[cfg(target_os = "windows")]
+pub(super) fn validate_revalidated_binding(
+    selected: &SystemAudioEndpoint,
+    current: &SystemAudioEndpoint,
+) -> Result<(), String> {
+    let changed = current.status != SystemAudioEndpointStatus::Installable
+        || selected.endpoint_id != current.endpoint_id
+        || !same_optional_value(
+            selected.pnp_instance_id.as_deref(),
+            current.pnp_instance_id.as_deref(),
+        )
+        || !same_optional_value(selected.driver_inf.as_deref(), current.driver_inf.as_deref())
+        || !same_optional_value(
+            selected.topology_reference.as_deref(),
+            current.topology_reference.as_deref(),
+        )
+        || normalized_hardware_ids(&selected.hardware_ids)
+            != normalized_hardware_ids(&current.hardware_ids);
+    if changed {
+        Err("The playback endpoint binding changed during installation setup. Refresh and try again.".into())
+    } else {
+        Ok(())
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn same_optional_value(left: Option<&str>, right: Option<&str>) -> bool {
+    match (left, right) {
+        (Some(left), Some(right)) => left.eq_ignore_ascii_case(right),
+        (None, None) => true,
+        _ => false,
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn normalized_hardware_ids(values: &[String]) -> Vec<String> {
+    let mut values: Vec<_> = values
+        .iter()
+        .map(|value| value.to_ascii_lowercase())
+        .collect();
+    values.sort_unstable();
+    values.dedup();
+    values
+}
+
+#[cfg(target_os = "windows")]
 fn endpoint_dto(endpoint: SystemAudioEndpoint) -> SystemAudioEndpointDto {
     SystemAudioEndpointDto {
         endpoint_id: endpoint.endpoint_id,
@@ -171,8 +216,15 @@ pub fn install_system_audio_component(
 ) -> Result<InstallResultDto, String> {
     #[cfg(target_os = "windows")]
     {
-        let endpoint = select_installable_endpoint(controller.system_audio_endpoints()?, &endpoint_id)?;
-        let descriptor = EndpointInstallDescriptor::try_from(endpoint)?;
+        let selected =
+            select_installable_endpoint(controller.system_audio_endpoints()?, &endpoint_id)?;
+        let current = select_installable_endpoint(controller.system_audio_endpoints()?, &endpoint_id)
+            .map_err(|_| {
+                "The playback endpoint binding changed during installation setup. Refresh and try again."
+                    .to_string()
+            })?;
+        validate_revalidated_binding(&selected, &current)?;
+        let descriptor = EndpointInstallDescriptor::try_from(current)?;
         let executable = std::env::current_exe()
             .map_err(|error| format!("failed to locate the Voxveil executable: {error}"))?;
         let script = system_audio_installer_path(&executable)?;
