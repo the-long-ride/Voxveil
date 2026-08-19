@@ -1,9 +1,6 @@
 name: Temporary Windows APO Binary
 
 on:
-  push:
-    branches:
-      - build/windows-apo-binary
   pull_request:
     branches:
       - fix/windows-componentized-apo
@@ -11,9 +8,13 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: temp-windows-apo-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   build:
-    runs-on: windows-2025
+    runs-on: windows-2022
     timeout-minutes: 90
     steps:
       - name: Checkout
