@@ -17,15 +17,17 @@ function loadLabelKey(load: ProcessingLoad): string {
   return LOAD_KEYS[load];
 }
 
-const BACKEND_KEYS: Record<Exclude<ProcessingBackendStatus, 'ready'>, string> = {
-  'component-required': 'processing.backendComponentRequired',
+const BACKEND_KEYS: Record<Exclude<ProcessingBackendStatus, 'ready' | 'component-required'>, string> = {
   'routing-required': 'processing.backendRoutingRequired',
   unsupported: 'processing.backendUnsupported',
   faulted: 'processing.backendFaulted',
 };
 
-function backendLabelKey(status: Exclude<ProcessingBackendStatus, 'ready'>): string {
-  return BACKEND_KEYS[status];
+function backendDescription(status: Exclude<ProcessingBackendStatus, 'ready'>, t: (key: string) => string): string {
+  if (status === 'component-required') {
+    return 'Voxveil detected your Windows playback outputs below. Driver binding and compatibility are resolved automatically.';
+  }
+  return t(BACKEND_KEYS[status]);
 }
 
 export function HomeScreen({ model, aiModelReady }: { model: VoxveilModel; aiModelReady: boolean }) {
@@ -40,7 +42,7 @@ export function HomeScreen({ model, aiModelReady }: { model: VoxveilModel; aiMod
       {state.backendStatus !== 'ready' && (
         <div className="backend-notice" role="status">
           <strong>{t('processing.backendUnavailable')}</strong>
-          <span>{t(backendLabelKey(state.backendStatus))}</span>
+          <span>{backendDescription(state.backendStatus, t)}</span>
         </div>
       )}
 
