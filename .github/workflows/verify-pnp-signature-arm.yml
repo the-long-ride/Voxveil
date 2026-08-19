@@ -1,0 +1,75 @@
+name: Verify PnP Signature ARM
+
+on:
+  pull_request:
+    branches:
+      - verify/pnp-signature-arm-base
+
+jobs:
+  signature:
+    runs-on: windows-11-vs2026-arm
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prove PnP catalog trust without Test Mode
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (bcdedit /enum '{current}' | Select-String -Pattern '^testsigning\s+Yes' -CaseSensitive:$false) {
+            throw 'Runner unexpectedly has TESTSIGNING enabled.'
+          }
+
+          $root = Join-Path $env:RUNNER_TEMP 'voxveil-pnp-arm-proof'
+          $apo = Join-Path $root 'apo'
+          $ext = Join-Path $root 'extension'
+          New-Item -ItemType Directory -Path $apo,$ext -Force | Out-Null
+
+          $apoInf = Get-Content native/windows/apo/VoxveilApo.inf -Raw
+          $apoInf = $apoInf -replace 'NTamd64', 'NTarm64'
+          Set-Content (Join-Path $apo 'VoxveilApo.inf') $apoInf -Encoding ascii
+          Copy-Item "$env:SystemRoot\System32\version.dll" (Join-Path $apo 'VoxveilApo.dll')
+
+          . ./native/windows/apo/extension.ps1
+          . ./native/windows/apo/catalog.ps1
+          $target = [pscustomobject]@{
+            instanceId = 'ROOT\VOXVEIL_ARM_PROOF\0000'
+            hardwareId = 'ROOT\VOXVEIL_ARM_PROOF'
+            topologyRefs = @('Topology')
+          }
+          $extensionPath = Join-Path $ext 'VoxveilExtension.inf'
+          New-VoxveilExtensionInf -Targets @($target) -Path $extensionPath | Out-Null
+          $extensionText = (Get-Content $extensionPath -Raw) -replace 'NTamd64', 'NTarm64'
+          Set-Content $extensionPath $extensionText -Encoding ascii
+
+          $cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject 'CN=Voxveil PnP ARM Proof' `
+            -CertStoreLocation 'Cert:\LocalMachine\My' -KeyAlgorithm RSA -KeyLength 2048 -HashAlgorithm SHA256 `
+            -NotAfter (Get-Date).AddDays(2)
+          $cer = Join-Path $root 'voxveil-proof.cer'
+          Export-Certificate -Cert $cert -FilePath $cer -Force | Out-Null
+          Import-Certificate -FilePath $cer -CertStoreLocation 'Cert:\LocalMachine\Root' | Out-Null
+          Import-Certificate -FilePath $cer -CertStoreLocation 'Cert:\LocalMachine\TrustedPublisher' | Out-Null
+
+          function New-SignedCatalog([string]$package, [string]$name) {
+            $temp = Join-Path $env:RUNNER_TEMP ($name + '.unsigned.cat')
+            New-FileCatalog -Path $package -CatalogFilePath $temp -CatalogVersion 2 | Out-Null
+            Add-VoxveilPnpCatalogAttributes -Path $temp -OsAttr '2:10.0'
+            $signature = Set-AuthenticodeSignature -FilePath $temp -Certificate $cert -HashAlgorithm SHA256
+            if ($signature.Status -ne 'Valid') {
+              throw "Catalog signature failed: $($signature.Status) $($signature.StatusMessage)"
+            }
+            Move-Item $temp (Join-Path $package $name) -Force
+          }
+
+          New-SignedCatalog $apo 'VoxveilApo.cat'
+          New-SignedCatalog $ext 'VoxveilExtension.cat'
+
+          & pnputil.exe /add-driver (Join-Path $apo 'VoxveilApo.inf')
+          if ($LASTEXITCODE -ne 0) { throw "APO package staging failed: $LASTEXITCODE" }
+          & pnputil.exe /add-driver (Join-Path $ext 'VoxveilExtension.inf')
+          if ($LASTEXITCODE -ne 0) { throw "Extension package staging failed: $LASTEXITCODE" }
+
+          if (bcdedit /enum '{current}' | Select-String -Pattern '^testsigning\s+Yes' -CaseSensitive:$false) {
+            throw 'TESTSIGNING changed during proof.'
+          }
+          Write-Host 'PnP package staging succeeded with TESTSIGNING off.'
