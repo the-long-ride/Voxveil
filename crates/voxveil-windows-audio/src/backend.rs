@@ -36,11 +36,18 @@ mod tests {
     }
 
     #[test]
+    fn installed_faulted_apo_stays_selected_for_diagnostics() {
+        assert_eq!(
+            select_backend(&probe(RelayReadiness::Faulted), &probe(RelayReadiness::Ready)),
+            WindowsBackendKind::Apo
+        );
+    }
+
+    #[test]
     fn unavailable_apo_falls_back_to_relay() {
         for readiness in [
             RelayReadiness::ComponentRequired,
             RelayReadiness::RoutingRequired,
-            RelayReadiness::Faulted,
             RelayReadiness::Unsupported,
         ] {
             assert_eq!(
