@@ -15,9 +15,15 @@ const AVRT_DATA CRegAPOProperties<1> CVoxveilApo::sm_RegProperties(
 CVoxveilApo::CVoxveilApo() noexcept
     : CBaseAudioProcessingObject(sm_RegProperties) {
     state_ = voxveil::OpenOrCreateSharedState(&mapping_);
+    if (state_ != nullptr) {
+        InterlockedIncrement(&state_->loadedInstances);
+    }
 }
 
 CVoxveilApo::~CVoxveilApo() noexcept {
+    if (state_ != nullptr) {
+        InterlockedDecrement(&state_->loadedInstances);
+    }
     voxveil::CloseSharedState(mapping_, state_);
     mapping_ = nullptr;
     state_ = nullptr;
@@ -30,10 +36,6 @@ STDMETHODIMP CVoxveilApo::Initialize(UINT32 cbDataSize, BYTE* data) {
     if (m_bIsInitialized) {
         return APOERR_ALREADY_INITIALIZED;
     }
-
-    // This APO has no immutable per-instance configuration. Windows may pass
-    // APOInitSystemEffects/2/3 data; the audio engine owns that memory and the
-    // base class only needs the initialized state for this simple SFX.
     m_bIsInitialized = true;
     return S_OK;
 }
@@ -53,9 +55,6 @@ STDMETHODIMP_(void) CVoxveilApo::APOProcess(
     UINT32 outputCount,
     APO_CONNECTION_PROPERTY** outputs) {
     ATLASSERT(m_bIsLocked);
-    ATLASSERT(inputCount >= 1);
-    ATLASSERT(outputCount >= 1);
-
     if (inputCount == 0 || outputCount == 0 || inputs == nullptr || outputs == nullptr ||
         inputs[0] == nullptr || outputs[0] == nullptr) {
         return;
