@@ -110,7 +110,7 @@ function Get-TopologyReferences(
 
 function Get-AudioDeviceMetadata([string]$InstanceId) {
   if (-not $InstanceId) { return $null }
-  $hardwareIds = @(Get-DevicePropertyValue $InstanceId 'DEVPKEY_Device_HardwareIds') | Where-Object { $_ }
+  $hardwareIds = @(@(Get-DevicePropertyValue $InstanceId 'DEVPKEY_Device_HardwareIds') | Where-Object { $_ })
   $driverInf = Get-DevicePropertyValue $InstanceId 'DEVPKEY_Device_DriverInfPath'
   if ($hardwareIds.Count -eq 0 -or -not $driverInf) { return $null }
   $device = Get-PnpDevice -InstanceId $InstanceId -ErrorAction SilentlyContinue
