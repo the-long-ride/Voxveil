@@ -24,7 +24,8 @@ pub fn run() {
         .manage(model_manager)
         .invoke_handler(tauri::generate_handler![
             app::commands::get_app_state,
-            app::commands::install_system_audio_component,
+            app::system_audio::list_system_audio_endpoints,
+            app::system_audio::install_system_audio_component,
             app::commands::set_master_enabled,
             app::commands::set_processing_mode,
             app::commands::set_engine,
