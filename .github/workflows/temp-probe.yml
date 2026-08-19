@@ -1,0 +1,12 @@
+name: Temporary Runner Probe
+on:
+  push:
+    branches:
+      - build/windows-apo-binary
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo runner-ok
