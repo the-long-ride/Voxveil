@@ -1,6 +1,6 @@
 name: One-shot Auto Endpoint Validation
 
-# phase: final-windows-v2
+# phase: final-v3
 on:
   push:
     branches:
@@ -12,6 +12,31 @@ permissions:
   contents: read
 
 jobs:
+  ui-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.17.0'
+          cache: npm
+      - name: Validate workflow-free checkout tree
+        shell: bash
+        run: rm -rf .github/workflows
+      - name: Install Node dependencies
+        shell: bash
+        run: npm ci --ignore-scripts --no-fund --no-audit
+      - name: Playback endpoint UI tests
+        shell: bash
+        run: npm run test --workspace @voxveil/ui
+      - name: Typecheck
+        shell: bash
+        run: npm run typecheck
+      - name: Quality checks
+        shell: bash
+        run: npm run test:quality
+
   windows-package:
     runs-on: windows-2022
     timeout-minutes: 120
@@ -43,8 +68,7 @@ jobs:
             }
           }
           $json = '[]' | powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows\discover-system-audio-endpoints.ps1
-          $parsed = $json | ConvertFrom-Json
-          if ($null -eq $parsed) { Write-Host 'Discovery helper returned an empty endpoint set.' }
+          $json | ConvertFrom-Json | Out-Null
       - name: Windows audio tests
         shell: pwsh
         run: cargo test -p voxveil-windows-audio
