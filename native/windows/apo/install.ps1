@@ -21,6 +21,7 @@ $script:PackagesTouched = $false
 
 . (Join-Path $PackageRoot 'targets.ps1')
 . (Join-Path $PackageRoot 'extension.ps1')
+. (Join-Path $PackageRoot 'catalog.ps1')
 
 function Write-InstallResult {
     param([bool]$Success, [string]$Message, [string]$Details = '')
@@ -147,6 +148,7 @@ function New-SignedDriverCatalog {
     $temporaryCatalog = Join-Path $env:TEMP ("voxveil-{0}-{1}.cat" -f [IO.Path]::GetFileNameWithoutExtension($CatalogName), [Guid]::NewGuid().ToString('N'))
     try {
         New-FileCatalog -Path $PackagePath -CatalogFilePath $temporaryCatalog -CatalogVersion 2 | Out-Null
+        Add-VoxveilPnpCatalogAttributes -Path $temporaryCatalog -OsAttr '2:10.0'
         $signature = Set-AuthenticodeSignature -FilePath $temporaryCatalog -Certificate $Certificate -HashAlgorithm SHA256
         if ($signature.Status -ne [System.Management.Automation.SignatureStatus]::Valid) {
             throw "Catalog signing failed for ${CatalogName}: $($signature.StatusMessage)"
@@ -202,7 +204,7 @@ try {
     }
     foreach ($required in @(
         'VoxveilApo.dll', 'VoxveilApoCheck.exe', 'VoxveilApoTarget.exe',
-        'VoxveilApo.inf', 'targets.ps1', 'extension.ps1', 'uninstall.ps1'
+        'VoxveilApo.inf', 'targets.ps1', 'extension.ps1', 'catalog.ps1', 'uninstall.ps1'
     )) {
         if (-not (Test-Path -LiteralPath (Join-Path $PackageRoot $required) -PathType Leaf)) {
             throw "Voxveil system-audio payload is missing: $required"
