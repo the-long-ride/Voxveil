@@ -1,12 +1,22 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { AiModelStatus, EngineKind, OutputMode, ProcessingMode, VoxveilState } from './types';
+import type {
+  AiModelStatus,
+  EngineKind,
+  OutputMode,
+  ProcessingMode,
+  SystemAudioEndpoint,
+  SystemAudioInstallResult,
+  VoxveilState,
+} from './types';
 
 type InvokeFn = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
 
 export function createVoxveilClient(call: InvokeFn = invoke) {
   return {
     getState: () => call<VoxveilState>('get_app_state'),
-    installSystemAudioComponent: () => call<void>('install_system_audio_component'),
+    listSystemAudioEndpoints: () => call<SystemAudioEndpoint[]>('list_system_audio_endpoints'),
+    installSystemAudioComponent: (endpointId: string) =>
+      call<SystemAudioInstallResult>('install_system_audio_component', { endpointId }),
     setMasterEnabled: (enabled: boolean) => call<void>('set_master_enabled', { enabled }),
     setProcessingMode: (mode: ProcessingMode) => call<void>('set_processing_mode', { mode }),
     setEngine: (engine: EngineKind) => call<void>('set_engine', { engine }),
