@@ -28,6 +28,14 @@ export function useVoxveilState() {
     return () => window.removeEventListener('focus', refresh);
   }, [client, native]);
 
+  useEffect(() => {
+    if (!native || state.backendStatus === 'ready') return;
+    const timer = window.setInterval(() => {
+      void client.getState().then(setState).catch(() => undefined);
+    }, 1500);
+    return () => window.clearInterval(timer);
+  }, [client, native, state.backendStatus]);
+
   const recover = useCallback((operation: () => Promise<unknown>) => {
     if (!native) return;
     void operation().catch(async () => {
