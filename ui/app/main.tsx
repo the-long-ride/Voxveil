@@ -5,6 +5,7 @@ import '../theme/tokens.css';
 import '../theme/base.css';
 import './app-shell.css';
 import '../theme/components.css';
+import '../theme/system-audio.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode><App /></StrictMode>,
