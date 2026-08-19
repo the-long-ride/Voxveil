@@ -1,0 +1,16 @@
+.system-audio-panel { display: grid; gap: 14px; padding: 18px 0; border-block: 1px solid var(--border); }
+.system-audio-header { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.system-audio-header > div:first-child { display: grid; gap: 4px; }
+.system-audio-header strong { font-size: 13px; font-weight: 600; }
+.system-audio-header span { color: var(--text-muted); font-size: 11px; }
+.system-audio-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.system-audio-list { display: grid; border-top: 1px solid var(--border); }
+.system-audio-row { min-height: 72px; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.system-audio-identity { min-width: 0; display: grid; gap: 3px; }
+.system-audio-name { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.system-audio-name strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 560; }
+.system-audio-identity > span, .system-audio-identity small { color: var(--text-muted); font-size: 11px; line-height: 1.4; }
+.endpoint-badge { padding: 2px 6px; border: 1px solid var(--border-strong); border-radius: 999px; color: var(--text) !important; font-size: 9px !important; text-transform: uppercase; letter-spacing: 0.04em; }
+.system-audio-state { flex: 0 0 auto; display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
+.system-audio-error { white-space: pre-line; font-size: 11px; }
+@media (max-width: 620px) { .system-audio-header, .system-audio-row { align-items: stretch; flex-direction: column; } .system-audio-actions, .system-audio-state { justify-content: flex-start; } .system-audio-actions .action-button { flex: 1; } }
