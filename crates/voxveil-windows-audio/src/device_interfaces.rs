@@ -100,4 +100,10 @@ mod tests {
         );
         assert_eq!(selection, CandidateSelection::None);
     }
+
+    #[cfg(windows)]
+    #[test]
+    fn runtime_topology_interface_enumeration_is_structured() {
+        assert!(enumerate_topology_interfaces().is_ok());
+    }
 }
