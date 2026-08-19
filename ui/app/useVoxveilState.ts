@@ -15,9 +15,15 @@ function estimatedLatency(engine: EngineKind, quality: number): number {
   return Math.round(24 + quality * 0.72);
 }
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export function useVoxveilState() {
   const native = isTauriRuntime();
   const [state, setState] = useState<VoxveilState>(() => native ? SAFE_NATIVE_STATE : PREVIEW_STATE);
+  const [systemAudioInstallBusy, setSystemAudioInstallBusy] = useState(false);
+  const [systemAudioInstallError, setSystemAudioInstallError] = useState<string | null>(null);
   const client = useMemo(() => createVoxveilClient(), []);
 
   useEffect(() => {
@@ -39,6 +45,20 @@ export function useVoxveilState() {
     setState((current) => typeof next === 'function' ? next(current) : { ...current, ...next });
     recover(operation);
   }, [recover]);
+
+  const installSystemAudioComponent = async () => {
+    if (!native || systemAudioInstallBusy) return;
+    setSystemAudioInstallBusy(true);
+    setSystemAudioInstallError(null);
+    try {
+      await client.installSystemAudioComponent();
+      setState(await client.getState());
+    } catch (error) {
+      setSystemAudioInstallError(errorMessage(error));
+    } finally {
+      setSystemAudioInstallBusy(false);
+    }
+  };
 
   const setMasterEnabled = (masterEnabled: boolean) => {
     if (masterEnabled && state.backendStatus !== 'ready') return;
@@ -74,6 +94,9 @@ export function useVoxveilState() {
 
   return {
     state,
+    systemAudioInstallBusy,
+    systemAudioInstallError,
+    installSystemAudioComponent,
     setMasterEnabled,
     setProcessingMode,
     setEngine,
