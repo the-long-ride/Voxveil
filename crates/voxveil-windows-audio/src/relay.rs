@@ -72,8 +72,7 @@ impl WindowsAudioBackend {
         let endpoints = enumerate_render_blocking()?;
         let directory = system_audio_directory();
         let helper = directory.join("discover-system-audio-endpoints.ps1");
-        let package_available = production_package_available(&directory);
-        let mut enriched = enrich_endpoints(endpoints, &helper, package_available)?;
+        let mut enriched = enrich_endpoints(endpoints, &helper, &directory)?;
 
         let loaded = control_executable()
             .and_then(|control| run_control(&control, &["status"]).ok())
@@ -105,16 +104,6 @@ fn system_audio_directory() -> PathBuf {
         .ok()
         .and_then(|path| path.parent().map(|parent| parent.join("system-audio")))
         .unwrap_or_else(|| PathBuf::from("system-audio"))
-}
-
-fn production_package_available(directory: &std::path::Path) -> bool {
-    [
-        "VoxveilApoExtension.inf",
-        "VoxveilApo.cat",
-        "VoxveilApoExtension.cat",
-    ]
-    .iter()
-    .all(|name| directory.join(name).is_file())
 }
 
 fn control_executable() -> Option<PathBuf> {
