@@ -51,6 +51,24 @@ test('manual Windows build stages the real componentized APO package', async () 
   assert.doesNotMatch(install, /Root\\Sysvad_ComponentizedAudioSample/);
 });
 
+test('component-required state exposes a real bundled installer action', async () => {
+  const home = await read('ui/features/home/HomeScreen.tsx');
+  const model = await read('ui/app/useVoxveilState.ts');
+  const client = await read('ui/lib/tauri.ts');
+  const commands = await read('tauri/app/commands.rs');
+  const tauri = await read('tauri/lib.rs');
+  const english = JSON.parse(await read('locales/en/common.json'));
+
+  assert.match(home, /state\.backendStatus === 'component-required'/);
+  assert.match(home, /model\.installSystemAudioComponent/);
+  assert.match(model, /installSystemAudioComponent/);
+  assert.match(client, /install_system_audio_component/);
+  assert.match(commands, /pub fn install_system_audio_component/);
+  assert.match(tauri, /app::commands::install_system_audio_component/);
+  assert.match(english.processing.installComponent, /install/i);
+  assert.doesNotMatch(english.processing.backendComponentRequired, /GitHub Actions|virtual output/i);
+});
+
 test('Windows readiness requires the APO to be loaded on the active render endpoint', async () => {
   const device = await read('crates/voxveil-windows-audio/src/device.rs');
   const backend = await read('crates/voxveil-windows-audio/src/relay.rs');
