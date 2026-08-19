@@ -1,12 +1,14 @@
 #![forbid(unsafe_code)]
 
 mod device;
+mod discovery;
 mod sample;
 
 #[cfg(windows)]
 mod relay;
 
 pub use device::{BackendProbe, EndpointDescriptor, RelayReadiness};
+pub use discovery::{SystemAudioEndpoint, SystemAudioEndpointStatus};
 pub use sample::process_f32le_stereo;
 
 #[cfg(windows)]
@@ -33,5 +35,8 @@ impl WindowsAudioBackend {
     pub fn set_vocal_level(&self, _value: u8) {}
     pub fn physical_outputs(&self) -> Vec<String> {
         Vec::new()
+    }
+    pub fn system_audio_endpoints(&self) -> Result<Vec<SystemAudioEndpoint>, String> {
+        Ok(Vec::new())
     }
 }
