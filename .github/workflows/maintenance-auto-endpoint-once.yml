@@ -1,6 +1,6 @@
 name: One-shot Auto Endpoint Validation
 
-# phase: final-windows
+# phase: final-windows-v2
 on:
   push:
     branches:
