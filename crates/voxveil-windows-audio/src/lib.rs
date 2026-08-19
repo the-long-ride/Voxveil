@@ -7,6 +7,8 @@ mod sample;
 
 #[cfg(windows)]
 mod relay;
+#[cfg(windows)]
+mod topology;
 
 pub use device::{BackendProbe, EndpointDescriptor, RelayReadiness};
 pub use discovery::{SystemAudioEndpoint, SystemAudioEndpointStatus};
