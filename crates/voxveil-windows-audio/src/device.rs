@@ -31,60 +31,36 @@ impl BackendProbe {
     }
 }
 
-pub fn is_virtual_render_name(name: &str) -> bool {
-    let lower = name.to_ascii_lowercase();
-    lower.contains("voxveil output")
-        || lower.contains("sysvad")
-        || lower.contains("virtual audio device (wdm) - tablet")
-}
-
-pub fn find_virtual_render(render: &[EndpointDescriptor]) -> Option<&EndpointDescriptor> {
-    render
-        .iter()
-        .find(|endpoint| endpoint.is_default && is_virtual_render_name(&endpoint.name))
-        .or_else(|| {
-            render
-                .iter()
-                .find(|endpoint| is_virtual_render_name(&endpoint.name))
-        })
-}
-
-pub fn choose_endpoints(render: &[EndpointDescriptor]) -> BackendProbe {
-    let Some(virtual_render) = find_virtual_render(render) else {
-        return component_required(render, "Voxveil Output is not installed");
-    };
-    let Some(physical) = render
-        .iter()
-        .find(|endpoint| !is_virtual_render_name(&endpoint.name))
-    else {
+pub(crate) fn component_probe(
+    control_available: bool,
+    loaded_instances: u32,
+    physical_output: Option<String>,
+) -> BackendProbe {
+    if !control_available {
         return BackendProbe {
-            readiness: RelayReadiness::Faulted,
-            physical_output: None,
-            detail: Some("No physical render endpoint is available".into()),
-        };
-    };
-    if !virtual_render.is_default {
-        return BackendProbe {
-            readiness: RelayReadiness::RoutingRequired,
-            physical_output: Some(physical.name.clone()),
-            detail: Some("Set Voxveil Output as the Windows default output".into()),
+            readiness: RelayReadiness::ComponentRequired,
+            physical_output,
+            detail: Some(
+                "Voxveil system-audio component is not installed beside the application".into(),
+            ),
         };
     }
+
+    if loaded_instances == 0 {
+        return BackendProbe {
+            readiness: RelayReadiness::ComponentRequired,
+            physical_output,
+            detail: Some(
+                "VoxveilApo.dll is installed but AudioDG has not loaded it on the active render endpoint"
+                    .into(),
+            ),
+        };
+    }
+
     BackendProbe {
         readiness: RelayReadiness::Ready,
-        physical_output: Some(physical.name.clone()),
+        physical_output,
         detail: None,
-    }
-}
-
-fn component_required(render: &[EndpointDescriptor], detail: &str) -> BackendProbe {
-    BackendProbe {
-        readiness: RelayReadiness::ComponentRequired,
-        physical_output: render
-            .iter()
-            .find(|endpoint| endpoint.is_default && !is_virtual_render_name(&endpoint.name))
-            .map(|endpoint| endpoint.name.clone()),
-        detail: Some(detail.into()),
     }
 }
 
@@ -92,65 +68,29 @@ fn component_required(render: &[EndpointDescriptor], detail: &str) -> BackendPro
 mod tests {
     use super::*;
 
-    fn endpoint(name: &str, is_default: bool) -> EndpointDescriptor {
-        EndpointDescriptor {
-            id: name.into(),
-            name: name.into(),
-            is_default,
-        }
+    #[test]
+    fn missing_control_component_is_not_ready() {
+        let probe = component_probe(false, 0, Some("Speakers".into()));
+        assert_eq!(probe.readiness, RelayReadiness::ComponentRequired);
     }
 
     #[test]
-    fn requires_virtual_render_component() {
-        let render = [endpoint("Speakers", true)];
-        assert_eq!(
-            choose_endpoints(&render).readiness,
-            RelayReadiness::ComponentRequired
-        );
+    fn installed_but_not_loaded_apo_is_not_ready() {
+        let probe = component_probe(true, 0, Some("Speakers".into()));
+        assert_eq!(probe.readiness, RelayReadiness::ComponentRequired);
+        assert!(probe.detail.unwrap().contains("AudioDG has not loaded"));
     }
 
     #[test]
-    fn requires_routing_when_voxveil_output_is_not_default() {
-        let render = [
-            endpoint("Speakers", true),
-            endpoint("Voxveil Output", false),
-        ];
-        assert_eq!(
-            choose_endpoints(&render).readiness,
-            RelayReadiness::RoutingRequired
-        );
-    }
-
-    #[test]
-    fn becomes_ready_with_virtual_render_as_default() {
-        let render = [
-            endpoint("Voxveil Output", true),
-            endpoint("Speakers", false),
-        ];
-        let probe = choose_endpoints(&render);
+    fn loaded_apo_is_ready() {
+        let probe = component_probe(true, 1, Some("Speakers".into()));
         assert_eq!(probe.readiness, RelayReadiness::Ready);
         assert_eq!(probe.physical_output.as_deref(), Some("Speakers"));
     }
 
     #[test]
-    fn accepts_sysvad_render_endpoint_in_release_builds() {
-        let render = [
-            endpoint("SYSVAD (with APO Extensions)", true),
-            endpoint("Speakers", false),
-        ];
-        assert_eq!(choose_endpoints(&render).readiness, RelayReadiness::Ready);
-    }
-
-    #[test]
-    fn chooses_default_virtual_endpoint_when_multiple_sysvad_outputs_exist() {
-        let render = [
-            endpoint("Virtual Audio Device (WDM) - Tablet Sample", false),
-            endpoint("SYSVAD (with APO Extensions)", true),
-            endpoint("Speakers", false),
-        ];
-        assert_eq!(
-            find_virtual_render(&render).map(|endpoint| endpoint.name.as_str()),
-            Some("SYSVAD (with APO Extensions)")
-        );
+    fn virtual_endpoint_name_no_longer_changes_readiness() {
+        let probe = component_probe(true, 0, Some("SYSVAD (with APO Extensions)".into()));
+        assert_ne!(probe.readiness, RelayReadiness::Ready);
     }
 }
