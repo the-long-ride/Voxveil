@@ -18,7 +18,12 @@ pub(crate) fn select_topology_candidate(
 ) -> CandidateSelection {
     let same_device: Vec<_> = candidates
         .iter()
-        .filter(|candidate| candidate.device_instance_id.eq_ignore_ascii_case(adapter_device_id))
+        .filter(|candidate| {
+            candidate
+                .device_instance_id
+                .eq_ignore_ascii_case(adapter_device_id)
+                || candidate.interface_path.eq_ignore_ascii_case(adapter_device_id)
+        })
         .cloned()
         .collect();
 
