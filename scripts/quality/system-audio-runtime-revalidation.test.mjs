@@ -8,8 +8,19 @@ const installer = await readFile(
 );
 
 test('elevated installer revalidates the exact native PnP binding', () => {
-  assert.match(installer, /runtimeDeviceId\s*=\s*\[string\]\$descriptor\.pnpInstanceId/);
+  assert.match(
+    installer,
+    /runtimeDeviceId\s*=\s*\[string\]\$descriptor\.bindingPnpInstanceId/,
+  );
   assert.match(installer, /runtimeAliasMatch\s*=\s*\$true/);
+  assert.match(
+    installer,
+    /resolved\.bindingPnpInstanceId[\s\S]*descriptor\.bindingPnpInstanceId/,
+  );
+  assert.match(
+    installer,
+    /resolved\.pnpInstanceId[\s\S]*descriptor\.pnpInstanceId/,
+  );
   assert.doesNotMatch(installer, /\$currentTopology\.Count\s*-ne\s*1/);
   assert.match(
     installer,
