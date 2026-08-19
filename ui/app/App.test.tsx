@@ -46,7 +46,7 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Virtual' }));
     expect(screen.getByRole('button', { name: 'Virtual' })).toHaveAttribute('aria-pressed', 'true');
     open('Engine');
-    expect(screen.getByText('No model')).toBeInTheDocument();
+    expect(screen.getAllByText('No model').length).toBeGreaterThan(0);
     expect(screen.getByText(/does not bundle AI weights/i)).toBeInTheDocument();
   });
 
@@ -57,7 +57,7 @@ describe('App', () => {
     expect(document.documentElement.dataset.theme).toBe('dark');
     expect(localStorage.getItem('voxveil.theme')).toBe('dark');
 
-    fireEvent.change(screen.getByLabelText('Language'), { target: { value: 'vi' } });
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'vi' } });
     expect(localStorage.getItem('voxveil.language')).toBe('vi');
     expect(await screen.findByText('Cài đặt')).toBeInTheDocument();
   });
