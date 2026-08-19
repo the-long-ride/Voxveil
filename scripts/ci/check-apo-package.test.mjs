@@ -76,6 +76,11 @@ test('installer generates signed catalogs and installs both PnP packages without
   assertNoTestModeCommands(install);
 });
 
+test('installer grants AudioDG LocalService access to control and heartbeat state', () => {
+  const install = read('install.ps1');
+  assert.match(install, /S-1-5-19:\(OI\)\(CI\)M/i);
+});
+
 test('uninstaller removes Voxveil driver-store packages and development trust', () => {
   const uninstall = read('uninstall.ps1');
   assert.match(uninstall, /Get-WindowsDriver/i);
