@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 mod device;
+mod device_interfaces;
 mod discovery;
 mod sample;
 
