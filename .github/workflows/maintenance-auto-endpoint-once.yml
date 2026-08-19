@@ -1,6 +1,6 @@
 name: One-shot Auto Endpoint Validation
 
-# phase: tauri-red
+# phase: tauri-green
 on:
   push:
     branches:
@@ -17,9 +17,22 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.17.0'
+          cache: npm
       - name: Validate workflow-free checkout tree
         shell: pwsh
         run: Remove-Item .github/workflows -Recurse -Force
+      - name: Install Node dependencies
+        shell: pwsh
+        run: npm ci --ignore-scripts --no-fund --no-audit
+      - name: Windows audio tests
+        shell: pwsh
+        run: cargo test -p voxveil-windows-audio
       - name: Tauri endpoint install tests
         shell: pwsh
         run: cargo test -p voxveil-tauri
+      - name: Quality endpoint contract
+        shell: pwsh
+        run: npm run test:quality
