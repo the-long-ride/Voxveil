@@ -4,6 +4,7 @@ param()
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $TopologyGuid = '{DDA54A40-1E4C-11D1-A050-405705C10000}'
+$AudioGuid = '{6994AD04-93EF-11D0-A3CC-00A0C9223196}'
 
 function Get-DevicePropertyValue([string]$InstanceId, [string]$KeyName) {
   try {
@@ -55,7 +56,11 @@ function Resolve-InfToken([string]$Value, [hashtable]$Strings) {
   return $value
 }
 
-function Get-TopologyReferences([string]$InfPath, [string[]]$HardwareIds) {
+function Get-TopologyReferences(
+  [string]$InfPath,
+  [string[]]$HardwareIds,
+  [bool]$AllowAudioAlias
+) {
   if (-not (Test-Path $InfPath -PathType Leaf)) { return @() }
   $lines = Join-InfLogicalLines @(Get-Content $InfPath)
   $strings = Read-InfStrings $lines
@@ -94,10 +99,27 @@ function Get-TopologyReferences([string]$InfPath, [string[]]$HardwareIds) {
     if ($clean -notmatch '^AddInterface\s*=\s*([^,]+)\s*,\s*([^,]+)') { continue }
     $category = Resolve-InfToken $Matches[1] $strings
     $reference = Resolve-InfToken $Matches[2] $strings
-    $isTopology = $category -ieq $TopologyGuid -or $reference -match '(?i)topo'
-    if ($isTopology -and $reference) { [void]$references.Add($reference) }
+    $isTopology = $category -ieq $TopologyGuid
+    $isAliasedAudio = $AllowAudioAlias -and $category -ieq $AudioGuid
+    if (($isTopology -or $isAliasedAudio) -and $reference) {
+      [void]$references.Add($reference)
+    }
   }
   return @($references | Sort-Object)
+}
+
+function Get-AudioDeviceMetadata([string]$InstanceId) {
+  if (-not $InstanceId) { return $null }
+  $hardwareIds = @(Get-DevicePropertyValue $InstanceId 'DEVPKEY_Device_HardwareIds') | Where-Object { $_ }
+  $driverInf = Get-DevicePropertyValue $InstanceId 'DEVPKEY_Device_DriverInfPath'
+  if ($hardwareIds.Count -eq 0 -or -not $driverInf) { return $null }
+  $device = Get-PnpDevice -InstanceId $InstanceId -ErrorAction SilentlyContinue
+  return [pscustomobject]@{
+    InstanceId = $InstanceId
+    AdapterName = if ($device) { [string]$device.FriendlyName } else { $null }
+    HardwareIds = @($hardwareIds | ForEach-Object { [string]$_ })
+    DriverInf = [string]$driverInf
+  }
 }
 
 function Resolve-ParentAudioDevice([string]$EndpointInstanceId) {
@@ -106,17 +128,8 @@ function Resolve-ParentAudioDevice([string]$EndpointInstanceId) {
     $parent = Get-DevicePropertyValue $current 'DEVPKEY_Device_Parent'
     if (-not $parent) { break }
     $parent = [string]$parent
-    $hardwareIds = @(Get-DevicePropertyValue $parent 'DEVPKEY_Device_HardwareIds') | Where-Object { $_ }
-    $driverInf = Get-DevicePropertyValue $parent 'DEVPKEY_Device_DriverInfPath'
-    if ($hardwareIds.Count -gt 0 -and $driverInf) {
-      $device = Get-PnpDevice -InstanceId $parent -ErrorAction SilentlyContinue
-      return [pscustomobject]@{
-        InstanceId = $parent
-        AdapterName = if ($device) { [string]$device.FriendlyName } else { $null }
-        HardwareIds = @($hardwareIds | ForEach-Object { [string]$_ })
-        DriverInf = [string]$driverInf
-      }
-    }
+    $metadata = Get-AudioDeviceMetadata $parent
+    if ($metadata) { return $metadata }
     $current = $parent
   }
   return $null
@@ -140,6 +153,12 @@ function Match-EndpointPnpDevice($CoreEndpoint, [object[]]$PnpEndpoints) {
   return [pscustomobject]@{ Device = $null; Detail = 'No present AudioEndpoint PnP device matched this Core Audio endpoint.' }
 }
 
+function Get-OptionalProperty($Object, [string]$Name) {
+  $property = $Object.PSObject.Properties[$Name]
+  if ($property) { return $property.Value }
+  return $null
+}
+
 $inputJson = [Console]::In.ReadToEnd()
 $trimmedInput = $inputJson.Trim()
 if (-not $trimmedInput) { throw 'Expected Core Audio endpoint JSON on stdin.' }
@@ -152,39 +171,57 @@ $pnpEndpoints = @(Get-PnpDevice -Class AudioEndpoint -PresentOnly -ErrorAction S
 $results = [Collections.Generic.List[object]]::new()
 
 foreach ($endpoint in $coreEndpoints) {
-  $match = Match-EndpointPnpDevice $endpoint $pnpEndpoints
-  if (-not $match.Device) {
+  $runtimeDeviceId = [string](Get-OptionalProperty $endpoint 'runtimeDeviceId')
+  $runtimeAliasMatch = [bool](Get-OptionalProperty $endpoint 'runtimeAliasMatch')
+  $metadata = $null
+  $detail = $null
+
+  if ($runtimeDeviceId) {
+    $metadata = Get-AudioDeviceMetadata $runtimeDeviceId
+    if (-not $metadata) {
+      $detail = 'Windows resolved the runtime topology adapter, but its driver metadata was not available on that exact devnode.'
+    }
+  } else {
+    $match = Match-EndpointPnpDevice $endpoint $pnpEndpoints
+    if (-not $match.Device) {
+      $results.Add([pscustomobject]@{
+        endpointId = [string]$endpoint.endpointId; adapterName = $null; pnpInstanceId = $null
+        hardwareIds = @(); driverInf = $null; topologyReferences = @(); detail = $match.Detail
+      })
+      continue
+    }
+    $metadata = Resolve-ParentAudioDevice ([string]$match.Device.InstanceId)
+    if (-not $metadata) {
+      $detail = 'The playback endpoint parent chain did not expose hardware IDs and an installed driver INF.'
+    }
+  }
+
+  if (-not $metadata) {
     $results.Add([pscustomobject]@{
-      endpointId = [string]$endpoint.endpointId; adapterName = $null; pnpInstanceId = $null
-      hardwareIds = @(); driverInf = $null; topologyReferences = @(); detail = $match.Detail
+      endpointId = [string]$endpoint.endpointId
+      adapterName = $null
+      pnpInstanceId = if ($runtimeDeviceId) { $runtimeDeviceId } else { $null }
+      hardwareIds = @(); driverInf = $null; topologyReferences = @(); detail = $detail
     })
     continue
   }
 
-  $parent = Resolve-ParentAudioDevice ([string]$match.Device.InstanceId)
-  if (-not $parent) {
-    $results.Add([pscustomobject]@{
-      endpointId = [string]$endpoint.endpointId; adapterName = $null; pnpInstanceId = $null
-      hardwareIds = @(); driverInf = $null; topologyReferences = @()
-      detail = 'The playback endpoint parent chain did not expose hardware IDs and an installed driver INF.'
-    })
-    continue
-  }
-
-  $infPath = Join-Path $env:windir ('INF\' + $parent.DriverInf)
-  $topology = @(Get-TopologyReferences $infPath $parent.HardwareIds)
-  $detail = if ($topology.Count -gt 1) {
-    'Multiple topology references matched the installed audio driver; Voxveil will not guess.'
+  $infPath = Join-Path $env:windir ('INF\' + $metadata.DriverInf)
+  $topology = @(Get-TopologyReferences $infPath $metadata.HardwareIds $runtimeAliasMatch)
+  if ($topology.Count -gt 1) {
+    $detail = 'Multiple same-device interface reference strings matched; Voxveil will not guess.'
+  } elseif ($topology.Count -eq 0 -and -not $runtimeDeviceId) {
+    $detail = 'No unambiguous topology AddInterface reference was found in the installed audio driver INF.'
   } elseif ($topology.Count -eq 0) {
-    'No unambiguous topology AddInterface reference was found in the installed audio driver INF.'
-  } else { $null }
+    $detail = 'Windows resolved this output topology at runtime, but the driver metadata did not expose its literal reference string.'
+  }
 
   $results.Add([pscustomobject]@{
     endpointId = [string]$endpoint.endpointId
-    adapterName = $parent.AdapterName
-    pnpInstanceId = $parent.InstanceId
-    hardwareIds = @($parent.HardwareIds)
-    driverInf = $parent.DriverInf
+    adapterName = $metadata.AdapterName
+    pnpInstanceId = $metadata.InstanceId
+    hardwareIds = @($metadata.HardwareIds)
+    driverInf = $metadata.DriverInf
     topologyReferences = @($topology)
     detail = $detail
   })
