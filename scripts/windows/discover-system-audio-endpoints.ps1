@@ -166,7 +166,11 @@ if ($trimmedInput -match '^\[\s*\]$') {
   Write-Output '[]'
   exit 0
 }
-$coreEndpoints = @(ConvertFrom-Json $inputJson)
+$parsedEndpoints = ConvertFrom-Json $inputJson
+$coreEndpoints = [Collections.Generic.List[object]]::new()
+foreach ($parsedEndpoint in $parsedEndpoints) {
+  $coreEndpoints.Add($parsedEndpoint)
+}
 $pnpEndpoints = @(Get-PnpDevice -Class AudioEndpoint -PresentOnly -ErrorAction SilentlyContinue)
 $results = [Collections.Generic.List[object]]::new()
 
