@@ -56,12 +56,6 @@ VoxveilApo.dll=1
 [DestinationDirs]
 Apo_CopyFiles=13
 
-[SignatureAttributes]
-VoxveilApo.dll=SignatureAttributes.PETrust
-
-[SignatureAttributes.PETrust]
-PETrust=true
-
 [Strings]
 MfgName="Voxveil"
 ProviderName="Voxveil"
