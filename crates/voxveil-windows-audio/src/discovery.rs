@@ -37,6 +37,22 @@ pub(crate) fn classify_binding(
     }
 }
 
+pub(crate) fn extension_inf_matches(
+    text: &str,
+    hardware_ids: &[String],
+    topology_reference: &str,
+) -> bool {
+    if hardware_ids.is_empty() || topology_reference.is_empty() {
+        return false;
+    }
+    let text = text.to_ascii_lowercase();
+    let topology = topology_reference.to_ascii_lowercase();
+    hardware_ids
+        .iter()
+        .any(|hardware_id| text.contains(&hardware_id.to_ascii_lowercase()))
+        && text.contains(&topology)
+}
+
 #[cfg(windows)]
 mod windows {
     use std::collections::HashMap;
@@ -47,7 +63,9 @@ mod windows {
 
     use serde::{Deserialize, Serialize};
 
-    use super::{SystemAudioEndpoint, SystemAudioEndpointStatus, classify_binding};
+    use super::{
+        SystemAudioEndpoint, SystemAudioEndpointStatus, classify_binding, extension_inf_matches,
+    };
     use crate::device::EndpointDescriptor;
 
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
@@ -77,7 +95,7 @@ mod windows {
     pub(crate) fn enrich_endpoints(
         endpoints: Vec<EndpointDescriptor>,
         helper: &Path,
-        package_available: bool,
+        package_directory: &Path,
     ) -> Result<Vec<SystemAudioEndpoint>, String> {
         if !helper.is_file() {
             return Ok(endpoints
@@ -148,13 +166,16 @@ mod windows {
                 let pnp_resolved = item.pnp_instance_id.is_some()
                     && !item.hardware_ids.is_empty()
                     && item.driver_inf.is_some();
+                let topology_reference = (item.topology_references.len() == 1)
+                    .then(|| item.topology_references[0].clone());
+                let package_available = topology_reference.as_deref().is_some_and(|reference| {
+                    production_package_matches(package_directory, &item.hardware_ids, reference)
+                });
                 let status = classify_binding(
                     pnp_resolved,
                     &item.topology_references,
                     package_available,
                 );
-                let topology_reference = (item.topology_references.len() == 1)
-                    .then(|| item.topology_references[0].clone());
                 let detail = item.detail.or_else(|| default_detail(status));
                 SystemAudioEndpoint {
                     endpoint_id: endpoint.id,
@@ -170,6 +191,23 @@ mod windows {
                 }
             })
             .collect())
+    }
+
+    fn production_package_matches(
+        directory: &Path,
+        hardware_ids: &[String],
+        topology_reference: &str,
+    ) -> bool {
+        let extension = directory.join("VoxveilApoExtension.inf");
+        if !directory.join("VoxveilApo.cat").is_file()
+            || !directory.join("VoxveilApoExtension.cat").is_file()
+            || !extension.is_file()
+        {
+            return false;
+        }
+        std::fs::read_to_string(extension)
+            .map(|text| extension_inf_matches(&text, hardware_ids, topology_reference))
+            .unwrap_or(false)
     }
 
     fn unsupported(endpoint: EndpointDescriptor, detail: &str) -> SystemAudioEndpoint {
@@ -190,7 +228,7 @@ mod windows {
     fn default_detail(status: SystemAudioEndpointStatus) -> Option<String> {
         match status {
             SystemAudioEndpointStatus::ComponentRequired => Some(
-                "Output identified, but this build has no signed extension package for its driver"
+                "Output identified, but this build has no matching signed extension package for its driver"
                     .into(),
             ),
             SystemAudioEndpointStatus::Ambiguous => Some(
@@ -245,5 +283,18 @@ mod tests {
             classify_binding(true, &["Topology".into()], false),
             SystemAudioEndpointStatus::ComponentRequired
         );
+    }
+
+    #[test]
+    fn signed_extension_must_match_hardware_and_topology() {
+        let text = "HardwareId=HDAUDIO\\FUNC_01&VEN_10EC\nReference=PrimaryLineOutTopo";
+        let hardware_ids = vec!["HDAUDIO\\FUNC_01&VEN_10EC".into()];
+        assert!(extension_inf_matches(text, &hardware_ids, "PrimaryLineOutTopo"));
+        assert!(!extension_inf_matches(text, &hardware_ids, "HeadphoneTopo"));
+        assert!(!extension_inf_matches(
+            text,
+            &["USB\\VID_1234".into()],
+            "PrimaryLineOutTopo"
+        ));
     }
 }
