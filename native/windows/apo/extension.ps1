@@ -19,9 +19,18 @@ function New-VoxveilExtensionInf {
         [string]$Path
     )
 
-    if ($Targets.Count -eq 0) {
-        throw 'Cannot generate a Voxveil Extension INF without an audio target.'
+    if ($Targets.Count -ne 1) {
+        throw "Voxveil requires exactly one current default render target; discovered $($Targets.Count)."
     }
+
+    $target = $Targets[0]
+    $refs = @($target.topologyRefs)
+    if ($refs.Count -eq 0) {
+        throw ("Target {0} has no topology interfaces." -f $target.instanceId)
+    }
+
+    $hardwareId = Assert-VoxveilInfString ([string]$target.hardwareId) 'default render hardware ID'
+    $instanceId = Assert-VoxveilInfString ([string]$target.instanceId) 'default render instance ID'
 
     $lines = New-Object System.Collections.Generic.List[string]
     $lines.Add('[Version]')
@@ -30,42 +39,30 @@ function New-VoxveilExtensionInf {
     $lines.Add('ClassGuid={e2f84ce7-8efa-411c-aa69-97454ca4cb57}')
     $lines.Add('ExtensionId={0D6F6D57-5BD4-4F45-9C40-6F70E34F0AA2}')
     $lines.Add('Provider=%ProviderName%')
-    $lines.Add('DriverVer=08/18/2026,0.1.0.0')
+    $lines.Add('DriverVer=08/19/2026,0.1.0.0')
+    $lines.Add('CatalogFile=VoxveilExtension.cat')
     $lines.Add('PnpLockDown=1')
     $lines.Add('')
     $lines.Add('[Manufacturer]')
     $lines.Add('%MfgName%=DeviceExtensions,NTamd64.10.0...22000')
     $lines.Add('')
     $lines.Add('[DeviceExtensions.NTamd64.10.0...22000]')
-
-    for ($index = 0; $index -lt $Targets.Count; $index++) {
-        $lines.Add(('%Device{0}.Desc%=Device{0}_Install,%Device{0}.HardwareId%' -f $index))
-    }
-
-    for ($index = 0; $index -lt $Targets.Count; $index++) {
-        $target = $Targets[$index]
-        $refs = @($target.topologyRefs)
-        if ($refs.Count -eq 0) {
-            throw ("Target {0} has no topology interfaces." -f $target.instanceId)
-        }
-
-        $lines.Add('')
-        $lines.Add(('[Device{0}_Install]' -f $index))
-        $lines.Add('')
-        $lines.Add(('[Device{0}_Install.Components]' -f $index))
-        $lines.Add('AddComponent=VoxveilApo,,VoxveilApo_AddComponent')
-        $lines.Add('')
-        $lines.Add(('[Device{0}_Install.Interfaces]' -f $index))
-        for ($refIndex = 0; $refIndex -lt $refs.Count; $refIndex++) {
-            $lines.Add(('AddInterface=%KSCATEGORY_AUDIO%,%Device{0}.TopologyRef{1}%,VoxveilFx' -f $index, $refIndex))
-            $lines.Add(('AddInterface=%KSCATEGORY_TOPOLOGY%,%Device{0}.TopologyRef{1}%,VoxveilFx' -f $index, $refIndex))
-        }
-    }
-
+    $lines.Add('%Device.Desc%=Device_Install,%Device.HardwareId%')
+    $lines.Add('')
+    $lines.Add('[Device_Install]')
+    $lines.Add('')
+    $lines.Add('[Device_Install.Components]')
+    $lines.Add('AddComponent=VoxveilApo,,VoxveilApo_AddComponent')
     $lines.Add('')
     $lines.Add('[VoxveilApo_AddComponent]')
     $lines.Add('ComponentIDs=VEN_VOXV&CID_APO')
     $lines.Add('Description="Voxveil Audio Processing Object"')
+    $lines.Add('')
+    $lines.Add('[Device_Install.Interfaces]')
+    for ($refIndex = 0; $refIndex -lt $refs.Count; $refIndex++) {
+        $lines.Add(('AddInterface=%KSCATEGORY_AUDIO%,%Device.TopologyRef{0}%,VoxveilFx' -f $refIndex))
+        $lines.Add(('AddInterface=%KSCATEGORY_TOPOLOGY%,%Device.TopologyRef{0}%,VoxveilFx' -f $refIndex))
+    }
     $lines.Add('')
     $lines.Add('[VoxveilFx]')
     $lines.Add('AddReg=VoxveilFx.AddReg')
@@ -78,6 +75,8 @@ function New-VoxveilExtensionInf {
     $lines.Add('[Strings]')
     $lines.Add('MfgName="Voxveil"')
     $lines.Add('ProviderName="Voxveil"')
+    $lines.Add(('Device.Desc="Voxveil audio extension for {0}"' -f $instanceId))
+    $lines.Add(('Device.HardwareId="{0}"' -f $hardwareId))
     $lines.Add('KSCATEGORY_AUDIO="{6994AD04-93EF-11D0-A3CC-00A0C9223196}"')
     $lines.Add('KSCATEGORY_TOPOLOGY="{DDA54A40-1E4C-11D1-A050-405705C10000}"')
     $lines.Add('PKEY_FX_Association="{D04E05A6-594B-4FB6-A80D-01AF5EED7D1D},0"')
@@ -87,17 +86,9 @@ function New-VoxveilExtensionInf {
     $lines.Add('KSNODETYPE_ANY="{00000000-0000-0000-0000-000000000000}"')
     $lines.Add('VOXVEIL_APO_CLSID="{7E268E67-2F3C-4F0A-A09C-8B7D27B43F51}"')
 
-    for ($index = 0; $index -lt $Targets.Count; $index++) {
-        $target = $Targets[$index]
-        $hardwareId = Assert-VoxveilInfString ([string]$target.hardwareId) ("Device{0} hardware ID" -f $index)
-        $instanceId = Assert-VoxveilInfString ([string]$target.instanceId) ("Device{0} instance ID" -f $index)
-        $lines.Add(('Device{0}.Desc="Voxveil audio extension for {1}"' -f $index, $instanceId))
-        $lines.Add(('Device{0}.HardwareId="{1}"' -f $index, $hardwareId))
-        $refs = @($target.topologyRefs)
-        for ($refIndex = 0; $refIndex -lt $refs.Count; $refIndex++) {
-            $reference = Assert-VoxveilInfString ([string]$refs[$refIndex]) ("Device{0} topology reference" -f $index)
-            $lines.Add(('Device{0}.TopologyRef{1}="{2}"' -f $index, $refIndex, $reference))
-        }
+    for ($refIndex = 0; $refIndex -lt $refs.Count; $refIndex++) {
+        $reference = Assert-VoxveilInfString ([string]$refs[$refIndex]) ("default render topology reference {0}" -f $refIndex)
+        $lines.Add(('Device.TopologyRef{0}="{1}"' -f $refIndex, $reference))
     }
 
     $parent = Split-Path -Parent $Path
