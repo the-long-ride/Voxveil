@@ -1,0 +1,42 @@
+name: One-shot Cargo Lock Refresh
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - '.github/workflows/maintenance-lock-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-lock:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update lockfile minimally
+        shell: pwsh
+        run: |
+          cargo metadata --format-version 1 | Out-Null
+          cargo metadata --locked --format-version 1 | Out-Null
+          $changed = @(git diff --name-only)
+          if ($changed.Count -ne 1 -or $changed[0] -ne 'Cargo.lock') {
+            throw "Unexpected changed files: $($changed -join ', ')"
+          }
+          $diff = git diff -- Cargo.lock
+          $required = @('"serde",','"serde_json",','"windows 0.62.2",')
+          foreach ($needle in $required) {
+            if (-not ($diff | Select-String -SimpleMatch $needle)) {
+              throw "Expected Cargo.lock dependency entry missing from diff: $needle"
+            }
+          }
+      - name: Commit Cargo.lock
+        shell: pwsh
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add Cargo.lock
+          git commit -m 'chore: refresh Cargo.lock for native topology resolver'
+          git push origin HEAD:master
