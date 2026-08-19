@@ -4,6 +4,7 @@ import { RangeControl } from '../../components/RangeControl';
 import { SegmentedControl } from '../../components/SegmentedControl';
 import type { VoxveilModel } from '../../app/useVoxveilState';
 import type { ProcessingBackendStatus, ProcessingLoad } from '../../lib/types';
+import { SystemAudioEndpoints } from './SystemAudioEndpoints';
 
 const LOAD_KEYS: Record<ProcessingLoad, string> = {
   idle: 'status.idleLoad',
@@ -30,6 +31,8 @@ function backendLabelKey(status: Exclude<ProcessingBackendStatus, 'ready'>): str
 export function HomeScreen({ model, aiModelReady }: { model: VoxveilModel; aiModelReady: boolean }) {
   const { t } = useTranslation();
   const { state } = model;
+  const showSystemAudio = state.backendStatus === 'component-required' || model.systemAudioEndpoints.length > 0;
+
   return (
     <section className="screen" aria-labelledby="home-title">
       <ScreenIntro id="home-title" title={t('home.title')} description={t('home.description')} />
@@ -38,20 +41,19 @@ export function HomeScreen({ model, aiModelReady }: { model: VoxveilModel; aiMod
         <div className="backend-notice" role="status">
           <strong>{t('processing.backendUnavailable')}</strong>
           <span>{t(backendLabelKey(state.backendStatus))}</span>
-          {state.backendStatus === 'component-required' && (
-            <button
-              className="action-button"
-              type="button"
-              disabled={model.systemAudioInstallBusy}
-              onClick={() => void model.installSystemAudioComponent()}
-            >
-              {t('processing.installComponent')}
-            </button>
-          )}
-          {model.systemAudioInstallError && (
-            <span className="model-error" role="alert">{model.systemAudioInstallError}</span>
-          )}
         </div>
+      )}
+
+      {showSystemAudio && (
+        <SystemAudioEndpoints
+          endpoints={model.systemAudioEndpoints}
+          busy={model.systemAudioEndpointsBusy}
+          installBusyId={model.systemAudioInstallBusyId}
+          error={model.systemAudioInstallError}
+          onRefresh={model.refreshSystemAudioEndpoints}
+          onInstall={model.installSystemAudioEndpoint}
+          onInstallAll={model.installAllSystemAudioEndpoints}
+        />
       )}
 
       <div className="primary-controls">
