@@ -62,6 +62,12 @@ STDMETHODIMP_(void) CVoxveilApo::APOProcess(
 
     auto* input = inputs[0];
     auto* output = outputs[0];
+    if (input->u32BufferFlags == BUFFER_INVALID) {
+        output->u32ValidFrameCount = 0;
+        output->u32BufferFlags = BUFFER_INVALID;
+        return;
+    }
+
     const UINT32 frames = input->u32ValidFrameCount;
     const UINT32 channels = GetSamplesPerFrame();
     auto* inputSamples = static_cast<FLOAT32*>(input->pBuffer);
