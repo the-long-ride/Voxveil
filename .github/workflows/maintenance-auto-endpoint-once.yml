@@ -1,6 +1,6 @@
 name: One-shot Auto Endpoint Validation
 
-# phase: tauri-green
+# phase: ui-red
 on:
   push:
     branches:
@@ -27,12 +27,6 @@ jobs:
       - name: Install Node dependencies
         shell: pwsh
         run: npm ci --ignore-scripts --no-fund --no-audit
-      - name: Windows audio tests
+      - name: Playback endpoint UI tests
         shell: pwsh
-        run: cargo test -p voxveil-windows-audio
-      - name: Tauri endpoint install tests
-        shell: pwsh
-        run: cargo test -p voxveil-tauri
-      - name: Quality endpoint contract
-        shell: pwsh
-        run: npm run test:quality
+        run: npm run test --workspace @voxveil/ui
