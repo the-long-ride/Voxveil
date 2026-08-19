@@ -11,6 +11,7 @@ const APO_TARGET: &[u8] = include_bytes!("../generated-system-audio/VoxveilApoTa
 const APO_INF: &str = include_str!("../../native/windows/apo/VoxveilApo.inf");
 const TARGETS_SCRIPT: &str = include_str!("../../native/windows/apo/targets.ps1");
 const EXTENSION_SCRIPT: &str = include_str!("../../native/windows/apo/extension.ps1");
+const CATALOG_SCRIPT: &str = include_str!("../../native/windows/apo/catalog.ps1");
 const INSTALL_SCRIPT: &str = include_str!("../../native/windows/apo/install.ps1");
 const UNINSTALL_SCRIPT: &str = include_str!("../../native/windows/apo/uninstall.ps1");
 
@@ -85,6 +86,7 @@ pub fn verify_embedded_payload() -> Result<(), String> {
         ("VoxveilApo.inf", APO_INF),
         ("targets.ps1", TARGETS_SCRIPT),
         ("extension.ps1", EXTENSION_SCRIPT),
+        ("catalog.ps1", CATALOG_SCRIPT),
         ("install.ps1", INSTALL_SCRIPT),
         ("uninstall.ps1", UNINSTALL_SCRIPT),
     ] {
@@ -113,6 +115,7 @@ fn stage_embedded_package(root: &Path) -> Result<(), String> {
         ("VoxveilApo.inf", APO_INF),
         ("targets.ps1", TARGETS_SCRIPT),
         ("extension.ps1", EXTENSION_SCRIPT),
+        ("catalog.ps1", CATALOG_SCRIPT),
         ("install.ps1", INSTALL_SCRIPT),
         ("uninstall.ps1", UNINSTALL_SCRIPT),
     ] {
