@@ -1,6 +1,6 @@
 name: One-shot Auto Endpoint Validation
 
-# phase: ui-green
+# phase: ui-green-ubuntu
 on:
   push:
     branches:
@@ -12,9 +12,9 @@ permissions:
   contents: read
 
 jobs:
-  validate:
-    runs-on: windows-2022
-    timeout-minutes: 120
+  ui-green:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -22,17 +22,17 @@ jobs:
           node-version: '24.17.0'
           cache: npm
       - name: Validate workflow-free checkout tree
-        shell: pwsh
-        run: Remove-Item .github/workflows -Recurse -Force
+        shell: bash
+        run: rm -rf .github/workflows
       - name: Install Node dependencies
-        shell: pwsh
+        shell: bash
         run: npm ci --ignore-scripts --no-fund --no-audit
       - name: Playback endpoint UI tests
-        shell: pwsh
+        shell: bash
         run: npm run test --workspace @voxveil/ui
       - name: Typecheck
-        shell: pwsh
+        shell: bash
         run: npm run typecheck
       - name: Quality endpoint contract
-        shell: pwsh
+        shell: bash
         run: npm run test:quality
