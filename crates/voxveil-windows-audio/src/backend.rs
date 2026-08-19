@@ -7,7 +7,10 @@ pub enum WindowsBackendKind {
 }
 
 pub fn select_backend(apo: &BackendProbe, relay: &BackendProbe) -> WindowsBackendKind {
-    if matches!(apo.readiness, RelayReadiness::Ready | RelayReadiness::Faulted) {
+    if matches!(
+        apo.readiness,
+        RelayReadiness::Ready | RelayReadiness::Faulted
+    ) {
         WindowsBackendKind::Apo
     } else {
         let _ = relay;
@@ -38,7 +41,10 @@ mod tests {
     #[test]
     fn installed_faulted_apo_stays_selected_for_diagnostics() {
         assert_eq!(
-            select_backend(&probe(RelayReadiness::Faulted), &probe(RelayReadiness::Ready)),
+            select_backend(
+                &probe(RelayReadiness::Faulted),
+                &probe(RelayReadiness::Ready)
+            ),
             WindowsBackendKind::Apo
         );
     }
