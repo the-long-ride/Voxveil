@@ -13,6 +13,7 @@ pub struct SystemAudioEndpoint {
     pub display_name: String,
     pub adapter_name: Option<String>,
     pub is_default: bool,
+    pub binding_pnp_instance_id: Option<String>,
     pub pnp_instance_id: Option<String>,
     pub hardware_ids: Vec<String>,
     pub driver_inf: Option<String>,
@@ -78,7 +79,7 @@ mod windows {
 
     #[derive(Clone, Debug)]
     struct RuntimeResolution {
-        device_id: Option<String>,
+        binding_pnp_instance_id: Option<String>,
         kind: RuntimeBindingKind,
         alias_match: bool,
     }
@@ -97,6 +98,7 @@ mod windows {
     #[serde(rename_all = "camelCase")]
     struct ResolvedEndpoint {
         endpoint_id: String,
+        binding_pnp_instance_id: Option<String>,
         adapter_name: Option<String>,
         pnp_instance_id: Option<String>,
         #[serde(default)]
@@ -133,7 +135,7 @@ mod windows {
                     endpoint_id: &endpoint.id,
                     display_name: &endpoint.name,
                     is_default: endpoint.is_default,
-                    runtime_device_id: runtime.device_id.as_deref(),
+                    runtime_device_id: runtime.binding_pnp_instance_id.as_deref(),
                     runtime_alias_match: runtime.alias_match,
                 }
             })
@@ -149,24 +151,31 @@ mod windows {
             .map(|endpoint| {
                 let key = endpoint.id.to_ascii_lowercase();
                 let runtime = runtime_by_id.remove(&key).unwrap_or(RuntimeResolution {
-                    device_id: None,
+                    binding_pnp_instance_id: None,
                     kind: RuntimeBindingKind::None,
                     alias_match: false,
                 });
                 let mut item = by_id.remove(&key);
 
                 if !fallback_device_matches_runtime(
-                    runtime.device_id.as_deref(),
-                    item.as_ref().and_then(|value| value.pnp_instance_id.as_deref()),
+                    runtime.binding_pnp_instance_id.as_deref(),
+                    item.as_ref()
+                        .and_then(|value| value.binding_pnp_instance_id.as_deref()),
                 ) {
                     item = None;
                 }
 
+                let binding_pnp_instance_id = runtime
+                    .binding_pnp_instance_id
+                    .clone()
+                    .or_else(|| {
+                        item.as_ref()
+                            .and_then(|value| value.binding_pnp_instance_id.clone())
+                    });
                 let adapter_name = item.as_ref().and_then(|value| value.adapter_name.clone());
                 let pnp_instance_id = item
                     .as_ref()
-                    .and_then(|value| value.pnp_instance_id.clone())
-                    .or_else(|| runtime.device_id.clone());
+                    .and_then(|value| value.pnp_instance_id.clone());
                 let hardware_ids = item
                     .as_ref()
                     .map(|value| value.hardware_ids.clone())
@@ -203,6 +212,7 @@ mod windows {
                     display_name: endpoint.name,
                     adapter_name,
                     is_default: endpoint.is_default,
+                    binding_pnp_instance_id,
                     pnp_instance_id,
                     hardware_ids,
                     driver_inf,
@@ -218,30 +228,27 @@ mod windows {
         endpoint_id: &str,
         candidates: &[TopologyCandidate],
     ) -> RuntimeResolution {
-        let Ok(Some(device_id)) = resolve_adapter_device_id(endpoint_id) else {
+        let Ok(Some(adapter_device_id)) = resolve_adapter_device_id(endpoint_id) else {
             return RuntimeResolution {
-                device_id: None,
+                binding_pnp_instance_id: None,
                 kind: RuntimeBindingKind::None,
                 alias_match: false,
             };
         };
 
-        match select_topology_candidate(&device_id, candidates) {
-            CandidateSelection::Unique(candidate) => {
-                let _runtime_interface_path = &candidate.interface_path;
-                RuntimeResolution {
-                    device_id: Some(device_id),
-                    kind: RuntimeBindingKind::Unique,
-                    alias_match: candidate.alias_match,
-                }
-            }
+        match select_topology_candidate(&adapter_device_id, candidates) {
+            CandidateSelection::Unique(candidate) => RuntimeResolution {
+                binding_pnp_instance_id: Some(candidate.device_instance_id),
+                kind: RuntimeBindingKind::Unique,
+                alias_match: candidate.alias_match,
+            },
             CandidateSelection::Ambiguous => RuntimeResolution {
-                device_id: Some(device_id),
+                binding_pnp_instance_id: None,
                 kind: RuntimeBindingKind::Ambiguous,
                 alias_match: false,
             },
             CandidateSelection::None => RuntimeResolution {
-                device_id: Some(device_id),
+                binding_pnp_instance_id: None,
                 kind: RuntimeBindingKind::None,
                 alias_match: false,
             },
@@ -320,10 +327,12 @@ mod windows {
     ) -> Option<String> {
         match runtime_kind {
             RuntimeBindingKind::Ambiguous => default_detail(SystemAudioEndpointStatus::Ambiguous),
-            RuntimeBindingKind::Unique if topology_references.is_empty() => Some(
-                "Windows resolved this output topology at runtime, but the installed driver did not expose the literal reference string required by the extension package."
-                    .into(),
-            ),
+            RuntimeBindingKind::Unique if topology_references.is_empty() => fallback_detail.or_else(|| {
+                Some(
+                    "Windows resolved this output topology at runtime, but the installed driver did not expose the literal reference string required by the extension package."
+                        .into(),
+                )
+            }),
             RuntimeBindingKind::Unique => default_detail(status),
             RuntimeBindingKind::None => fallback_detail.or_else(|| default_detail(status)),
         }
