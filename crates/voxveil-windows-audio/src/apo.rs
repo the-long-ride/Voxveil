@@ -2,13 +2,18 @@ use crate::{BackendProbe, RelayReadiness};
 use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 const CONTROL_VERSION: u8 = 1;
+const RUNTIME_VERSION: u8 = 1;
+const RUNTIME_SIZE: usize = 21;
+const HEARTBEAT_MAX_AGE_MS: u64 = 5_000;
 
 #[derive(Clone, Debug)]
 struct ApoPaths {
     marker: PathBuf,
     control: PathBuf,
+    runtime: PathBuf,
     dll: PathBuf,
 }
 
@@ -23,6 +28,7 @@ impl ApoPaths {
         Self {
             marker: state_root.join("apo-installed.json"),
             control: state_root.join("apo-control.bin"),
+            runtime: state_root.join("apo-runtime.bin"),
             dll: install_root.join("system-audio").join("VoxveilApo.dll"),
         }
     }
@@ -53,8 +59,7 @@ impl ApoBackend {
     }
 
     pub fn probe(&self) -> BackendProbe {
-        let missing = self.missing_component();
-        if let Some(component) = missing {
+        if let Some(component) = self.missing_component() {
             return BackendProbe {
                 readiness: RelayReadiness::ComponentRequired,
                 physical_output: None,
@@ -64,10 +69,38 @@ impl ApoBackend {
             };
         }
 
-        BackendProbe {
-            readiness: RelayReadiness::Ready,
-            physical_output: None,
-            detail: None,
+        match self.runtime_heartbeat() {
+            Ok(heartbeat) if heartbeat.process_count > 0 && heartbeat_is_fresh(heartbeat.timestamp_ms) => {
+                BackendProbe {
+                    readiness: RelayReadiness::Ready,
+                    physical_output: None,
+                    detail: None,
+                }
+            }
+            Ok(heartbeat) if heartbeat.process_count == 0 => BackendProbe {
+                readiness: RelayReadiness::Faulted,
+                physical_output: None,
+                detail: Some(
+                    "Voxveil is installed, but Windows has not sent audio through the APO yet. Play audio on the installed output device, then refocus Voxveil."
+                        .into(),
+                ),
+            },
+            Ok(_) => BackendProbe {
+                readiness: RelayReadiness::Faulted,
+                physical_output: None,
+                detail: Some(
+                    "Voxveil is installed, but the APO processing heartbeat is stale. Restart the audio device or Windows."
+                        .into(),
+                ),
+            },
+            Err(_) => BackendProbe {
+                readiness: RelayReadiness::Faulted,
+                physical_output: None,
+                detail: Some(
+                    "Voxveil is installed, but Windows has not loaded the APO on the audio graph yet. Play audio or restart Windows, then refocus Voxveil."
+                        .into(),
+                ),
+            },
         }
     }
 
@@ -104,6 +137,11 @@ impl ApoBackend {
         .find_map(|(path, label)| (!path.is_file()).then_some(label))
     }
 
+    fn runtime_heartbeat(&self) -> Result<RuntimeHeartbeat, String> {
+        let bytes = fs::read(&self.paths.runtime).map_err(|error| error.to_string())?;
+        parse_runtime_heartbeat(&bytes)
+    }
+
     fn read_control(&self) -> Result<[u8; 3], String> {
         let bytes = fs::read(&self.paths.control).map_err(|error| error.to_string())?;
         if bytes.len() != 3 || bytes[0] != CONTROL_VERSION {
@@ -121,6 +159,35 @@ impl ApoBackend {
             )
         })
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct RuntimeHeartbeat {
+    timestamp_ms: u64,
+    process_count: u64,
+    _pid: u32,
+}
+
+fn parse_runtime_heartbeat(bytes: &[u8]) -> Result<RuntimeHeartbeat, String> {
+    if bytes.len() != RUNTIME_SIZE || bytes[0] != RUNTIME_VERSION {
+        return Err("Voxveil APO runtime heartbeat has an unsupported format".into());
+    }
+    let timestamp_ms = u64::from_le_bytes(bytes[1..9].try_into().expect("heartbeat timestamp"));
+    let process_count = u64::from_le_bytes(bytes[9..17].try_into().expect("heartbeat count"));
+    let pid = u32::from_le_bytes(bytes[17..21].try_into().expect("heartbeat pid"));
+    Ok(RuntimeHeartbeat {
+        timestamp_ms,
+        process_count,
+        _pid: pid,
+    })
+}
+
+fn heartbeat_is_fresh(timestamp_ms: u64) -> bool {
+    let now_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis() as u64)
+        .unwrap_or(0);
+    now_ms.saturating_sub(timestamp_ms) <= HEARTBEAT_MAX_AGE_MS
 }
 
 fn display_path(path: &Path) -> String {
@@ -163,7 +230,7 @@ mod tests {
             }
         }
 
-        fn install_component(&self, control: [u8; 3]) {
+        fn install_component(&self, control: [u8; 3], process_count: u64) {
             fs::write(self.state.join("apo-installed.json"), b"{}").expect("marker");
             fs::write(self.state.join("apo-control.bin"), control).expect("control");
             fs::write(
@@ -171,6 +238,16 @@ mod tests {
                 b"dll",
             )
             .expect("dll");
+            let now = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("clock")
+                .as_millis() as u64;
+            let mut heartbeat = Vec::with_capacity(RUNTIME_SIZE);
+            heartbeat.push(RUNTIME_VERSION);
+            heartbeat.extend_from_slice(&now.to_le_bytes());
+            heartbeat.extend_from_slice(&process_count.to_le_bytes());
+            heartbeat.extend_from_slice(&1234_u32.to_le_bytes());
+            fs::write(self.state.join("apo-runtime.bin"), heartbeat).expect("runtime");
         }
     }
 
@@ -188,17 +265,25 @@ mod tests {
     }
 
     #[test]
-    fn complete_installation_is_ready() {
+    fn complete_installation_is_ready_after_audio_was_processed() {
         let roots = TestRoots::new("ready");
-        roots.install_component([1, 0, 100]);
+        roots.install_component([1, 0, 100], 1);
         let backend = ApoBackend::with_roots(roots.state.clone(), roots.install.clone());
         assert_eq!(backend.probe().readiness, RelayReadiness::Ready);
     }
 
     #[test]
+    fn installed_component_without_processed_audio_is_not_ready() {
+        let roots = TestRoots::new("inactive");
+        roots.install_component([1, 0, 100], 0);
+        let backend = ApoBackend::with_roots(roots.state.clone(), roots.install.clone());
+        assert_eq!(backend.probe().readiness, RelayReadiness::Faulted);
+    }
+
+    #[test]
     fn enabling_updates_control_file() {
         let roots = TestRoots::new("enable");
-        roots.install_component([1, 0, 100]);
+        roots.install_component([1, 0, 100], 1);
         let mut backend = ApoBackend::with_roots(roots.state.clone(), roots.install.clone());
         backend.set_enabled(true, 25).expect("enable APO");
         assert_eq!(
@@ -210,7 +295,7 @@ mod tests {
     #[test]
     fn vocal_level_preserves_enabled_state_and_clamps() {
         let roots = TestRoots::new("level");
-        roots.install_component([1, 1, 40]);
+        roots.install_component([1, 1, 40], 1);
         let backend = ApoBackend::with_roots(roots.state.clone(), roots.install.clone());
         backend.set_vocal_level(250);
         assert_eq!(
