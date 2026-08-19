@@ -1,7 +1,48 @@
+use crate::discovery::{SystemAudioEndpointStatus, classify_binding};
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum RuntimeBindingKind {
+    Unique,
+    Ambiguous,
+    None,
+}
+
+pub(crate) fn classify_runtime_binding(
+    runtime_binding: RuntimeBindingKind,
+    fallback_pnp_resolved: bool,
+    topology_references: &[String],
+    package_available: bool,
+) -> SystemAudioEndpointStatus {
+    match runtime_binding {
+        RuntimeBindingKind::Ambiguous => SystemAudioEndpointStatus::Ambiguous,
+        RuntimeBindingKind::Unique => match topology_references.len() {
+            0 => SystemAudioEndpointStatus::ComponentRequired,
+            1 if package_available => SystemAudioEndpointStatus::Installable,
+            1 => SystemAudioEndpointStatus::ComponentRequired,
+            _ => SystemAudioEndpointStatus::Ambiguous,
+        },
+        RuntimeBindingKind::None => classify_binding(
+            fallback_pnp_resolved,
+            topology_references,
+            package_available,
+        ),
+    }
+}
+
+pub(crate) fn fallback_device_matches_runtime(
+    runtime_device_id: Option<&str>,
+    fallback_device_id: Option<&str>,
+) -> bool {
+    match runtime_device_id {
+        None => true,
+        Some(runtime) => fallback_device_id
+            .is_some_and(|fallback| runtime.eq_ignore_ascii_case(fallback)),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::discovery::SystemAudioEndpointStatus;
 
     #[test]
     fn unique_runtime_binding_without_reference_requires_component() {
