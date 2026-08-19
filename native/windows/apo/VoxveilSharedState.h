@@ -13,6 +13,7 @@ struct SharedState {
     volatile LONG enabled;
     volatile LONG vocalPercent;
     volatile LONG heartbeat;
+    volatile LONG loadedInstances;
 };
 
 inline SharedState* OpenOrCreateSharedState(HANDLE* mappingOut) noexcept {
@@ -59,6 +60,7 @@ inline SharedState* OpenOrCreateSharedState(HANDLE* mappingOut) noexcept {
         InterlockedExchange(&state->enabled, 0);
         InterlockedExchange(&state->vocalPercent, 100);
         InterlockedExchange(&state->heartbeat, 0);
+        InterlockedExchange(&state->loadedInstances, 0);
     }
 
     *mappingOut = mapping;
