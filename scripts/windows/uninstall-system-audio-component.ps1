@@ -10,14 +10,33 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
 }
 
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
-$devcon = Join-Path $root 'devcon.exe'
-if (-not (Test-Path $devcon)) {
-  throw "Bundled DevCon was not found: $devcon"
+$statePath = Join-Path $root 'install-state.json'
+$infNames = @()
+
+if (Test-Path $statePath) {
+  $state = Get-Content $statePath -Raw | ConvertFrom-Json
+  $infNames = @($state.installedInfNames) | Where-Object { $_ -match '^oem\d+\.inf$' }
 }
 
-& $devcon remove 'Root\Sysvad_ComponentizedAudioSample'
-if ($LASTEXITCODE -ne 0) {
-  throw "DevCon failed with exit code $LASTEXITCODE."
+if ($infNames.Count -eq 0) {
+  $infNames = @(Get-CimInstance Win32_PnPSignedDriver |
+    Where-Object { $_.DriverProviderName -eq 'Voxveil' -and $_.InfName -match '^oem\d+\.inf$' } |
+    Select-Object -ExpandProperty InfName -Unique)
 }
 
-Write-Host 'Voxveil development system-audio device removed.'
+if ($infNames.Count -eq 0) {
+  Write-Host 'No installed Voxveil driver packages were found.'
+  return
+}
+
+foreach ($inf in $infNames) {
+  Write-Host "Removing Voxveil driver package $inf ..."
+  pnputil.exe /delete-driver $inf /uninstall /force | Out-Host
+  if ($LASTEXITCODE -ne 0) {
+    throw "PnPUtil failed to remove $inf (exit $LASTEXITCODE)."
+  }
+}
+
+Remove-Item $statePath -Force -ErrorAction SilentlyContinue
+Restart-Service Audiosrv -Force
+Write-Host 'Voxveil componentized APO packages removed.'
