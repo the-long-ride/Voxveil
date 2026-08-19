@@ -1,0 +1,16 @@
+{
+  "title": "Audio del sistema de Windows",
+  "description": "Salidas de reproducción detectadas",
+  "backendDescription": "Voxveil detectó abajo las salidas de reproducción de Windows. La vinculación del controlador y la compatibilidad se resuelven automáticamente.",
+  "default": "Predeterminada",
+  "readyToInstall": "Listo para instalar",
+  "signedComponentRequired": "Se requiere un componente firmado",
+  "ambiguous": "Topología del controlador ambigua",
+  "install": "Instalar",
+  "installing": "Instalando…",
+  "installAll": "Instalar en todas las salidas compatibles",
+  "refresh": "Actualizar",
+  "refreshing": "Actualizando…",
+  "detecting": "Detectando salidas de reproducción…",
+  "none": "No se detectaron salidas de reproducción."
+}
