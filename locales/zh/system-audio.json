@@ -1,0 +1,16 @@
+{
+  "title": "Windows 系统音频",
+  "description": "已检测到的播放输出",
+  "backendDescription": "Voxveil 已在下方检测到 Windows 播放输出。驱动绑定和兼容性会自动解析。",
+  "default": "默认",
+  "readyToInstall": "可安装",
+  "signedComponentRequired": "需要已签名组件",
+  "ambiguous": "驱动拓扑不明确",
+  "install": "安装",
+  "installing": "正在安装…",
+  "installAll": "安装到所有兼容输出",
+  "refresh": "刷新",
+  "refreshing": "正在刷新…",
+  "detecting": "正在检测播放输出…",
+  "none": "未检测到播放输出。"
+}
