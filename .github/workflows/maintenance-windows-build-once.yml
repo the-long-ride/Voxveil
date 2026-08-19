@@ -4,13 +4,14 @@ on:
   push:
     branches:
       - master
+    paths:
+      - '.github/workflows/maintenance-windows-build-once.yml'
 
 permissions:
   contents: write
 
 jobs:
   cleanup-and-build:
-    if: github.event.head_commit.message == 'build(temp): cleanup branches and build Windows binary'
     runs-on: windows-2022
     timeout-minutes: 120
     steps:
