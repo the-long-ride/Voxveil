@@ -1,0 +1,155 @@
+name: Verify Componentized APO
+
+on:
+  pull_request:
+    branches:
+      - verify/componentized-base
+
+jobs:
+  windows:
+    runs-on: windows-2025
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install locked JavaScript dependencies
+        run: npm ci
+
+      - name: Verify APO package contract
+        run: node --test scripts/ci/check-apo-package.test.mjs
+
+      - name: Parse PowerShell deployment scripts
+        shell: pwsh
+        run: |
+          $errors = @()
+          foreach ($file in @(
+            'native/windows/apo/install.ps1',
+            'native/windows/apo/uninstall.ps1',
+            'native/windows/apo/targets.ps1',
+            'native/windows/apo/extension.ps1'
+          )) {
+            [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file), [ref]$null, [ref]$parseErrors)
+            if ($parseErrors.Count) { $errors += $parseErrors }
+          }
+          if ($errors.Count) { $errors | Format-List | Out-String | Write-Error; exit 1 }
+
+      - name: UI tests
+        run: npm run test --workspace @voxveil/ui
+
+      - name: UI typecheck
+        run: npm run typecheck --workspace @voxveil/ui
+
+      - name: Set up Rust
+        shell: pwsh
+        run: |
+          rustup toolchain install 1.97.0 --profile minimal
+          rustup default 1.97.0
+
+      - name: Rust formatting
+        run: cargo fmt --all -- --check
+
+      - name: Rust APO and Tauri tests
+        run: cargo test -p voxveil-windows-audio -p voxveil-tauri
+
+      - name: Locate Visual Studio tools
+        id: vs
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $msbuild = & $vswhere -latest -products * -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
+          if (-not $msbuild) { throw 'MSBuild not found' }
+          "msbuild=$msbuild" >> $env:GITHUB_OUTPUT
+
+      - name: Build native APO and helpers
+        shell: pwsh
+        run: |
+          $msbuild = '${{ steps.vs.outputs.msbuild }}'
+          foreach ($project in @(
+            'native/windows/apo/VoxveilApoTests.vcxproj',
+            'native/windows/apo/VoxveilApo.vcxproj',
+            'native/windows/apo/VoxveilApoCheck.vcxproj',
+            'native/windows/apo/VoxveilApoTarget.vcxproj'
+          )) {
+            & $msbuild $project /m /p:Configuration=Release /p:Platform=x64 /v:minimal
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
+      - name: Run native tests and helpers
+        shell: pwsh
+        run: |
+          & native/windows/apo/out/Release/VoxveilApoTests.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & native/windows/apo/out/Release/VoxveilApoTarget.exe --self-test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & native/windows/apo/out/Release/VoxveilApoCheck.exe native/windows/apo/out/Release/VoxveilApo.dll
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Prove locally signed APO package stages with Test Mode off
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $testSigning = (bcdedit /enum '{current}' | Select-String -Pattern '^testsigning\s+Yes' -CaseSensitive:$false)
+          if ($testSigning) { throw 'Runner unexpectedly has TESTSIGNING enabled before the test.' }
+
+          $root = Join-Path $env:RUNNER_TEMP 'voxveil-driver-store-test'
+          $apo = Join-Path $root 'apo'
+          $ext = Join-Path $root 'extension'
+          New-Item -ItemType Directory -Path $apo,$ext -Force | Out-Null
+          Copy-Item native/windows/apo/VoxveilApo.inf (Join-Path $apo 'VoxveilApo.inf')
+          Copy-Item native/windows/apo/out/Release/VoxveilApo.dll (Join-Path $apo 'VoxveilApo.dll')
+
+          . ./native/windows/apo/extension.ps1
+          $target = [pscustomobject]@{
+            instanceId = 'ROOT\VOXVEIL_CI_NO_MATCH\0000'
+            hardwareId = 'ROOT\VOXVEIL_CI_NO_MATCH'
+            topologyRefs = @('Topology')
+          }
+          New-VoxveilExtensionInf -Targets @($target) -Path (Join-Path $ext 'VoxveilExtension.inf') | Out-Null
+
+          $cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject 'CN=Voxveil CI APO Test' `
+            -CertStoreLocation 'Cert:\LocalMachine\My' -KeyAlgorithm RSA -KeyLength 2048 -HashAlgorithm SHA256 `
+            -NotAfter (Get-Date).AddDays(2)
+          $cer = Join-Path $root 'voxveil-ci.cer'
+          Export-Certificate -Cert $cert -FilePath $cer -Force | Out-Null
+          Import-Certificate -FilePath $cer -CertStoreLocation 'Cert:\LocalMachine\Root' | Out-Null
+          Import-Certificate -FilePath $cer -CertStoreLocation 'Cert:\LocalMachine\TrustedPublisher' | Out-Null
+
+          function New-SignedCatalog([string]$package, [string]$name) {
+            $temp = Join-Path $env:RUNNER_TEMP ($name + '.unsigned.cat')
+            New-FileCatalog -Path $package -CatalogFilePath $temp -CatalogVersion 2 | Out-Null
+            $signature = Set-AuthenticodeSignature -FilePath $temp -Certificate $cert -HashAlgorithm SHA256
+            if ($signature.Status -ne 'Valid') { throw "Catalog signature failed: $($signature.Status) $($signature.StatusMessage)" }
+            Move-Item $temp (Join-Path $package $name) -Force
+          }
+
+          New-SignedCatalog $apo 'VoxveilApo.cat'
+          New-SignedCatalog $ext 'VoxveilExtension.cat'
+
+          Write-Host 'Staging APO package...'
+          & pnputil.exe /add-driver (Join-Path $apo 'VoxveilApo.inf')
+          if ($LASTEXITCODE -ne 0) { throw "APO package staging failed: $LASTEXITCODE" }
+
+          Write-Host 'Staging Extension package...'
+          & pnputil.exe /add-driver (Join-Path $ext 'VoxveilExtension.inf')
+          if ($LASTEXITCODE -ne 0) { throw "Extension package staging failed: $LASTEXITCODE" }
+
+          $testSigningAfter = (bcdedit /enum '{current}' | Select-String -Pattern '^testsigning\s+Yes' -CaseSensitive:$false)
+          if ($testSigningAfter) { throw 'TESTSIGNING changed during package staging.' }
+
+      - name: Build standalone Windows pro-system application
+        shell: pwsh
+        env:
+          VOXVEIL_EDITION: pro-system
+        run: cargo build -p voxveil-tauri --release
+
+      - name: Verify standalone executable embeds system-audio payload
+        shell: pwsh
+        run: |
+          & target/release/voxveil.exe --verify-embedded-system-audio
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
