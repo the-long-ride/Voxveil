@@ -14,11 +14,20 @@ test('Windows audio crate keeps exact approved dependencies only on Windows', as
   assert.match(cargo, /\[target\.'cfg\(windows\)'\.dependencies\]/);
   assert.match(cargo, /wasapi\s*=\s*"=0\.23\.0"/);
   assert.match(cargo, /serde_json\s*=\s*"=1\.0\.151"/);
+  assert.match(cargo, /windows\s*=\s*\{\s*version\s*=\s*"=0\.62\.2"/);
 });
 
-test('Windows audio crate remains safe Rust at the crate boundary', async () => {
-  const source = await read('crates/voxveil-windows-audio/src/lib.rs');
-  assert.match(source, /#!\[forbid\(unsafe_code\)\]/);
+test('Windows audio crate confines unsafe code to audited FFI modules', async () => {
+  const lib = await read('crates/voxveil-windows-audio/src/lib.rs');
+  const topology = await read('crates/voxveil-windows-audio/src/topology.rs');
+  const deviceInterfaces = await read('crates/voxveil-windows-audio/src/device_interfaces.rs');
+
+  assert.match(lib, /#!\[deny\(unsafe_code\)\]/);
+  assert.doesNotMatch(lib, /#!\[allow\(unsafe_code\)\]/);
+  assert.match(lib, /#\[allow\(unsafe_code\)\]\s*mod topology;/);
+  assert.match(deviceInterfaces, /#\[allow\(unsafe_code\)\]\s*mod windows_runtime/);
+  assert.match(topology, /CoCreateInstance|CoInitializeEx/);
+  assert.match(deviceInterfaces, /SetupDiGetClassDevsW|SetupDiEnumDeviceInterfaces/);
 });
 
 test('Tauri processing commands delegate enable and vocal level to runtime controller', async () => {
@@ -55,12 +64,16 @@ test('manual Windows build stages componentized APO and endpoint discovery', asy
 test('system audio discovery fails closed instead of guessing topology', async () => {
   const discovery = await read('crates/voxveil-windows-audio/src/discovery.rs');
   const helper = await read('scripts/windows/discover-system-audio-endpoints.ps1');
+  const deviceInterfaces = await read('crates/voxveil-windows-audio/src/device_interfaces.rs');
   assert.match(discovery, /SystemAudioEndpointStatus::Ambiguous/);
-  assert.match(discovery, /topology_candidates\.len\(\)/);
-  assert.match(helper, /Multiple topology references/);
+  assert.match(discovery, /select_topology_candidate/);
+  assert.match(discovery, /RuntimeBindingKind::Ambiguous/);
+  assert.match(helper, /Voxveil will not guess/);
+  assert.match(helper, /runtimeDeviceId/);
+  assert.match(helper, /runtimeAliasMatch/);
   assert.match(helper, /DEVPKEY_Device_HardwareIds/);
   assert.match(helper, /DEVPKEY_Device_DriverInfPath/);
-  assert.match(helper, /DDA54A40-1E4C-11D1-A050-405705C10000/i);
+  assert.match(deviceInterfaces, /DDA54A40-1E4C-11D1-A050-405705C10000/i);
 });
 
 test('browser install flow uses opaque endpoint id and never raw driver identifiers', async () => {
