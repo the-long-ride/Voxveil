@@ -97,19 +97,21 @@ mod windows {
         let json = serde_json::to_vec(&input)
             .map_err(|error| format!("failed to serialize Windows endpoints: {error}"))?;
 
-        let mut child = Command::new("powershell.exe")
+        let mut command = Command::new("powershell.exe");
+        command
             .args([
                 "-NoLogo",
                 "-NoProfile",
                 "-ExecutionPolicy",
                 "Bypass",
                 "-File",
-                &helper.to_string_lossy(),
             ])
+            .arg(helper)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .creation_flags(CREATE_NO_WINDOW)
+            .creation_flags(CREATE_NO_WINDOW);
+        let mut child = command
             .spawn()
             .map_err(|error| format!("failed to start Windows endpoint discovery: {error}"))?;
         child
