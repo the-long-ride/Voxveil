@@ -22,7 +22,8 @@ fn select_installable_endpoint(
     if endpoint.status != SystemAudioEndpointStatus::Installable {
         return Err("The selected playback endpoint is not installable by this Voxveil package.".into());
     }
-    if endpoint.pnp_instance_id.is_none()
+    if endpoint.binding_pnp_instance_id.is_none()
+        || endpoint.pnp_instance_id.is_none()
         || endpoint.hardware_ids.is_empty()
         || endpoint.driver_inf.is_none()
         || endpoint.topology_reference.is_none()
@@ -39,6 +40,10 @@ pub(super) fn validate_revalidated_binding(
 ) -> Result<(), String> {
     let changed = current.status != SystemAudioEndpointStatus::Installable
         || selected.endpoint_id != current.endpoint_id
+        || !same_optional_value(
+            selected.binding_pnp_instance_id.as_deref(),
+            current.binding_pnp_instance_id.as_deref(),
+        )
         || !same_optional_value(
             selected.pnp_instance_id.as_deref(),
             current.pnp_instance_id.as_deref(),
@@ -122,6 +127,7 @@ pub fn list_system_audio_endpoints(
 #[serde(rename_all = "camelCase")]
 struct EndpointInstallDescriptor {
     endpoint_id: String,
+    binding_pnp_instance_id: String,
     pnp_instance_id: String,
     hardware_id: String,
     hardware_ids: Vec<String>,
@@ -136,9 +142,12 @@ impl TryFrom<SystemAudioEndpoint> for EndpointInstallDescriptor {
     fn try_from(endpoint: SystemAudioEndpoint) -> Result<Self, Self::Error> {
         Ok(Self {
             endpoint_id: endpoint.endpoint_id,
+            binding_pnp_instance_id: endpoint
+                .binding_pnp_instance_id
+                .ok_or_else(|| "missing topology binding PnP instance ID".to_string())?,
             pnp_instance_id: endpoint
                 .pnp_instance_id
-                .ok_or_else(|| "missing PnP instance ID".to_string())?,
+                .ok_or_else(|| "missing driver metadata PnP instance ID".to_string())?,
             hardware_id: endpoint
                 .hardware_ids
                 .first()
@@ -262,6 +271,7 @@ mod tests {
             display_name: "Speakers".into(),
             adapter_name: Some("Example Audio".into()),
             is_default: true,
+            binding_pnp_instance_id: Some("SWD\\MMDEVAPI\\BINDING".into()),
             pnp_instance_id: Some("HDAUDIO\\EXAMPLE".into()),
             hardware_ids: vec!["HDAUDIO\\EXAMPLE".into()],
             driver_inf: Some("oem42.inf".into()),
