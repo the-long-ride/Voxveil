@@ -11,7 +11,7 @@
 inline const GUID CLSID_VoxveilApo =
 { 0xf3f2a99f, 0x8fb7, 0x4b88, { 0x94, 0x9e, 0x44, 0x8b, 0xf8, 0xa0, 0x52, 0x21 } };
 
-class ATL_NO_VTABLE CVoxveilApo final :
+class ATL_NO_VTABLE CVoxveilApo :
     public CComObjectRootEx<CComMultiThreadModel>,
     public CComCoClass<CVoxveilApo, &CLSID_VoxveilApo>,
     public CBaseAudioProcessingObject,
