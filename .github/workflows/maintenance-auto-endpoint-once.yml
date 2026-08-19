@@ -1,6 +1,6 @@
 name: One-shot Auto Endpoint Validation
 
-# phase: discovery-red
+# phase: discovery-green
 on:
   push:
     branches:
@@ -30,3 +30,6 @@ jobs:
       - name: Windows audio tests
         shell: pwsh
         run: cargo test -p voxveil-windows-audio
+      - name: Cargo dependency policy
+        shell: pwsh
+        run: node scripts/quality/check-cargo-dependencies.mjs .
