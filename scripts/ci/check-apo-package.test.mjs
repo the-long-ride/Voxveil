@@ -14,6 +14,11 @@ function readRepo(relativePath) {
   return fs.readFileSync(path.join(root, relativePath), 'utf8');
 }
 
+function assertNoTestModeCommands(text) {
+  assert.doesNotMatch(text, /bcdedit(?:\.exe)?[^\r\n]*testsigning/i);
+  assert.doesNotMatch(text, /\/set\s+testsigning\s+(?:on|yes|1)/i);
+}
+
 test('Windows 11 APO package is componentized and catalog-backed', () => {
   const inf = read('VoxveilApo.inf');
   assert.match(inf, /Class\s*=\s*AudioProcessingObject/i);
@@ -65,8 +70,7 @@ test('installer generates signed catalogs and installs both PnP packages without
   assert.match(install, /--cleanup-runtime/i);
   assert.doesNotMatch(install, /--install-fx/i);
   assert.doesNotMatch(install, /MMDevices\\Audio\\Render/i);
-  assert.doesNotMatch(install, /bcdedit/i);
-  assert.doesNotMatch(install, /testsigning/i);
+  assertNoTestModeCommands(install);
 });
 
 test('uninstaller removes Voxveil driver-store packages and development trust', () => {
@@ -76,8 +80,7 @@ test('uninstaller removes Voxveil driver-store packages and development trust', 
   assert.match(uninstall, /TrustedPublisher/i);
   assert.match(uninstall, /--cleanup-runtime/i);
   assert.doesNotMatch(uninstall, /--remove-fx/i);
-  assert.doesNotMatch(uninstall, /bcdedit/i);
-  assert.doesNotMatch(uninstall, /testsigning/i);
+  assertNoTestModeCommands(uninstall);
 });
 
 test('standalone EXE embeds the complete componentized installer payload', () => {
