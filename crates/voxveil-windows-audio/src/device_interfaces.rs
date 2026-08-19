@@ -214,6 +214,20 @@ mod tests {
     }
 
     #[test]
+    fn adapter_interface_path_selects_owning_devnode() {
+        let expected = candidate(
+            "HDAUDIO\\FUNC_01",
+            "\\\\?\\hdaudio#func_01#{dda54a40-1e4c-11d1-a050-405705c10000}",
+            true,
+        );
+        let selection = select_topology_candidate(
+            "\\\\?\\HDAUDIO#FUNC_01#{DDA54A40-1E4C-11D1-A050-405705C10000}",
+            &[expected.clone()],
+        );
+        assert_eq!(selection, CandidateSelection::Unique(expected));
+    }
+
+    #[test]
     fn alias_match_wins_among_same_device_candidates() {
         let expected = candidate("HDAUDIO\\FUNC_01", "topology-alias", true);
         let selection = select_topology_candidate(
