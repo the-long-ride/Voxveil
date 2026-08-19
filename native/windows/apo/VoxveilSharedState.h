@@ -27,7 +27,7 @@ inline SharedState* OpenOrCreateSharedState(HANDLE* mappingOut) noexcept {
     attributes.bInheritHandle = FALSE;
 
     if (ConvertStringSecurityDescriptorToSecurityDescriptorW(
-            L"D:(A;;GA;;;AU)(A;;GA;;;SY)",
+            L"D:(A;;GA;;;AU)(A;;GA;;;LS)(A;;GA;;;SY)",
             SDDL_REVISION_1,
             &descriptor,
             nullptr)) {
