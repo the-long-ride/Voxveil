@@ -1,0 +1,16 @@
+{
+  "title": "Audio système Windows",
+  "description": "Sorties de lecture détectées",
+  "backendDescription": "Voxveil a détecté ci-dessous vos sorties de lecture Windows. La liaison du pilote et la compatibilité sont résolues automatiquement.",
+  "default": "Par défaut",
+  "readyToInstall": "Prêt à installer",
+  "signedComponentRequired": "Composant signé requis",
+  "ambiguous": "Topologie du pilote ambiguë",
+  "install": "Installer",
+  "installing": "Installation…",
+  "installAll": "Installer sur toutes les sorties compatibles",
+  "refresh": "Actualiser",
+  "refreshing": "Actualisation…",
+  "detecting": "Détection des sorties de lecture…",
+  "none": "Aucune sortie de lecture détectée."
+}
