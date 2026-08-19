@@ -22,6 +22,7 @@ public:
     ~CVoxveilApo() noexcept;
 
     DECLARE_NO_REGISTRY()
+    DECLARE_NOT_AGGREGATABLE(CVoxveilApo)
     DECLARE_PROTECT_FINAL_CONSTRUCT()
 
     BEGIN_COM_MAP(CVoxveilApo)
