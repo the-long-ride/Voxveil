@@ -34,6 +34,7 @@
     "engine": "エンジン",
     "backendUnavailable": "処理を利用できません",
     "backendComponentRequired": "このビルドには Windows システムオーディオコンポーネントがまだインストールされていません。コンポーネントが利用可能になるまで処理はオフのままです。",
+    "installComponent": "コンポーネントをインストール",
     "backendUnsupported": "このプラットフォーム向けビルドでは、システムオーディオ処理はまだ実装されていません。",
     "backendFaulted": "オーディオバックエンドの初期化に失敗しました。デバイス音声を変更しないよう処理を無効にしました。",
     "backendRoutingRequired": "Voxveil Virtual Audio を Windows の既定の出力に設定してから Voxveil に戻ってください。処理済み音声は下に表示される物理出力へ送られます。"
