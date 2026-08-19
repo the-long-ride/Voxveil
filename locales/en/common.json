@@ -33,10 +33,11 @@
     "perApp": "Per app",
     "engine": "Engine",
     "backendUnavailable": "Processing unavailable",
-    "backendComponentRequired": "The Windows system-audio component is not installed yet. GitHub Actions development bundles include it under system-audio; install it, set the virtual output as the Windows default, then restart Voxveil.",
+    "backendComponentRequired": "The Windows system-audio APO is not attached to the active output. Use Install component below to open the bundled administrator installer. Development packages may ask for the audio driver Hardware ID and topology reference string.",
+    "installComponent": "Install component",
     "backendUnsupported": "System-audio processing is not implemented for this platform build yet.",
     "backendFaulted": "The audio backend failed to initialize. Processing was disabled so device audio remains unmodified.",
-    "backendRoutingRequired": "Set Voxveil Virtual Audio as the Windows default output, then return to Voxveil. Processed audio will be relayed to the physical output shown below."
+    "backendRoutingRequired": "The Windows audio component needs attention before processing can start."
   },
   "engine": {
     "eyeline": "Processing",
