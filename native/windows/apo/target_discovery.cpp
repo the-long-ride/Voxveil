@@ -1,5 +1,6 @@
 #include <windows.h>
 #include <devpkey.h>
+#include <propkeydef.h>
 #include <functiondiscoverykeys_devpkey.h>
 #include <mmdeviceapi.h>
 #include <propvarutil.h>
