@@ -7,7 +7,7 @@ pub enum WindowsBackendKind {
 }
 
 pub fn select_backend(apo: &BackendProbe, relay: &BackendProbe) -> WindowsBackendKind {
-    if apo.readiness == RelayReadiness::Ready {
+    if matches!(apo.readiness, RelayReadiness::Ready | RelayReadiness::Faulted) {
         WindowsBackendKind::Apo
     } else {
         let _ = relay;
