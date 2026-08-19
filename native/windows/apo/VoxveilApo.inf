@@ -3,7 +3,8 @@ Signature="$WINDOWS NT$"
 Class=AudioProcessingObject
 ClassGuid={5989fce8-9cd0-467d-8a6a-5419e31529d4}
 Provider=%ProviderName%
-DriverVer=08/18/2026,0.1.0.0
+DriverVer=08/19/2026,0.1.0.0
+CatalogFile=VoxveilApo.cat
 PnpLockDown=1
 
 [Manufacturer]
@@ -18,9 +19,6 @@ AddReg=Apo_AddReg
 
 [ApoComponent_Install.HW]
 AddReg=FriendlyName_AddReg
-
-[ApoComponent_Install.Services]
-AddService=,2
 
 [Apo_CopyFiles]
 VoxveilApo.dll
