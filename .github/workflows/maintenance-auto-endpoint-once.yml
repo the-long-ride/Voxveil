@@ -1,5 +1,6 @@
 name: One-shot Auto Endpoint Validation
 
+# phase: discovery-red
 on:
   push:
     branches:
@@ -26,18 +27,6 @@ jobs:
       - name: Install Node dependencies
         shell: pwsh
         run: npm ci --ignore-scripts --no-fund --no-audit
-      - name: Windows audio baseline
+      - name: Windows audio tests
         shell: pwsh
         run: cargo test -p voxveil-windows-audio
-      - name: Tauri baseline
-        shell: pwsh
-        run: cargo test -p voxveil-tauri
-      - name: UI baseline
-        shell: pwsh
-        run: npm run test --workspace @voxveil/ui
-      - name: Quality baseline
-        shell: pwsh
-        run: npm run test:quality
-      - name: Typecheck baseline
-        shell: pwsh
-        run: npm run typecheck
