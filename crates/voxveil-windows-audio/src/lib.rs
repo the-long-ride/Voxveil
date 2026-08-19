@@ -1,4 +1,4 @@
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
 
 mod device;
 mod device_interfaces;
@@ -8,6 +8,7 @@ mod sample;
 #[cfg(windows)]
 mod relay;
 #[cfg(windows)]
+#[allow(unsafe_code)]
 mod topology;
 
 pub use device::{BackendProbe, EndpointDescriptor, RelayReadiness};
