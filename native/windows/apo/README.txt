@@ -1,60 +1,84 @@
 Voxveil Windows System Audio Component (development build)
 =========================================================
 
-Voxveil embeds the development runtime payload inside voxveil.exe. The app installs VoxveilApo.dll
-as an endpoint Audio Processing Object (APO), registers the development COM/AudioEngine metadata,
-and associates the APO with KSCATEGORY_AUDIO topology interfaces at runtime. Voxveil Output / SYSVAD
-is not required in APO mode.
+Voxveil embeds its Windows system-audio payload inside voxveil.exe. On Windows 11, the installer
+uses the componentized Audio Processing Object (APO) model: an AudioProcessingObject package provides
+VoxveilApo.dll, and a target-specific Extension package associates that APO with the current default
+render device. Voxveil Output / SYSVAD is not required in APO mode.
 
 Recommended installation
 ------------------------
-1. Start voxveil.exe.
-2. Use "Install system audio component" when Voxveil reports that the component is missing.
-3. Accept the Windows UAC prompt.
-4. Restart Voxveil (or Windows if requested), then enable Processing.
+1. Make the speakers/headphones you want Voxveil to process the Windows default output device.
+2. Start voxveil.exe.
+3. Use "Install system audio component".
+4. Accept the Windows UAC prompt.
+5. Let Windows install the APO and target-specific Extension packages.
+6. Restart Windows if Voxveil asks you to or if the audio device cannot be restarted automatically.
+7. Play audio, reopen/refocus Voxveil, then enable Processing.
 
-The app extracts the embedded payload only while installing. The persistent APO DLL and helper are
-copied to Program Files\Voxveil\system-audio automatically.
+The app extracts the embedded package only while installing. The APO DLL and diagnostic helpers are
+also retained under Program Files\Voxveil\system-audio for diagnostics/uninstall support.
 
-Development security note
--------------------------
-This is deliberately a development installation path, not the production signed componentized APO
-package. It does not install a driver package, modify Windows boot configuration, enable Test Mode,
-change Secure Boot, take ownership of protected endpoint registry keys, or write MMDevices
-FxProperties directly.
+What the development installer does
+-----------------------------------
+- Finds the current default eRender/eMultimedia endpoint and maps it to one physical PnP audio
+  function device and its topology interface references.
+- Removes Voxveil's older broad runtime FX registration if it is present.
+- Generates a target-specific Extension INF for that one render device only.
+- Creates local development catalogs for the APO and Extension packages and signs them with a
+  temporary machine-local Voxveil development certificate.
+- Places the public certificate in the machine Root and TrustedPublisher stores while the development
+  installation exists.
+- Installs both packages through Windows PnP/Driver Store APIs (pnputil).
+- Restarts the target audio device and Windows audio services when possible.
 
-The helper uses SetupAPI to open the registry storage owned by KSCATEGORY_AUDIO device interfaces.
-It appends Voxveil to the composite endpoint-effect list and default processing mode while preserving
-existing values. Marker values record only what Voxveil added so uninstall can remove Voxveil without
-deliberately replacing an OEM endpoint effect.
+The installer does NOT enable Windows TESTSIGNING, run bcdedit, disable Secure Boot, take ownership of
+protected MMDevices keys, or directly write MMDevices\Audio\Render FxProperties.
 
-The unsigned development APO cannot run in protected audiodg. install.ps1 therefore sets the Windows
-development value DisableProtectedAudioDG=1 after saving its previous state. uninstall.ps1 restores
-that previous state exactly. This is separate from Windows Test Mode and does not change BCD.
+Development protected-audio note
+--------------------------------
+VoxveilApo.dll is not yet a production/WHCP-signed APO. For this development build, install.ps1 saves
+the existing DisableProtectedAudioDG value and sets DisableProtectedAudioDG=1 so the development APO
+can load outside protected AudioDG. uninstall.ps1 restores the previous value exactly. This is separate
+from Windows Test Mode and does not change BCD.
 
-Manual installation (development only)
---------------------------------------
-If you extracted the embedded runtime payload for debugging, run:
+Runtime verification
+--------------------
+Voxveil does not consider the APO ready merely because files were installed. VoxveilApo.dll writes a
+small heartbeat under ProgramData\Voxveil only after it has been loaded and APOProcess has actually
+received audio. The app reports the APO as ready only when that heartbeat is recent and the processed
+buffer count is non-zero.
 
-  powershell.exe -ExecutionPolicy Bypass -File .\install.ps1
+For manual diagnostics while audio is playing:
 
-The script requests Administrator elevation when needed.
+  tasklist /m VoxveilApo.dll
+
+A functioning installation should show audiodg.exe loading VoxveilApo.dll. The control file is:
+
+  ProgramData\Voxveil\apo-control.bin
+
+and runtime heartbeat is:
+
+  ProgramData\Voxveil\apo-runtime.bin
 
 Uninstall
 ---------
-Run the embedded/development uninstall.ps1 as Administrator. It removes Voxveil from the runtime
-audio-interface FX properties, removes only Voxveil's development COM/APO registration, restores
-DisableProtectedAudioDG, and restarts the Windows audio stack where possible.
+Run the installed/embedded uninstall.ps1 as Administrator. It removes Voxveil's Driver Store packages,
+removes the machine-local development trust certificate, cleans any legacy runtime registration,
+restores the previous DisableProtectedAudioDG value, removes Voxveil control/runtime state, and
+restarts the affected audio device/services where possible.
 
 Production packaging
 --------------------
-VoxveilApo.inf and extension.ps1 remain in source as the production direction. A production release
-should use the Windows componentized APO + Extension INF model with proper catalog/signing rather
-than the development runtime/global registration path.
+This is still a development deployment path. A public production release should ship Microsoft/Windows
+properly signed APO and Extension packages instead of creating a local development publisher certificate
+on the target machine.
 
 Notes
 -----
 - Windows 11 build 22000 or newer is required by this package iteration.
 - Administrator permission is required for installation/removal.
-- A reboot may be needed if Windows cannot restart the affected audio services immediately.
-- Applications or endpoints that deliberately bypass system effects may not be processed.
+- The component is installed for the output device that is the Windows default when installation runs.
+- If the default output device changes later, reinstall Voxveil system audio for the new device.
+- A reboot may be needed if Windows cannot reconstruct/restart the affected endpoint immediately.
+- Applications or audio paths that intentionally bypass Windows system effects may not be processed.
