@@ -5,6 +5,7 @@ use std::process::Command;
 use wasapi::{DeviceEnumerator, Direction};
 
 use crate::device::{BackendProbe, EndpointDescriptor, RelayReadiness, component_probe};
+use crate::discovery::{SystemAudioEndpoint, SystemAudioEndpointStatus, enrich_endpoints};
 
 pub struct WindowsAudioBackend {
     vocal_level: u8,
@@ -66,6 +67,26 @@ impl WindowsAudioBackend {
             .map(|items| items.into_iter().map(|item| item.name).collect())
             .unwrap_or_default()
     }
+
+    pub fn system_audio_endpoints(&self) -> Result<Vec<SystemAudioEndpoint>, String> {
+        let endpoints = enumerate_render_blocking()?;
+        let directory = system_audio_directory();
+        let helper = directory.join("discover-system-audio-endpoints.ps1");
+        let package_available = production_package_available(&directory);
+        let mut enriched = enrich_endpoints(endpoints, &helper, package_available)?;
+
+        let loaded = control_executable()
+            .and_then(|control| run_control(&control, &["status"]).ok())
+            .and_then(|status| parse_loaded_instances(&status))
+            .unwrap_or(0);
+        if loaded > 0 {
+            if let Some(active) = enriched.iter_mut().find(|endpoint| endpoint.is_default) {
+                active.status = SystemAudioEndpointStatus::Ready;
+                active.detail = None;
+            }
+        }
+        Ok(enriched)
+    }
 }
 
 fn fault_probe(physical_output: Option<String>, error: String) -> BackendProbe {
@@ -74,6 +95,26 @@ fn fault_probe(physical_output: Option<String>, error: String) -> BackendProbe {
         physical_output,
         detail: Some(error),
     }
+}
+
+fn system_audio_directory() -> PathBuf {
+    if let Ok(path) = env::var("VOXVEIL_SYSTEM_AUDIO_DIR") {
+        return PathBuf::from(path);
+    }
+    env::current_exe()
+        .ok()
+        .and_then(|path| path.parent().map(|parent| parent.join("system-audio")))
+        .unwrap_or_else(|| PathBuf::from("system-audio"))
+}
+
+fn production_package_available(directory: &std::path::Path) -> bool {
+    [
+        "VoxveilApoExtension.inf",
+        "VoxveilApo.cat",
+        "VoxveilApoExtension.cat",
+    ]
+    .iter()
+    .all(|name| directory.join(name).is_file())
 }
 
 fn control_executable() -> Option<PathBuf> {
