@@ -26,7 +26,9 @@ test('Windows 11 APO package is componentized and catalog-backed', () => {
   assert.match(inf, /CatalogFile\s*=\s*VoxveilApo\.cat/i);
   assert.match(inf, /SWC\\VEN_VOXV&CID_APO/i);
   assert.match(inf, /%13%\\VoxveilApo\.dll/i);
-  assert.doesNotMatch(inf, /AddService\s*=\s*,2/i);
+  assert.match(inf, /\[ApoComponent_Install\.Services\][\s\S]*AddService\s*=\s*,2/i);
+  assert.match(inf, /\[SignatureAttributes\][\s\S]*VoxveilApo\.dll\s*=\s*SignatureAttributes\.PETrust/i);
+  assert.match(inf, /\[SignatureAttributes\.PETrust\][\s\S]*PETrust\s*=\s*true/i);
 });
 
 test('Extension INF generator targets exactly one render device and adds the APO component', () => {
