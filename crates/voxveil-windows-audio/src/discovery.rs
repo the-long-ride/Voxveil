@@ -63,12 +63,25 @@ mod windows {
 
     use serde::{Deserialize, Serialize};
 
-    use super::{
-        SystemAudioEndpoint, SystemAudioEndpointStatus, classify_binding, extension_inf_matches,
+    use super::{SystemAudioEndpoint, SystemAudioEndpointStatus, extension_inf_matches};
+    use crate::binding::{
+        RuntimeBindingKind, classify_runtime_binding, fallback_device_matches_runtime,
     };
     use crate::device::EndpointDescriptor;
+    use crate::device_interfaces::{
+        CandidateSelection, TopologyCandidate, enumerate_topology_interfaces,
+        select_topology_candidate,
+    };
+    use crate::topology::resolve_adapter_device_id;
 
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+    #[derive(Clone, Debug)]
+    struct RuntimeResolution {
+        device_id: Option<String>,
+        kind: RuntimeBindingKind,
+        alias_match: bool,
+    }
 
     #[derive(Serialize)]
     #[serde(rename_all = "camelCase")]
@@ -76,6 +89,8 @@ mod windows {
         endpoint_id: &'a str,
         display_name: &'a str,
         is_default: bool,
+        runtime_device_id: Option<&'a str>,
+        runtime_alias_match: bool,
     }
 
     #[derive(Deserialize)]
@@ -97,24 +112,151 @@ mod windows {
         helper: &Path,
         package_directory: &Path,
     ) -> Result<Vec<SystemAudioEndpoint>, String> {
-        if !helper.is_file() {
-            return Ok(endpoints
-                .into_iter()
-                .map(|endpoint| unsupported(endpoint, "Windows endpoint discovery helper is missing"))
-                .collect());
-        }
+        let topology_candidates = enumerate_topology_interfaces().unwrap_or_default();
+        let mut runtime_by_id: HashMap<String, RuntimeResolution> = endpoints
+            .iter()
+            .map(|endpoint| {
+                (
+                    endpoint.id.to_ascii_lowercase(),
+                    resolve_runtime(&endpoint.id, &topology_candidates),
+                )
+            })
+            .collect();
 
         let input: Vec<_> = endpoints
             .iter()
-            .map(|endpoint| InputEndpoint {
-                endpoint_id: &endpoint.id,
-                display_name: &endpoint.name,
-                is_default: endpoint.is_default,
+            .map(|endpoint| {
+                let runtime = runtime_by_id
+                    .get(&endpoint.id.to_ascii_lowercase())
+                    .expect("runtime resolution exists for every endpoint");
+                InputEndpoint {
+                    endpoint_id: &endpoint.id,
+                    display_name: &endpoint.name,
+                    is_default: endpoint.is_default,
+                    runtime_device_id: runtime.device_id.as_deref(),
+                    runtime_alias_match: runtime.alias_match,
+                }
             })
             .collect();
-        let json = serde_json::to_vec(&input)
-            .map_err(|error| format!("failed to serialize Windows endpoints: {error}"))?;
+        let resolved = run_fallback_helper(&input, helper)?;
+        let mut by_id: HashMap<String, ResolvedEndpoint> = resolved
+            .into_iter()
+            .map(|item| (item.endpoint_id.to_ascii_lowercase(), item))
+            .collect();
 
+        Ok(endpoints
+            .into_iter()
+            .map(|endpoint| {
+                let key = endpoint.id.to_ascii_lowercase();
+                let runtime = runtime_by_id.remove(&key).unwrap_or(RuntimeResolution {
+                    device_id: None,
+                    kind: RuntimeBindingKind::None,
+                    alias_match: false,
+                });
+                let mut item = by_id.remove(&key);
+
+                if !fallback_device_matches_runtime(
+                    runtime.device_id.as_deref(),
+                    item.as_ref().and_then(|value| value.pnp_instance_id.as_deref()),
+                ) {
+                    item = None;
+                }
+
+                let adapter_name = item.as_ref().and_then(|value| value.adapter_name.clone());
+                let pnp_instance_id = item
+                    .as_ref()
+                    .and_then(|value| value.pnp_instance_id.clone())
+                    .or_else(|| runtime.device_id.clone());
+                let hardware_ids = item
+                    .as_ref()
+                    .map(|value| value.hardware_ids.clone())
+                    .unwrap_or_default();
+                let driver_inf = item.as_ref().and_then(|value| value.driver_inf.clone());
+                let topology_references = item
+                    .as_ref()
+                    .map(|value| value.topology_references.clone())
+                    .unwrap_or_default();
+                let pnp_resolved = pnp_instance_id.is_some()
+                    && !hardware_ids.is_empty()
+                    && driver_inf.is_some();
+                let topology_reference = (topology_references.len() == 1)
+                    .then(|| topology_references[0].clone());
+                let package_available = topology_reference.as_deref().is_some_and(|reference| {
+                    production_package_matches(package_directory, &hardware_ids, reference)
+                });
+                let status = classify_runtime_binding(
+                    runtime.kind,
+                    pnp_resolved,
+                    &topology_references,
+                    package_available,
+                );
+                let fallback_detail = item.and_then(|value| value.detail);
+                let detail = resolution_detail(
+                    runtime.kind,
+                    status,
+                    &topology_references,
+                    fallback_detail,
+                );
+
+                SystemAudioEndpoint {
+                    endpoint_id: endpoint.id,
+                    display_name: endpoint.name,
+                    adapter_name,
+                    is_default: endpoint.is_default,
+                    pnp_instance_id,
+                    hardware_ids,
+                    driver_inf,
+                    topology_reference,
+                    status,
+                    detail,
+                }
+            })
+            .collect())
+    }
+
+    fn resolve_runtime(
+        endpoint_id: &str,
+        candidates: &[TopologyCandidate],
+    ) -> RuntimeResolution {
+        let Ok(Some(device_id)) = resolve_adapter_device_id(endpoint_id) else {
+            return RuntimeResolution {
+                device_id: None,
+                kind: RuntimeBindingKind::None,
+                alias_match: false,
+            };
+        };
+
+        match select_topology_candidate(&device_id, candidates) {
+            CandidateSelection::Unique(candidate) => {
+                let _runtime_interface_path = &candidate.interface_path;
+                RuntimeResolution {
+                    device_id: Some(device_id),
+                    kind: RuntimeBindingKind::Unique,
+                    alias_match: candidate.alias_match,
+                }
+            }
+            CandidateSelection::Ambiguous => RuntimeResolution {
+                device_id: Some(device_id),
+                kind: RuntimeBindingKind::Ambiguous,
+                alias_match: false,
+            },
+            CandidateSelection::None => RuntimeResolution {
+                device_id: Some(device_id),
+                kind: RuntimeBindingKind::None,
+                alias_match: false,
+            },
+        }
+    }
+
+    fn run_fallback_helper(
+        input: &[InputEndpoint<'_>],
+        helper: &Path,
+    ) -> Result<Vec<ResolvedEndpoint>, String> {
+        if !helper.is_file() {
+            return Ok(Vec::new());
+        }
+        let json = serde_json::to_vec(input)
+            .map_err(|error| format!("failed to serialize Windows endpoints: {error}"))?;
         let mut command = Command::new("powershell.exe");
         command
             .args([
@@ -149,48 +291,8 @@ mod windows {
                 error
             });
         }
-
-        let resolved: Vec<ResolvedEndpoint> = serde_json::from_slice(&output.stdout)
-            .map_err(|error| format!("Windows endpoint discovery returned invalid JSON: {error}"))?;
-        let mut by_id: HashMap<String, ResolvedEndpoint> = resolved
-            .into_iter()
-            .map(|item| (item.endpoint_id.to_ascii_lowercase(), item))
-            .collect();
-
-        Ok(endpoints
-            .into_iter()
-            .map(|endpoint| {
-                let Some(item) = by_id.remove(&endpoint.id.to_ascii_lowercase()) else {
-                    return unsupported(endpoint, "Windows could not resolve this playback endpoint");
-                };
-                let pnp_resolved = item.pnp_instance_id.is_some()
-                    && !item.hardware_ids.is_empty()
-                    && item.driver_inf.is_some();
-                let topology_reference = (item.topology_references.len() == 1)
-                    .then(|| item.topology_references[0].clone());
-                let package_available = topology_reference.as_deref().is_some_and(|reference| {
-                    production_package_matches(package_directory, &item.hardware_ids, reference)
-                });
-                let status = classify_binding(
-                    pnp_resolved,
-                    &item.topology_references,
-                    package_available,
-                );
-                let detail = item.detail.or_else(|| default_detail(status));
-                SystemAudioEndpoint {
-                    endpoint_id: endpoint.id,
-                    display_name: endpoint.name,
-                    adapter_name: item.adapter_name,
-                    is_default: endpoint.is_default,
-                    pnp_instance_id: item.pnp_instance_id,
-                    hardware_ids: item.hardware_ids,
-                    driver_inf: item.driver_inf,
-                    topology_reference,
-                    status,
-                    detail,
-                }
-            })
-            .collect())
+        serde_json::from_slice(&output.stdout)
+            .map_err(|error| format!("Windows endpoint discovery returned invalid JSON: {error}"))
     }
 
     fn production_package_matches(
@@ -210,18 +312,20 @@ mod windows {
             .unwrap_or(false)
     }
 
-    fn unsupported(endpoint: EndpointDescriptor, detail: &str) -> SystemAudioEndpoint {
-        SystemAudioEndpoint {
-            endpoint_id: endpoint.id,
-            display_name: endpoint.name,
-            adapter_name: None,
-            is_default: endpoint.is_default,
-            pnp_instance_id: None,
-            hardware_ids: Vec::new(),
-            driver_inf: None,
-            topology_reference: None,
-            status: SystemAudioEndpointStatus::Unsupported,
-            detail: Some(detail.into()),
+    fn resolution_detail(
+        runtime_kind: RuntimeBindingKind,
+        status: SystemAudioEndpointStatus,
+        topology_references: &[String],
+        fallback_detail: Option<String>,
+    ) -> Option<String> {
+        match runtime_kind {
+            RuntimeBindingKind::Ambiguous => default_detail(SystemAudioEndpointStatus::Ambiguous),
+            RuntimeBindingKind::Unique if topology_references.is_empty() => Some(
+                "Windows resolved this output topology at runtime, but the installed driver did not expose the literal reference string required by the extension package."
+                    .into(),
+            ),
+            RuntimeBindingKind::Unique => default_detail(status),
+            RuntimeBindingKind::None => fallback_detail.or_else(|| default_detail(status)),
         }
     }
 
