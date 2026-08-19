@@ -77,6 +77,20 @@ test('system audio discovery fails closed instead of guessing topology', async (
   assert.match(deviceInterfaces, /0xdda54a40_1e4c_11d1_a050_405705c10000/i);
 });
 
+test('runtime topology binding can source driver metadata from an anchored ancestor', async () => {
+  const discovery = await read('crates/voxveil-windows-audio/src/discovery.rs');
+  const helper = await read('scripts/windows/discover-system-audio-endpoints.ps1');
+  const installer = await read('scripts/windows/install-system-audio-component.ps1');
+  const systemAudio = await read('tauri/app/system_audio.rs');
+
+  assert.match(discovery, /binding_pnp_instance_id/);
+  assert.match(helper, /bindingPnpInstanceId/);
+  assert.match(helper, /Resolve-ParentAudioDevice\s+\$runtimeDeviceId/);
+  assert.match(systemAudio, /binding_pnp_instance_id/);
+  assert.match(installer, /bindingPnpInstanceId/);
+  assert.match(installer, /runtimeDeviceId\s*=\s*\[string\]\$descriptor\.bindingPnpInstanceId/);
+});
+
 test('browser install flow uses opaque endpoint id and never raw driver identifiers', async () => {
   const home = await read('ui/features/home/HomeScreen.tsx');
   const model = await read('ui/app/useVoxveilState.ts');
