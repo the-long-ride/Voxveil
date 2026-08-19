@@ -1,13 +1,18 @@
-[CmdletBinding()]
+[CmdletBinding(DefaultParameterSetName = 'Descriptor')]
 param(
-  [Parameter(Mandatory = $true)]
+  [Parameter(ParameterSetName = 'Descriptor', Mandatory = $true)]
+  [ValidateNotNullOrEmpty()]
+  [string]$EndpointDescriptor,
+
+  [Parameter(ParameterSetName = 'Manual', Mandatory = $true)]
   [ValidateNotNullOrEmpty()]
   [string]$HardwareId,
 
-  [Parameter(Mandatory = $true)]
+  [Parameter(ParameterSetName = 'Manual', Mandatory = $true)]
   [ValidateNotNullOrEmpty()]
   [string]$ReferenceString,
 
+  [Parameter(ParameterSetName = 'Manual')]
   [switch]$TestSign
 )
 
@@ -30,9 +35,63 @@ function Find-WdkTool([string]$Name) {
     Select-Object -First 1 -ExpandProperty FullName
 }
 
+function Resolve-EndpointDescriptor([string]$DescriptorPath, [string]$Root) {
+  if (-not (Test-Path $DescriptorPath -PathType Leaf)) {
+    throw "device-changed: endpoint descriptor no longer exists: $DescriptorPath"
+  }
+  $descriptor = Get-Content $DescriptorPath -Raw | ConvertFrom-Json
+  foreach ($name in @('endpointId', 'pnpInstanceId', 'hardwareId', 'driverInf', 'topologyReference')) {
+    if (-not $descriptor.$name) { throw "device-changed: endpoint descriptor is missing $name" }
+  }
+
+  $helper = Join-Path $Root 'discover-system-audio-endpoints.ps1'
+  if (-not (Test-Path $helper -PathType Leaf)) {
+    throw "Required endpoint discovery helper not found: $helper"
+  }
+  $request = ConvertTo-Json -InputObject @([pscustomobject]@{
+    endpointId = [string]$descriptor.endpointId
+    displayName = ''
+    isDefault = $false
+  }) -Compress
+  $output = $request | & powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File $helper
+  if ($LASTEXITCODE -ne 0) { throw 'device-changed: endpoint discovery failed during elevated revalidation.' }
+  $resolvedItems = @(ConvertFrom-Json ($output -join [Environment]::NewLine))
+  if ($resolvedItems.Count -ne 1) { throw 'device-changed: selected endpoint could not be uniquely re-resolved.' }
+  $resolved = $resolvedItems[0]
+
+  if ([string]$resolved.pnpInstanceId -ine [string]$descriptor.pnpInstanceId) {
+    throw 'device-changed: the playback endpoint now maps to a different PnP device.'
+  }
+  if ([string]$resolved.driverInf -ine [string]$descriptor.driverInf) {
+    throw 'device-changed: the playback endpoint driver changed after discovery.'
+  }
+  $currentHardware = @($resolved.hardwareIds | ForEach-Object { [string]$_ })
+  if (-not ($currentHardware -icontains [string]$descriptor.hardwareId)) {
+    throw 'device-changed: the playback endpoint hardware IDs changed after discovery.'
+  }
+  $topology = @($resolved.topologyReferences | ForEach-Object { [string]$_ })
+  if ($topology.Count -ne 1 -or $topology[0] -ine [string]$descriptor.topologyReference) {
+    throw 'device-changed: the playback endpoint topology binding changed or became ambiguous.'
+  }
+
+  return [pscustomobject]@{
+    EndpointId = [string]$descriptor.endpointId
+    HardwareId = [string]$descriptor.hardwareId
+    ReferenceString = [string]$descriptor.topologyReference
+  }
+}
+
 Assert-Administrator
 
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
+$selectedEndpointId = $null
+if ($PSCmdlet.ParameterSetName -eq 'Descriptor') {
+  $binding = Resolve-EndpointDescriptor $EndpointDescriptor $root
+  $selectedEndpointId = $binding.EndpointId
+  $HardwareId = $binding.HardwareId
+  $ReferenceString = $binding.ReferenceString
+}
+
 $apoInf = Join-Path $root 'VoxveilApo.inf'
 $apoDll = Join-Path $root 'VoxveilApo.dll'
 $template = Join-Path $root 'VoxveilApoExtension.inf.template'
@@ -64,7 +123,7 @@ try {
     $testSigning = (bcdedit /enum '{current}' 2>$null | Select-String -Pattern '^testsigning\s+Yes$')
     if (-not $testSigning) {
       Write-Warning 'Windows TESTSIGNING is not enabled. The development package may install but AudioDG/PNP will not load it after reboot.'
-      Write-Warning 'Enable TESTSIGNING on a dedicated development machine; Secure Boot may need to be disabled.'
+      Write-Warning 'Enable TESTSIGNING only on a dedicated development machine; Secure Boot may need to be disabled.'
     }
 
     $certificate = New-SelfSignedCertificate `
@@ -98,13 +157,13 @@ try {
     $extensionCat = Join-Path $root 'VoxveilApoExtension.cat'
     foreach ($required in @($prebuiltExtension, $apoCat, $extensionCat)) {
       if (-not (Test-Path $required)) {
-        throw 'Production install requires a prebuilt device-specific VoxveilApoExtension.inf and its matching production-signed catalogs.'
+        throw 'Production install requires a matching production-signed extension package for this audio driver.'
       }
     }
 
     $prebuiltText = Get-Content $prebuiltExtension -Raw
     if (-not $prebuiltText.Contains($HardwareId) -or -not $prebuiltText.Contains($ReferenceString)) {
-      throw 'The prebuilt production Extension INF does not match the requested HardwareId/ReferenceString.'
+      throw 'The signed Voxveil Extension INF does not match the automatically resolved playback endpoint.'
     }
     Copy-Item $prebuiltExtension $extensionInf
     Copy-Item $apoCat, $extensionCat -Destination $work
@@ -125,15 +184,18 @@ try {
   $installed = Get-CimInstance Win32_PnPSignedDriver |
     Where-Object { $_.DriverProviderName -eq 'Voxveil' -and $_.InfName } |
     Select-Object -ExpandProperty InfName -Unique
-  @{ installedInfNames = @($installed); hardwareId = $HardwareId; referenceString = $ReferenceString } |
-    ConvertTo-Json -Depth 3 |
-    Set-Content (Join-Path $root 'install-state.json') -Encoding utf8
+  @{
+    installedInfNames = @($installed)
+    endpointId = $selectedEndpointId
+    hardwareId = $HardwareId
+    referenceString = $ReferenceString
+  } | ConvertTo-Json -Depth 3 | Set-Content (Join-Path $root 'install-state.json') -Encoding utf8
 
   if (Test-Path $control) {
     $status = & $control status 2>&1
     Write-Host "APO control status: $status"
     if ($LASTEXITCODE -ne 0 -or $status -notmatch 'loaded=[1-9][0-9]*') {
-      throw 'The package installed, but AudioDG did not load VoxveilApo.dll on the target endpoint. Check C:\Windows\INF\setupapi.dev.log and the selected hardware/reference-string pair.'
+      throw 'installed-not-loaded: the package installed, but AudioDG did not load VoxveilApo.dll on the selected playback endpoint.'
     }
   } else {
     Write-Warning 'voxveil-control.exe was not present, so AudioDG load verification was skipped.'
