@@ -52,10 +52,16 @@ function Resolve-EndpointDescriptor([string]$DescriptorPath, [string]$Root) {
     endpointId = [string]$descriptor.endpointId
     displayName = ''
     isDefault = $false
+    runtimeDeviceId = [string]$descriptor.pnpInstanceId
+    runtimeAliasMatch = $true
   }) -Compress
   $output = $request | & powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File $helper
   if ($LASTEXITCODE -ne 0) { throw 'device-changed: endpoint discovery failed during elevated revalidation.' }
-  $resolvedItems = @(ConvertFrom-Json ($output -join [Environment]::NewLine))
+  $parsedResolved = ConvertFrom-Json ($output -join [Environment]::NewLine)
+  $resolvedItems = [Collections.Generic.List[object]]::new()
+  foreach ($resolvedItem in $parsedResolved) {
+    $resolvedItems.Add($resolvedItem)
+  }
   if ($resolvedItems.Count -ne 1) { throw 'device-changed: selected endpoint could not be uniquely re-resolved.' }
   $resolved = $resolvedItems[0]
 
@@ -69,9 +75,10 @@ function Resolve-EndpointDescriptor([string]$DescriptorPath, [string]$Root) {
   if (-not ($currentHardware -icontains [string]$descriptor.hardwareId)) {
     throw 'device-changed: the playback endpoint hardware IDs changed after discovery.'
   }
-  $topology = @($resolved.topologyReferences | ForEach-Object { [string]$_ })
-  if ($topology.Count -ne 1 -or $topology[0] -ine [string]$descriptor.topologyReference) {
-    throw 'device-changed: the playback endpoint topology binding changed or became ambiguous.'
+  $currentTopology = @($resolved.topologyReferences | ForEach-Object { [string]$_ })
+  $expectedTopology = [string]$descriptor.topologyReference
+  if (-not ($currentTopology | Where-Object { $_ -ieq $expectedTopology })) {
+    throw 'device-changed: the playback endpoint topology binding changed.'
   }
 
   return [pscustomobject]@{
