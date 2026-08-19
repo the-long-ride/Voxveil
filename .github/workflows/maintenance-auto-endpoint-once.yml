@@ -1,6 +1,6 @@
 name: One-shot Auto Endpoint Validation
 
-# phase: ui-green-ubuntu
+# phase: final-windows
 on:
   push:
     branches:
@@ -12,9 +12,9 @@ permissions:
   contents: read
 
 jobs:
-  ui-green:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+  windows-package:
+    runs-on: windows-2022
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -22,17 +22,76 @@ jobs:
           node-version: '24.17.0'
           cache: npm
       - name: Validate workflow-free checkout tree
-        shell: bash
-        run: rm -rf .github/workflows
+        shell: pwsh
+        run: Remove-Item .github/workflows -Recurse -Force
       - name: Install Node dependencies
-        shell: bash
+        shell: pwsh
         run: npm ci --ignore-scripts --no-fund --no-audit
+      - name: Parse system audio PowerShell helpers
+        shell: pwsh
+        run: |
+          foreach ($path in @(
+            'scripts/windows/discover-system-audio-endpoints.ps1',
+            'scripts/windows/install-system-audio-component.ps1'
+          )) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $path), [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -ne 0) {
+              $errors | Format-List | Out-String | Write-Error
+              throw "PowerShell syntax validation failed: $path"
+            }
+          }
+          $json = '[]' | powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows\discover-system-audio-endpoints.ps1
+          $parsed = $json | ConvertFrom-Json
+          if ($null -eq $parsed) { Write-Host 'Discovery helper returned an empty endpoint set.' }
+      - name: Windows audio tests
+        shell: pwsh
+        run: cargo test -p voxveil-windows-audio
+      - name: Tauri endpoint tests
+        shell: pwsh
+        run: cargo test -p voxveil-tauri
       - name: Playback endpoint UI tests
-        shell: bash
+        shell: pwsh
         run: npm run test --workspace @voxveil/ui
       - name: Typecheck
-        shell: bash
+        shell: pwsh
         run: npm run typecheck
-      - name: Quality endpoint contract
-        shell: bash
+      - name: Quality checks
+        shell: pwsh
         run: npm run test:quality
+      - name: Build full Windows package
+        shell: pwsh
+        run: .\scripts\windows\build-windows.ps1
+      - name: Smoke-test package
+        shell: pwsh
+        run: |
+          $package = (Resolve-Path 'dist/windows-x64/Voxveil').Path
+          $required = @(
+            (Join-Path $package 'voxveil.exe'),
+            (Join-Path $package 'system-audio\VoxveilApo.dll'),
+            (Join-Path $package 'system-audio\VoxveilControl.dll'),
+            (Join-Path $package 'system-audio\voxveil-control.exe'),
+            (Join-Path $package 'system-audio\discover-system-audio-endpoints.ps1'),
+            (Join-Path $package 'system-audio\install-system-audio-component.ps1')
+          )
+          foreach ($path in $required) {
+            if (-not (Test-Path $path -PathType Leaf)) { throw "Missing build output: $path" }
+          }
+          & (Join-Path $package 'system-audio\voxveil-control.exe') status
+          if ($LASTEXITCODE -ne 0) { throw "voxveil-control status failed: $LASTEXITCODE" }
+          $empty = '[]' | powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File (Join-Path $package 'system-audio\discover-system-audio-endpoints.ps1')
+          $empty | ConvertFrom-Json | Out-Null
+          $process = Start-Process -FilePath (Join-Path $package 'voxveil.exe') -PassThru
+          Start-Sleep -Seconds 8
+          $process.Refresh()
+          if ($process.HasExited -and $process.ExitCode -ne 0) { throw "voxveil.exe exited with code $($process.ExitCode)" }
+          if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }
+      - name: Upload Windows package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Voxveil-windows-x64-master-auto-endpoints
+          path: dist/windows-x64/Voxveil/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
