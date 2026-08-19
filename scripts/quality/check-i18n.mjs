@@ -27,14 +27,22 @@ export function compareLocaleKeys(expected, actual) {
   };
 }
 
+export function combineLocale(common, systemAudio) {
+  return { ...common, systemAudio };
+}
+
+function readLocale(localeRoot, language) {
+  const common = JSON.parse(fs.readFileSync(path.join(localeRoot, language, 'common.json'), 'utf8'));
+  const systemAudio = JSON.parse(fs.readFileSync(path.join(localeRoot, language, 'system-audio.json'), 'utf8'));
+  return combineLocale(common, systemAudio);
+}
+
 export function validateLocales(root) {
   const localeRoot = path.join(path.resolve(root), 'locales');
-  const canonical = JSON.parse(fs.readFileSync(path.join(localeRoot, 'en/common.json'), 'utf8'));
-  const expected = flattenKeys(canonical);
+  const expected = flattenKeys(readLocale(localeRoot, 'en'));
   const issues = [];
   for (const language of LANGUAGES.slice(1)) {
-    const file = path.join(localeRoot, language, 'common.json');
-    const actual = flattenKeys(JSON.parse(fs.readFileSync(file, 'utf8')));
+    const actual = flattenKeys(readLocale(localeRoot, language));
     const diff = compareLocaleKeys(expected, actual);
     if (diff.missing.length || diff.extra.length) issues.push({ language, ...diff });
   }
