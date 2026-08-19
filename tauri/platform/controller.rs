@@ -85,6 +85,16 @@ impl ProcessingController {
         #[cfg(not(target_os = "windows"))]
         Vec::new()
     }
+
+    #[cfg(target_os = "windows")]
+    pub fn system_audio_endpoints(
+        &self,
+    ) -> Result<Vec<voxveil_windows_audio::SystemAudioEndpoint>, String> {
+        self.backend
+            .lock()
+            .map_err(|_| "Windows audio backend lock is poisoned".to_string())?
+            .system_audio_endpoints()
+    }
 }
 
 #[cfg(target_os = "windows")]
