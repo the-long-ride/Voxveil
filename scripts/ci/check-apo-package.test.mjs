@@ -27,8 +27,6 @@ test('Windows 11 APO development package is componentized and catalog-backed', (
   assert.match(inf, /APO\\VEN_VOXV&CID_APO/i);
   assert.match(inf, /%13%\\VoxveilApo\.dll/i);
   assert.doesNotMatch(inf, /\[ApoComponent_Install\.Services\]/i);
-  // PETrust is an additional HLK/certification signature. The locally signed
-  // development package deliberately does not request it.
   assert.doesNotMatch(inf, /SignatureAttributes\.PETrust|PETrust\s*=\s*true/i);
 });
 
@@ -60,9 +58,11 @@ test('target helper discovers only the current default render endpoint', () => {
   assert.match(project, /setupapi\.lib/i);
 });
 
-test('installer generates signed catalogs and installs both PnP packages without Test Mode', () => {
+test('installer creates authenticated PnP catalogs and installs both packages without Test Mode', () => {
   const install = read('install.ps1');
+  const catalog = read('catalog.ps1');
   assert.match(install, /New-FileCatalog/i);
+  assert.match(install, /Add-VoxveilPnpCatalogAttributes/i);
   assert.match(install, /Set-AuthenticodeSignature/i);
   assert.match(install, /New-SelfSignedCertificate/i);
   assert.match(install, /TrustedPublisher/i);
@@ -73,6 +73,12 @@ test('installer generates signed catalogs and installs both PnP packages without
   assert.match(install, /--cleanup-runtime/i);
   assert.doesNotMatch(install, /--install-fx/i);
   assert.doesNotMatch(install, /MMDevices\\Audio\\Render/i);
+  assert.match(catalog, /CryptCATPutCatAttrInfo/i);
+  assert.match(catalog, /CryptCATPersistStore/i);
+  assert.match(catalog, /OSAttr/i);
+  assert.match(catalog, /2:10\.0/i);
+  assert.match(catalog, /0x10000000/);
+  assert.match(catalog, /0x00010000/);
   assertNoTestModeCommands(install);
 });
 
@@ -99,6 +105,7 @@ test('standalone EXE embeds the complete componentized installer payload', () =>
   assert.match(systemAudio, /include_str!\([^)]*VoxveilApo\.inf/i);
   assert.match(systemAudio, /include_str!\([^)]*targets\.ps1/i);
   assert.match(systemAudio, /include_str!\([^)]*extension\.ps1/i);
+  assert.match(systemAudio, /include_str!\([^)]*catalog\.ps1/i);
   assert.match(systemAudio, /include_str!\([^)]*install\.ps1/i);
   assert.match(systemAudio, /include_str!\([^)]*uninstall\.ps1/i);
 });
