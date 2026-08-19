@@ -212,6 +212,7 @@ try {
     New-Item -ItemType Directory -Path $StateRoot -Force | Out-Null
     New-Item -ItemType Directory -Path $InstallRoot -Force | Out-Null
     & icacls.exe $StateRoot /grant '*S-1-5-32-545:(OI)(CI)M' /T /C | Out-Null
+    & icacls.exe $StateRoot /grant '*S-1-5-19:(OI)(CI)M' /T /C | Out-Null
 
     $targetDll = Join-Path $InstallRoot 'VoxveilApo.dll'
     Copy-Item -LiteralPath (Join-Path $PackageRoot 'VoxveilApo.dll') -Destination $targetDll -Force
