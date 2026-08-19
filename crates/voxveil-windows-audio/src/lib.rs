@@ -41,16 +41,26 @@ impl WindowsAudioBackend {
     }
 
     pub fn set_enabled(&mut self, enabled: bool, vocal_level: u8) -> Result<BackendProbe, String> {
-        let apo_probe = self.apo.probe();
-        if apo_probe.readiness == RelayReadiness::Ready {
-            self.active = WindowsBackendKind::Apo;
-            let mut result = self.apo.set_enabled(enabled, vocal_level)?;
-            let relay_probe = self.relay.probe();
-            enrich_apo_output(&mut result, &relay_probe);
-            Ok(result)
-        } else {
-            self.active = WindowsBackendKind::Relay;
-            self.relay.set_enabled(enabled, vocal_level)
+        let mut apo_probe = self.apo.probe();
+        let relay_probe = self.relay.probe();
+        enrich_apo_output(&mut apo_probe, &relay_probe);
+        match apo_probe.readiness {
+            RelayReadiness::Ready => {
+                self.active = WindowsBackendKind::Apo;
+                let mut result = self.apo.set_enabled(enabled, vocal_level)?;
+                enrich_apo_output(&mut result, &relay_probe);
+                Ok(result)
+            }
+            RelayReadiness::Faulted => {
+                self.active = WindowsBackendKind::Apo;
+                Err(apo_probe
+                    .detail
+                    .unwrap_or_else(|| "Voxveil APO is installed but not active".into()))
+            }
+            _ => {
+                self.active = WindowsBackendKind::Relay;
+                self.relay.set_enabled(enabled, vocal_level)
+            }
         }
     }
 
