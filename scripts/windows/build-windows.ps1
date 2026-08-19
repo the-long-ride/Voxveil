@@ -84,6 +84,7 @@ Copy-Item $requiredNative -Destination $systemAudio
 Copy-Item (Join-Path $repo 'native\windows\package\VoxveilApo.inf') $systemAudio
 Copy-Item (Join-Path $repo 'native\windows\package\VoxveilApoExtension.inf.template') $systemAudio
 foreach ($script in @(
+  'discover-system-audio-endpoints.ps1',
   'new-apo-extension-inf.ps1',
   'install-system-audio-component.ps1',
   'uninstall-system-audio-component.ps1'
@@ -97,10 +98,11 @@ Voxveil Windows x64 development package
 - voxveil.exe is the desktop application.
 - system-audio/VoxveilApo.dll is the real in-process Windows SFX APO.
 - system-audio/VoxveilControl.dll + voxveil-control.exe control the APO shared state.
-- The APO package uses the Windows componentized-audio model; it does NOT install a virtual output device.
-- install-system-audio-component.ps1 requires the selected render driver's Hardware ID and topology Reference String.
-- For local development, run install-system-audio-component.ps1 with -TestSign on a WDK machine with Windows TESTSIGNING enabled.
-- A normal Secure Boot/end-user release requires production-signed catalogs/APO binaries and a compatible device-specific Extension INF.
+- Voxveil automatically enumerates Windows playback endpoints and resolves their PnP/driver/topology identity internally.
+- The normal UI never asks for Hardware IDs or topology reference strings.
+- The APO uses the Windows componentized-audio model; it does NOT install a virtual output device.
+- Normal endpoint installation is offered only when the package contains a compatible production-signed Extension INF/catalog set.
+- The raw -HardwareId/-ReferenceString/-TestSign script parameters remain for dedicated driver-development diagnostics only.
 '@ | Set-Content (Join-Path $output 'README-WINDOWS.txt') -Encoding utf8
 
 $hashFiles = Get-ChildItem $output -Recurse -File | Where-Object { $_.Name -ne 'SHA256SUMS.txt' }
@@ -113,4 +115,4 @@ $hashLines | Set-Content (Join-Path $output 'SHA256SUMS.txt') -Encoding ascii
 
 Write-Host ''
 Write-Host "Windows package staged: $output"
-Write-Host 'Next development validation step: install the componentized APO on a dedicated Windows test machine and verify `voxveil-control status` reports loaded > 0.'
+Write-Host 'Next real-device validation step: verify auto-discovery on physical outputs and confirm AudioDG loads VoxveilApo.dll after a compatible signed package is installed.'
