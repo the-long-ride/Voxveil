@@ -149,7 +149,7 @@ function New-SignedDriverCatalog {
         New-FileCatalog -Path $PackagePath -CatalogFilePath $temporaryCatalog -CatalogVersion 2 | Out-Null
         $signature = Set-AuthenticodeSignature -FilePath $temporaryCatalog -Certificate $Certificate -HashAlgorithm SHA256
         if ($signature.Status -ne [System.Management.Automation.SignatureStatus]::Valid) {
-            throw "Catalog signing failed for $CatalogName: $($signature.StatusMessage)"
+            throw "Catalog signing failed for ${CatalogName}: $($signature.StatusMessage)"
         }
         Move-Item -LiteralPath $temporaryCatalog -Destination (Join-Path $PackagePath $CatalogName) -Force
     } finally {
