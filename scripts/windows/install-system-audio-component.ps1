@@ -40,7 +40,7 @@ function Resolve-EndpointDescriptor([string]$DescriptorPath, [string]$Root) {
     throw "device-changed: endpoint descriptor no longer exists: $DescriptorPath"
   }
   $descriptor = Get-Content $DescriptorPath -Raw | ConvertFrom-Json
-  foreach ($name in @('endpointId', 'pnpInstanceId', 'hardwareId', 'driverInf', 'topologyReference')) {
+  foreach ($name in @('endpointId', 'bindingPnpInstanceId', 'pnpInstanceId', 'hardwareId', 'driverInf', 'topologyReference')) {
     if (-not $descriptor.$name) { throw "device-changed: endpoint descriptor is missing $name" }
   }
 
@@ -52,7 +52,7 @@ function Resolve-EndpointDescriptor([string]$DescriptorPath, [string]$Root) {
     endpointId = [string]$descriptor.endpointId
     displayName = ''
     isDefault = $false
-    runtimeDeviceId = [string]$descriptor.pnpInstanceId
+    runtimeDeviceId = [string]$descriptor.bindingPnpInstanceId
     runtimeAliasMatch = $true
   }) -Compress
   $output = $request | & powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File $helper
@@ -65,8 +65,11 @@ function Resolve-EndpointDescriptor([string]$DescriptorPath, [string]$Root) {
   if ($resolvedItems.Count -ne 1) { throw 'device-changed: selected endpoint could not be uniquely re-resolved.' }
   $resolved = $resolvedItems[0]
 
+  if ([string]$resolved.bindingPnpInstanceId -ine [string]$descriptor.bindingPnpInstanceId) {
+    throw 'device-changed: the playback endpoint now maps to a different topology binding device.'
+  }
   if ([string]$resolved.pnpInstanceId -ine [string]$descriptor.pnpInstanceId) {
-    throw 'device-changed: the playback endpoint now maps to a different PnP device.'
+    throw 'device-changed: the playback endpoint driver metadata now maps to a different PnP device.'
   }
   if ([string]$resolved.driverInf -ine [string]$descriptor.driverInf) {
     throw 'device-changed: the playback endpoint driver changed after discovery.'
