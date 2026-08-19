@@ -34,6 +34,7 @@
     "engine": "Moteur",
     "backendUnavailable": "Traitement indisponible",
     "backendComponentRequired": "Cette version ne dispose pas encore du composant audio système Windows installé. Le traitement reste désactivé jusqu’à ce que ce composant soit disponible.",
+    "installComponent": "Installer le composant",
     "backendUnsupported": "Le traitement de l’audio système n’est pas encore implémenté pour cette version de la plateforme.",
     "backendFaulted": "Le backend audio n’a pas pu être initialisé. Le traitement a été désactivé afin de laisser l’audio de l’appareil inchangé.",
     "backendRoutingRequired": "Définissez Voxveil Virtual Audio comme sortie Windows par défaut, puis revenez dans Voxveil. L’audio traité sera relayé vers la sortie physique affichée ci-dessous."
