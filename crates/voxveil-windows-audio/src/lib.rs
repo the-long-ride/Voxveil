@@ -1,5 +1,6 @@
 #![deny(unsafe_code)]
 
+mod binding;
 mod device;
 mod device_interfaces;
 mod discovery;
