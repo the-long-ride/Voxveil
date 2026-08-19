@@ -38,6 +38,19 @@ export function HomeScreen({ model, aiModelReady }: { model: VoxveilModel; aiMod
         <div className="backend-notice" role="status">
           <strong>{t('processing.backendUnavailable')}</strong>
           <span>{t(backendLabelKey(state.backendStatus))}</span>
+          {state.backendStatus === 'component-required' && (
+            <button
+              className="action-button"
+              type="button"
+              disabled={model.systemAudioInstallBusy}
+              onClick={() => void model.installSystemAudioComponent()}
+            >
+              {t('processing.installComponent')}
+            </button>
+          )}
+          {model.systemAudioInstallError && (
+            <span className="model-error" role="alert">{model.systemAudioInstallError}</span>
+          )}
         </div>
       )}
 
