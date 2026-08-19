@@ -7,7 +7,7 @@ on:
 
 jobs:
   windows:
-    runs-on: windows-2025
+    runs-on: windows-latest
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -34,7 +34,9 @@ jobs:
             'native/windows/apo/targets.ps1',
             'native/windows/apo/extension.ps1'
           )) {
-            [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file), [ref]$null, [ref]$parseErrors)
+            $tokens = $null
+            $parseErrors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file), [ref]$tokens, [ref]$parseErrors)
             if ($parseErrors.Count) { $errors += $parseErrors }
           }
           if ($errors.Count) { $errors | Format-List | Out-String | Write-Error; exit 1 }
