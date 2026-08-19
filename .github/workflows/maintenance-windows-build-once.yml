@@ -34,6 +34,10 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw "Failed to delete branch: $branch" }
           }
 
+      - name: Remove one-shot workflow from build tree
+        shell: pwsh
+        run: Remove-Item .github/workflows -Recurse -Force
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
