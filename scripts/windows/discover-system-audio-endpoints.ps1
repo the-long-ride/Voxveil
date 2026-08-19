@@ -177,24 +177,31 @@ $results = [Collections.Generic.List[object]]::new()
 foreach ($endpoint in $coreEndpoints) {
   $runtimeDeviceId = [string](Get-OptionalProperty $endpoint 'runtimeDeviceId')
   $runtimeAliasMatch = [bool](Get-OptionalProperty $endpoint 'runtimeAliasMatch')
+  $bindingPnpInstanceId = $null
   $metadata = $null
   $detail = $null
 
   if ($runtimeDeviceId) {
+    $bindingPnpInstanceId = $runtimeDeviceId
     $metadata = Get-AudioDeviceMetadata $runtimeDeviceId
     if (-not $metadata) {
-      $detail = 'Windows resolved the runtime topology adapter, but its driver metadata was not available on that exact devnode.'
+      $metadata = Resolve-ParentAudioDevice $runtimeDeviceId
+    }
+    if (-not $metadata) {
+      $detail = 'Windows resolved the runtime topology devnode, but neither it nor its parent chain exposed hardware IDs and an installed driver INF.'
     }
   } else {
     $match = Match-EndpointPnpDevice $endpoint $pnpEndpoints
     if (-not $match.Device) {
       $results.Add([pscustomobject]@{
-        endpointId = [string]$endpoint.endpointId; adapterName = $null; pnpInstanceId = $null
+        endpointId = [string]$endpoint.endpointId; bindingPnpInstanceId = $null
+        adapterName = $null; pnpInstanceId = $null
         hardwareIds = @(); driverInf = $null; topologyReferences = @(); detail = $match.Detail
       })
       continue
     }
-    $metadata = Resolve-ParentAudioDevice ([string]$match.Device.InstanceId)
+    $bindingPnpInstanceId = [string]$match.Device.InstanceId
+    $metadata = Resolve-ParentAudioDevice $bindingPnpInstanceId
     if (-not $metadata) {
       $detail = 'The playback endpoint parent chain did not expose hardware IDs and an installed driver INF.'
     }
@@ -203,8 +210,9 @@ foreach ($endpoint in $coreEndpoints) {
   if (-not $metadata) {
     $results.Add([pscustomobject]@{
       endpointId = [string]$endpoint.endpointId
+      bindingPnpInstanceId = $bindingPnpInstanceId
       adapterName = $null
-      pnpInstanceId = if ($runtimeDeviceId) { $runtimeDeviceId } else { $null }
+      pnpInstanceId = $null
       hardwareIds = @(); driverInf = $null; topologyReferences = @(); detail = $detail
     })
     continue
@@ -222,6 +230,7 @@ foreach ($endpoint in $coreEndpoints) {
 
   $results.Add([pscustomobject]@{
     endpointId = [string]$endpoint.endpointId
+    bindingPnpInstanceId = $bindingPnpInstanceId
     adapterName = $metadata.AdapterName
     pnpInstanceId = $metadata.InstanceId
     hardwareIds = @($metadata.HardwareIds)
