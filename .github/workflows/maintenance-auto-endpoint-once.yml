@@ -1,6 +1,6 @@
 name: One-shot Auto Endpoint Validation
 
-# phase: ui-red
+# phase: ui-green
 on:
   push:
     branches:
@@ -30,3 +30,9 @@ jobs:
       - name: Playback endpoint UI tests
         shell: pwsh
         run: npm run test --workspace @voxveil/ui
+      - name: Typecheck
+        shell: pwsh
+        run: npm run typecheck
+      - name: Quality endpoint contract
+        shell: pwsh
+        run: npm run test:quality
