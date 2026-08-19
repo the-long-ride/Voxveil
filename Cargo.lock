@@ -3962,10 +3962,13 @@ dependencies = [
 name = "voxveil-windows-audio"
 version = "0.1.0"
 dependencies = [
+ "serde",
+ "serde_json",
  "voxveil-audio-core",
  "voxveil-dsp",
  "voxveil-types",
  "wasapi",
+ "windows 0.62.2",
 ]
 
 [[package]]
