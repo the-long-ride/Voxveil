@@ -1,0 +1,16 @@
+{
+  "title": "Windows システムオーディオ",
+  "description": "検出された再生出力",
+  "backendDescription": "Voxveil が下に Windows の再生出力を検出しました。ドライバーのバインドと互換性は自動的に解決されます。",
+  "default": "既定",
+  "readyToInstall": "インストール可能",
+  "signedComponentRequired": "署名済みコンポーネントが必要",
+  "ambiguous": "ドライバートポロジーが不明確",
+  "install": "インストール",
+  "installing": "インストール中…",
+  "installAll": "互換性のあるすべての出力にインストール",
+  "refresh": "更新",
+  "refreshing": "更新中…",
+  "detecting": "再生出力を検出中…",
+  "none": "再生出力が検出されませんでした。"
+}
