@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { VoxveilState } from '../lib/types';
+import type { SystemAudioEndpoint, VoxveilState } from '../lib/types';
 
 const nativeState: VoxveilState = {
   edition: 'pro-system',
@@ -22,8 +22,20 @@ const nativeState: VoxveilState = {
   ],
 };
 
+const playbackEndpoints: SystemAudioEndpoint[] = [
+  {
+    endpointId: 'speakers',
+    displayName: 'Speakers',
+    adapterName: 'Example Audio',
+    isDefault: true,
+    status: 'installable',
+  },
+];
+
 const client = vi.hoisted(() => ({
   getState: vi.fn(async () => nativeState),
+  listSystemAudioEndpoints: vi.fn(async () => playbackEndpoints),
+  installSystemAudioComponent: vi.fn(async (endpointId: string) => ({ endpointId, outcome: 'launched' as const })),
   setMasterEnabled: vi.fn(async () => undefined),
   setProcessingMode: vi.fn(async () => undefined),
   setEngine: vi.fn(async () => undefined),
@@ -65,6 +77,16 @@ describe('useVoxveilState', () => {
     expect(client.setAppOverride).toHaveBeenCalledWith('browser', false);
   });
 
+  it('hydrates discovered playback endpoints and installs by opaque endpoint id', async () => {
+    (window as Window & { __TAURI_INTERNALS__?: object }).__TAURI_INTERNALS__ = {};
+    const { result } = renderHook(() => useVoxveilState());
+    await waitFor(() => expect(result.current.systemAudioEndpoints[0]?.displayName).toBe('Speakers'));
+
+    act(() => result.current.installSystemAudioEndpoint('speakers'));
+
+    await waitFor(() => expect(client.installSystemAudioComponent).toHaveBeenCalledWith('speakers'));
+  });
+
   it('does not optimistically enable processing when the native backend is unavailable', async () => {
     (window as Window & { __TAURI_INTERNALS__?: object }).__TAURI_INTERNALS__ = {};
     client.getState.mockResolvedValueOnce({ ...nativeState, masterEnabled: false, backendStatus: 'component-required' });
@@ -97,6 +119,7 @@ describe('useVoxveilState', () => {
     act(() => result.current.setAppEnabled(call.id, true));
     expect(result.current.state.apps.find((app) => app.id === call.id)?.enabled).toBe(false);
   });
+
   it('fails safe when native state hydration is unavailable', async () => {
     (window as Window & { __TAURI_INTERNALS__?: object }).__TAURI_INTERNALS__ = {};
     client.getState.mockRejectedValueOnce(new Error('backend unavailable'));
