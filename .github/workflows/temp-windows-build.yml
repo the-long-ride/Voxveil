@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - build/windows-apo-binary
+  pull_request:
+    branches:
+      - fix/windows-componentized-apo
 
 permissions:
   contents: read
