@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PREVIEW_STATE, SAFE_NATIVE_STATE } from '../lib/demo-state';
 import { createVoxveilClient } from '../lib/tauri';
-import type { EngineKind, OutputMode, ProcessingMode, VoxveilState } from '../lib/types';
+import type {
+  EngineKind,
+  OutputMode,
+  ProcessingMode,
+  SystemAudioEndpoint,
+  VoxveilState,
+} from '../lib/types';
 
 type StateUpdate = Partial<VoxveilState> | ((current: VoxveilState) => VoxveilState);
 
@@ -22,17 +28,37 @@ function errorMessage(error: unknown): string {
 export function useVoxveilState() {
   const native = isTauriRuntime();
   const [state, setState] = useState<VoxveilState>(() => native ? SAFE_NATIVE_STATE : PREVIEW_STATE);
-  const [systemAudioInstallBusy, setSystemAudioInstallBusy] = useState(false);
+  const [systemAudioEndpoints, setSystemAudioEndpoints] = useState<SystemAudioEndpoint[]>([]);
+  const [systemAudioEndpointsBusy, setSystemAudioEndpointsBusy] = useState(false);
+  const [systemAudioInstallBusyId, setSystemAudioInstallBusyId] = useState<string | null>(null);
   const [systemAudioInstallError, setSystemAudioInstallError] = useState<string | null>(null);
   const client = useMemo(() => createVoxveilClient(), []);
 
+  const refreshSystemAudioEndpoints = useCallback(async () => {
+    if (!native) return;
+    setSystemAudioEndpointsBusy(true);
+    try {
+      setSystemAudioEndpoints(await client.listSystemAudioEndpoints());
+    } catch (error) {
+      setSystemAudioInstallError(errorMessage(error));
+    } finally {
+      setSystemAudioEndpointsBusy(false);
+    }
+  }, [client, native]);
+
+  const refreshNativeState = useCallback(async () => {
+    if (!native) return;
+    try { setState(await client.getState()); } catch { setState(SAFE_NATIVE_STATE); }
+    await refreshSystemAudioEndpoints();
+  }, [client, native, refreshSystemAudioEndpoints]);
+
   useEffect(() => {
     if (!native) return;
-    const refresh = () => { void client.getState().then(setState).catch(() => undefined); };
+    const refresh = () => { void refreshNativeState(); };
     refresh();
     window.addEventListener('focus', refresh);
     return () => window.removeEventListener('focus', refresh);
-  }, [client, native]);
+  }, [native, refreshNativeState]);
 
   const recover = useCallback((operation: () => Promise<unknown>) => {
     if (!native) return;
@@ -46,19 +72,37 @@ export function useVoxveilState() {
     recover(operation);
   }, [recover]);
 
-  const installSystemAudioComponent = async () => {
-    if (!native || systemAudioInstallBusy) return;
-    setSystemAudioInstallBusy(true);
+  const installSystemAudioEndpoint = useCallback(async (endpointId: string) => {
+    if (!native || systemAudioInstallBusyId) return;
+    setSystemAudioInstallBusyId(endpointId);
     setSystemAudioInstallError(null);
     try {
-      await client.installSystemAudioComponent();
-      setState(await client.getState());
+      await client.installSystemAudioComponent(endpointId);
+      await refreshNativeState();
     } catch (error) {
       setSystemAudioInstallError(errorMessage(error));
+      await refreshSystemAudioEndpoints();
     } finally {
-      setSystemAudioInstallBusy(false);
+      setSystemAudioInstallBusyId(null);
     }
-  };
+  }, [client, native, refreshNativeState, refreshSystemAudioEndpoints, systemAudioInstallBusyId]);
+
+  const installAllSystemAudioEndpoints = useCallback(async () => {
+    if (!native || systemAudioInstallBusyId) return;
+    const installable = systemAudioEndpoints.filter((endpoint) => endpoint.status === 'installable');
+    const failures: string[] = [];
+    for (const endpoint of installable) {
+      setSystemAudioInstallBusyId(endpoint.endpointId);
+      try {
+        await client.installSystemAudioComponent(endpoint.endpointId);
+      } catch (error) {
+        failures.push(`${endpoint.displayName}: ${errorMessage(error)}`);
+      }
+    }
+    setSystemAudioInstallBusyId(null);
+    setSystemAudioInstallError(failures.length ? failures.join('\n') : null);
+    await refreshNativeState();
+  }, [client, native, refreshNativeState, systemAudioEndpoints, systemAudioInstallBusyId]);
 
   const setMasterEnabled = (masterEnabled: boolean) => {
     if (masterEnabled && state.backendStatus !== 'ready') return;
@@ -94,9 +138,13 @@ export function useVoxveilState() {
 
   return {
     state,
-    systemAudioInstallBusy,
+    systemAudioEndpoints,
+    systemAudioEndpointsBusy,
+    systemAudioInstallBusyId,
     systemAudioInstallError,
-    installSystemAudioComponent,
+    refreshSystemAudioEndpoints: () => { void refreshSystemAudioEndpoints(); },
+    installSystemAudioEndpoint: (endpointId: string) => { void installSystemAudioEndpoint(endpointId); },
+    installAllSystemAudioEndpoints: () => { void installAllSystemAudioEndpoints(); },
     setMasterEnabled,
     setProcessingMode,
     setEngine,
