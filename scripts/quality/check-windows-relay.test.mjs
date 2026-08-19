@@ -4,7 +4,7 @@ import test from 'node:test';
 
 const read = (file) => readFile(new URL(`../../${file}`, import.meta.url), 'utf8');
 
-test('workspace includes isolated Windows audio relay crate', async () => {
+test('workspace includes isolated Windows audio crate', async () => {
   const cargo = await read('Cargo.toml');
   assert.match(cargo, /crates\/voxveil-windows-audio/);
 });
@@ -15,7 +15,7 @@ test('Windows audio crate uses exact MIT WASAPI dependency only on Windows', asy
   assert.match(cargo, /wasapi\s*=\s*"=0\.23\.0"/);
 });
 
-test('Windows audio relay remains safe Rust at the crate boundary', async () => {
+test('Windows audio crate remains safe Rust at the crate boundary', async () => {
   const source = await read('crates/voxveil-windows-audio/src/lib.rs');
   assert.match(source, /#!\[forbid\(unsafe_code\)\]/);
 });
@@ -27,7 +27,7 @@ test('Tauri processing commands delegate enable and vocal level to runtime contr
   assert.match(source, /controller\.set_vocal_level/);
 });
 
-test('current Windows relay is honest about all-output-only capability', async () => {
+test('current Windows backend is honest about all-output-only capability', async () => {
   const dto = await read('tauri/app/dto.rs');
   const commands = await read('tauri/app/commands.rs');
   const home = await read('ui/features/home/HomeScreen.tsx');
@@ -36,33 +36,36 @@ test('current Windows relay is honest about all-output-only capability', async (
   assert.match(home, /disabled: !state\.perAppProcessingAvailable/);
 });
 
-test('portable Windows workflow includes a development system-audio component', async () => {
-  const workflow = await read('.github/workflows/windows-portable.yml');
+test('manual Windows build stages the real componentized APO package', async () => {
+  const build = await read('scripts/windows/build-windows.ps1');
+  const extension = await read('native/windows/package/VoxveilApoExtension.inf.template');
   const install = await read('scripts/windows/install-system-audio-component.ps1');
-  assert.match(workflow, /windows-2025-vs2026/);
-  assert.match(workflow, /microsoft\/Windows-driver-samples/);
-  assert.match(workflow, /microsoft\/setup-msbuild@[0-9a-f]{40}/);
-  assert.match(workflow, /audio\\sysvad\\sysvad\.sln/);
-  assert.match(workflow, /setup\\devcon\\devcon\.sln/);
-  assert.match(workflow, /system-audio/);
-  assert.match(install, /Root\\Sysvad_ComponentizedAudioSample/);
-  assert.match(install, /test-signed/i);
+
+  assert.match(build, /VoxveilApo\.dll/);
+  assert.match(build, /VoxveilControl\.dll/);
+  assert.match(build, /voxveil-control\.exe/);
+  assert.match(build, /VoxveilApo\.inf/);
+  assert.match(build, /VoxveilApoExtension\.inf\.template/);
+  assert.match(extension, /AddComponent/i);
+  assert.match(install, /pnputil/i);
+  assert.doesNotMatch(install, /Root\\Sysvad_ComponentizedAudioSample/);
 });
 
-test('Windows relay captures the virtual render endpoint through WASAPI loopback', async () => {
+test('Windows readiness requires the APO to be loaded on the active render endpoint', async () => {
   const device = await read('crates/voxveil-windows-audio/src/device.rs');
-  const relay = await read('crates/voxveil-windows-audio/src/relay.rs');
-  assert.match(device, /virtual audio device \(wdm\) - tablet/);
-  assert.doesNotMatch(device, /Voxveil Monitor/);
-  assert.match(relay, /virtual_render_device/);
-  assert.match(relay, /initialize_client\(&format, &Direction::Capture, &mode\)/);
-  assert.doesNotMatch(relay, /is_virtual_capture_name/);
-});
+  const backend = await read('crates/voxveil-windows-audio/src/relay.rs');
 
+  assert.match(device, /loaded_instances == 0/);
+  assert.match(device, /AudioDG has not loaded/);
+  assert.match(backend, /run_control\(&control, &\["status"\]\)/);
+  assert.match(backend, /strip_prefix\("loaded="\)/);
+  assert.doesNotMatch(backend, /virtual_render_device/);
+  assert.doesNotMatch(backend, /initialize_client\(/);
+});
 
 test('WASAPI COM initialization converts HRESULT before Rust error mapping', async () => {
   const source = await read('crates/voxveil-windows-audio/src/relay.rs');
   const initializers = source.match(/wasapi::initialize_mta\(\)\s*\.ok\(\)\s*\.map_err/g) ?? [];
-  assert.ok(initializers.length >= 2);
+  assert.equal(initializers.length, 1);
   assert.doesNotMatch(source, /initialize_mta\(\)\.map_err/);
 });
