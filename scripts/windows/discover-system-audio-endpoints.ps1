@@ -141,8 +141,13 @@ function Match-EndpointPnpDevice($CoreEndpoint, [object[]]$PnpEndpoints) {
 }
 
 $inputJson = [Console]::In.ReadToEnd()
-if (-not $inputJson.Trim()) { throw 'Expected Core Audio endpoint JSON on stdin.' }
-$coreEndpoints = @(ConvertFrom-Json $inputJson | Where-Object { $null -ne $_ })
+$trimmedInput = $inputJson.Trim()
+if (-not $trimmedInput) { throw 'Expected Core Audio endpoint JSON on stdin.' }
+if ($trimmedInput -match '^\[\s*\]$') {
+  Write-Output '[]'
+  exit 0
+}
+$coreEndpoints = @(ConvertFrom-Json $inputJson)
 $pnpEndpoints = @(Get-PnpDevice -Class AudioEndpoint -PresentOnly -ErrorAction SilentlyContinue)
 $results = [Collections.Generic.List[object]]::new()
 
