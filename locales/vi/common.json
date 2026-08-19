@@ -34,6 +34,7 @@
     "engine": "Bộ xử lý",
     "backendUnavailable": "Xử lý chưa khả dụng",
     "backendComponentRequired": "Bản dựng này chưa có thành phần âm thanh hệ thống Windows được cài đặt. Xử lý sẽ giữ ở trạng thái tắt cho đến khi thành phần đó sẵn sàng.",
+    "installComponent": "Cài thành phần",
     "backendUnsupported": "Xử lý âm thanh hệ thống chưa được triển khai cho bản dựng trên nền tảng này.",
     "backendFaulted": "Backend âm thanh không thể khởi tạo. Xử lý đã bị tắt để âm thanh thiết bị không bị thay đổi.",
     "backendRoutingRequired": "Đặt Voxveil Virtual Audio làm đầu ra mặc định của Windows, sau đó quay lại Voxveil. Âm thanh đã xử lý sẽ được chuyển đến thiết bị vật lý hiển thị bên dưới."
