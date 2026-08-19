@@ -66,7 +66,7 @@
 - Test: Windows-only integration tests in `device_interfaces.rs`
 
 **Interfaces:**
-- Extend `windows` features with `Win32_Devices_DeviceAndDriverInstallation` and `Win32_System_Registry` only if required by generated SetupAPI signatures.
+- Extend `windows` features with `Win32_Devices_DeviceAndDriverInstallation`.
 - Produce `enumerate_topology_interfaces() -> Result<Vec<TopologyCandidate>, String>`.
 - Use constant GUID `{DDA54A40-1E4C-11D1-A050-405705C10000}`.
 
@@ -86,8 +86,8 @@
 
 **Interfaces:**
 - Runtime resolution path: endpoint ID -> adapter device ID -> topology candidates -> unique binding.
-- PowerShell helper becomes `recover_reference_for_device` fallback for the already-selected device only; it may not retarget a different parent/device.
-- Preserve `SystemAudioEndpoint` public shape; optional diagnostic source may be internal-only unless UI needs it.
+- PowerShell helper becomes fallback/reference recovery for the already-selected device; it may not retarget a different parent/device.
+- Preserve `SystemAudioEndpoint` public shape.
 
 - [ ] **Step 1: Write RED tests** for: runtime unique binding beats empty INF; multiple runtime candidates => `Ambiguous`; zero runtime candidates invokes fallback; runtime-selected device cannot be replaced by another INF match; unique runtime binding + missing package => `ComponentRequired`.
 - [ ] **Step 2: Run** `cargo test -p voxveil-windows-audio discovery -- --nocapture` and verify expected RED failures.
@@ -99,18 +99,19 @@
 ### Task 5: Installation revalidation and Realtek-facing diagnostics
 
 **Files:**
-- Modify: `crates/voxveil-tauri/src/lib.rs` or current install-command module containing endpoint install logic
-- Modify: `ui/features/home/SystemAudioEndpoints.tsx` only if copy/status mapping needs adjustment
-- Test: existing Tauri endpoint tests and UI endpoint tests
+- Modify: `tauri/app/system_audio.rs`
+- Modify: `ui/features/home/SystemAudioEndpoints.tsx` only if status copy requires adjustment
+- Test: Windows-only tests in `tauri/app/system_audio.rs` and existing `ui/features/home/SystemAudioEndpoints.test.tsx`
 
 **Interfaces:**
-- `install_system_audio_endpoint(endpoint_id)` must re-run the runtime resolver before writing the elevated descriptor.
-- If runtime binding differs from the displayed binding, abort with a refresh-required error.
+- `install_system_audio_component(endpoint_id)` re-runs `ProcessingController::system_audio_endpoints()` immediately before descriptor creation.
+- `select_installable_endpoint` must reject changed, ambiguous, or incomplete bindings.
+- If runtime binding differs from the displayed/selected binding, abort with a refresh-required error before UAC.
 
-- [ ] **Step 1: Write RED Tauri test** proving install aborts if re-resolution returns changed/ambiguous binding.
+- [ ] **Step 1: Write RED Tauri test** proving installation selection aborts if re-resolution returns a changed or ambiguous binding.
 - [ ] **Step 2: Run** `cargo test -p voxveil-tauri` and verify the new case fails for the intended reason.
-- [ ] **Step 3: Implement binding revalidation** before UAC descriptor creation.
-- [ ] **Step 4: If necessary, update endpoint detail copy** so runtime-resolved/no-package reads as signed component required rather than generic unavailable.
+- [ ] **Step 3: Implement binding revalidation** before `EndpointInstallDescriptor` creation in `install_system_audio_component`.
+- [ ] **Step 4: Update endpoint detail copy only when necessary** so runtime-resolved/no-package is presented as signed component required rather than generic unsupported.
 - [ ] **Step 5: Run** `cargo test -p voxveil-tauri` and `npm run test --workspace @voxveil/ui`.
 - [ ] **Step 6: Commit** `fix: revalidate runtime audio binding before install`.
 
