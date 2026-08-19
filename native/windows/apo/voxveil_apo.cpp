@@ -17,7 +17,7 @@ const AVRT_DATA CRegAPOProperties<1> CVoxveilApo::registration_properties(
     1,
     0,
     __uuidof(IAudioProcessingObject),
-    static_cast<APO_FLAG>(APO_FLAG_INPLACE | APO_FLAG_DEFAULT));
+    APO_FLAG_DEFAULT);
 
 CVoxveilApo::CVoxveilApo()
     : CBaseAudioProcessingObject(registration_properties) {}
@@ -98,6 +98,7 @@ STDMETHODIMP_(void) CVoxveilApo::APOProcess(
         std::memcpy(output_samples, input_samples, sample_count * sizeof(float));
     }
 
+    control_.note_process();
     voxveil::process_interleaved(
         output_samples,
         input->u32ValidFrameCount,
