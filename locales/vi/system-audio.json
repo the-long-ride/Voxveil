@@ -1,0 +1,16 @@
+{
+  "title": "Âm thanh hệ thống Windows",
+  "description": "Các đầu ra phát lại đã phát hiện",
+  "backendDescription": "Voxveil đã phát hiện các đầu ra phát lại Windows bên dưới. Liên kết trình điều khiển và khả năng tương thích được xác định tự động.",
+  "default": "Mặc định",
+  "readyToInstall": "Sẵn sàng cài đặt",
+  "signedComponentRequired": "Cần thành phần đã ký",
+  "ambiguous": "Topology trình điều khiển không rõ ràng",
+  "install": "Cài đặt",
+  "installing": "Đang cài…",
+  "installAll": "Cài trên tất cả đầu ra tương thích",
+  "refresh": "Làm mới",
+  "refreshing": "Đang làm mới…",
+  "detecting": "Đang phát hiện đầu ra phát lại…",
+  "none": "Không phát hiện đầu ra phát lại nào."
+}
