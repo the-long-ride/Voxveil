@@ -57,6 +57,7 @@ fn main() {
         "../native/windows/apo/VoxveilApo.inf",
         "../native/windows/apo/targets.ps1",
         "../native/windows/apo/extension.ps1",
+        "../native/windows/apo/catalog.ps1",
         "../native/windows/apo/install.ps1",
         "../native/windows/apo/uninstall.ps1",
     ] {
