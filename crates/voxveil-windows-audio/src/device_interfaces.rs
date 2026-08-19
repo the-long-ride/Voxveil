@@ -63,7 +63,7 @@ mod windows_runtime {
         GUID::from_u128(0xdda54a40_1e4c_11d1_a050_405705c10000);
     const KSCATEGORY_AUDIO: GUID = GUID::from_u128(0x6994ad04_93ef_11d0_a3cc_00a0c9223196);
 
-    pub(super) fn enumerate_topology_interfaces() -> Result<Vec<TopologyCandidate>, String> {
+    pub(crate) fn enumerate_topology_interfaces() -> Result<Vec<TopologyCandidate>, String> {
         unsafe {
             let set = SetupDiGetClassDevsW(
                 Some(&KSCATEGORY_TOPOLOGY),
