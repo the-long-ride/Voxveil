@@ -35,7 +35,7 @@
     </ClCompile>
     <Link>
       <ModuleDefinitionFile>VoxveilApo.def</ModuleDefinitionFile>
-      <AdditionalDependencies>Kernel32.lib;Advapi32.lib;Ole32.lib;Uuid.lib;AudioBaseProcessingObjectV140.lib;AudioEng.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies);Kernel32.lib;Ole32.lib;OleAut32.lib;Advapi32.lib;User32.lib;Uuid.lib;AudioBaseProcessingObjectV140.lib;audiomediatypecrt.lib;AudioEng.lib;rtworkq.lib</AdditionalDependencies>
       <EntryPointSymbol>_DllMainCRTStartup</EntryPointSymbol>
     </Link>
   </ItemDefinitionGroup>
