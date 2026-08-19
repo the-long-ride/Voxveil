@@ -6,7 +6,7 @@
 class CVoxveilApoModule final : public ATL::CAtlDllModuleT<CVoxveilApoModule> {};
 CVoxveilApoModule _AtlModule;
 
-extern "C" BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved) {
+extern "C" BOOL WINAPI DllMain(HINSTANCE, DWORD reason, LPVOID reserved) {
     return _AtlModule.DllMain(reason, reserved);
 }
 
