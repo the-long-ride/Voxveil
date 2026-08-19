@@ -34,6 +34,7 @@
     "engine": "引擎",
     "backendUnavailable": "处理不可用",
     "backendComponentRequired": "此版本尚未安装 Windows 系统音频组件。在该组件可用之前，处理功能将保持关闭。",
+    "installComponent": "安装组件",
     "backendUnsupported": "此平台版本尚未实现系统音频处理。",
     "backendFaulted": "音频后端初始化失败。处理功能已关闭，以保持设备音频不被修改。",
     "backendRoutingRequired": "将 Voxveil Virtual Audio 设为 Windows 默认输出，然后返回 Voxveil。处理后的音频将转发到下方显示的物理输出设备。"
