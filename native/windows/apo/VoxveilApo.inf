@@ -11,7 +11,7 @@ PnpLockDown=1
 %MfgName%=ApoComponents,NTamd64.10.0...22000
 
 [ApoComponents.NTamd64.10.0...22000]
-%Apo.ComponentDesc%=ApoComponent_Install,SWC\VEN_VOXV&CID_APO
+%Apo.ComponentDesc%=ApoComponent_Install,APO\VEN_VOXV&CID_APO
 
 [ApoComponent_Install]
 CopyFiles=Apo_CopyFiles
