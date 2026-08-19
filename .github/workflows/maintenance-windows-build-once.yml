@@ -1,6 +1,6 @@
 name: One-shot Master Cleanup and Windows Build
 
-# retry: ATL object-wrapper fix
+# retry: official APO link libraries
 on:
   push:
     branches:
