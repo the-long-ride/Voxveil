@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { combineLocale, flattenKeys, compareLocaleKeys } from './check-i18n.mjs';
+import { combineLocale, flattenKeys, compareLocaleKeys, validateLocales } from './check-i18n.mjs';
 
 test('flattens nested locale keys deterministically', () => {
   assert.deepEqual(flattenKeys({ nav: { home: 'Home' }, app: { name: 'Voxveil' } }), [
@@ -19,4 +19,8 @@ test('system audio locale namespace participates in key parity', () => {
     flattenKeys(combineLocale({ app: { name: 'Voxveil' } }, { title: 'Windows System Audio', refresh: 'Refresh' })),
     ['app.name', 'systemAudio.refresh', 'systemAudio.title'],
   );
+});
+
+test('all repository locales have common and system audio key parity', () => {
+  assert.deepEqual(validateLocales('.'), []);
 });
