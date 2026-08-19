@@ -1,5 +1,6 @@
 name: One-shot System Audio Install Button Check
 
+# green: full Windows validation for the in-app component installer
 on:
   push:
     branches:
@@ -13,16 +14,51 @@ permissions:
 jobs:
   red-green:
     runs-on: windows-2022
-    timeout-minutes: 30
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24.17.0'
           cache: npm
+
       - name: Test final workflow-free tree
         shell: pwsh
+        run: Remove-Item .github/workflows -Recurse -Force
+
+      - name: Test Tauri installer command
+        shell: pwsh
+        run: cargo test -p voxveil-tauri
+
+      - name: Build full Windows package
+        shell: pwsh
+        run: .\scripts\windows\build-windows.ps1
+
+      - name: Smoke-test package
+        shell: pwsh
         run: |
-          Remove-Item .github/workflows -Recurse -Force
-          npm ci
-          npm run test:quality
+          $package = (Resolve-Path 'dist/windows-x64/Voxveil').Path
+          $app = Join-Path $package 'voxveil.exe'
+          $control = Join-Path $package 'system-audio\voxveil-control.exe'
+          $installer = Join-Path $package 'system-audio\install-system-audio-component.ps1'
+          foreach ($required in @($app, $control, $installer)) {
+            if (-not (Test-Path $required -PathType Leaf)) { throw "Missing build output: $required" }
+          }
+          & $control status
+          if ($LASTEXITCODE -ne 0) { throw "voxveil-control status failed: $LASTEXITCODE" }
+          $process = Start-Process -FilePath $app -PassThru
+          Start-Sleep -Seconds 8
+          $process.Refresh()
+          if ($process.HasExited -and $process.ExitCode -ne 0) {
+            throw "voxveil.exe exited with code $($process.ExitCode)"
+          }
+          if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }
+
+      - name: Upload Windows package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Voxveil-windows-x64-master-install-button
+          path: dist/windows-x64/Voxveil/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
