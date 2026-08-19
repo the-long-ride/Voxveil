@@ -6,6 +6,7 @@ type InvokeFn = <T>(command: string, args?: Record<string, unknown>) => Promise<
 export function createVoxveilClient(call: InvokeFn = invoke) {
   return {
     getState: () => call<VoxveilState>('get_app_state'),
+    installSystemAudioComponent: () => call<void>('install_system_audio_component'),
     setMasterEnabled: (enabled: boolean) => call<void>('set_master_enabled', { enabled }),
     setProcessingMode: (mode: ProcessingMode) => call<void>('set_processing_mode', { mode }),
     setEngine: (engine: EngineKind) => call<void>('set_engine', { engine }),
