@@ -7,11 +7,11 @@ $root = Resolve-Path (Join-Path $PSScriptRoot '..\..')
 $temp = Join-Path $env:TEMP ("voxveil-extension-fixture-{0}" -f [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $temp -Force | Out-Null
 try {
-    $output = Join-Path $temp 'VoxveilAudioExtension.inf'
+    $output = Join-Path $temp 'VoxveilExtension.inf'
     $targets = @(
         [pscustomobject]@{
-            instanceId = 'HDAUDIO\FUNC_01&VEN_10EC&DEV_1234\FIXTURE'
-            hardwareId = 'HDAUDIO\FUNC_01&VEN_10EC&DEV_1234'
+            instanceId = 'USB\VID_046D&PID_0A4D\FIXTURE'
+            hardwareId = 'USB\VID_046D&PID_0A4D'
             topologyRefs = @('Topology', 'SpeakerTopology')
         }
     )
@@ -24,16 +24,17 @@ try {
     $text = Get-Content -LiteralPath $output -Raw
     $required = @(
         'Class=Extension',
-        'HDAUDIO\FUNC_01&VEN_10EC&DEV_1234',
+        'CatalogFile=VoxveilExtension.cat',
+        'USB\VID_046D&PID_0A4D',
         'AddComponent=VoxveilApo,,VoxveilApo_AddComponent',
         'ComponentIDs=VEN_VOXV&CID_APO',
-        'AddInterface=%KSCATEGORY_AUDIO%,%Device0.TopologyRef0%,VoxveilFx',
-        'AddInterface=%KSCATEGORY_TOPOLOGY%,%Device0.TopologyRef0%,VoxveilFx',
-        'AddInterface=%KSCATEGORY_AUDIO%,%Device0.TopologyRef1%,VoxveilFx',
+        'AddInterface=%KSCATEGORY_AUDIO%,%Device.TopologyRef0%,VoxveilFx',
+        'AddInterface=%KSCATEGORY_TOPOLOGY%,%Device.TopologyRef0%,VoxveilFx',
+        'AddInterface=%KSCATEGORY_AUDIO%,%Device.TopologyRef1%,VoxveilFx',
         'KSCATEGORY_AUDIO="{6994AD04-93EF-11D0-A3CC-00A0C9223196}"',
         'KSCATEGORY_TOPOLOGY="{DDA54A40-1E4C-11D1-A050-405705C10000}"',
-        'Device0.TopologyRef0="Topology"',
-        'Device0.TopologyRef1="SpeakerTopology"',
+        'Device.TopologyRef0="Topology"',
+        'Device.TopologyRef1="SpeakerTopology"',
         'PKEY_CompositeFX_EndpointEffectClsid',
         '0x00010008',
         '{7E268E67-2F3C-4F0A-A09C-8B7D27B43F51}',
@@ -64,6 +65,16 @@ try {
     }
     if (-not $rejected) {
         throw 'Extension INF generator accepted an unsafe hardware ID.'
+    }
+
+    $multipleTargetsRejected = $false
+    try {
+        New-VoxveilExtensionInf -Targets @($targets[0], $targets[0]) -Path (Join-Path $temp 'multi.inf') | Out-Null
+    } catch {
+        $multipleTargetsRejected = $true
+    }
+    if (-not $multipleTargetsRejected) {
+        throw 'Extension INF generator accepted more than one render target.'
     }
 
     Write-Host 'Voxveil Extension INF fixture verification passed.'
