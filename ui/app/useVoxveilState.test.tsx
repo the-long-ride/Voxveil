@@ -39,6 +39,7 @@ import { useVoxveilState } from './useVoxveilState';
 
 afterEach(() => {
   delete (window as Window & { __TAURI_INTERNALS__?: object }).__TAURI_INTERNALS__;
+  vi.useRealTimers();
   vi.clearAllMocks();
 });
 
@@ -90,6 +91,26 @@ describe('useVoxveilState', () => {
     await waitFor(() => expect(result.current.state.backendStatus).toBe('ready'));
   });
 
+  it('polls native readiness until the APO begins processing audio', async () => {
+    vi.useFakeTimers();
+    (window as Window & { __TAURI_INTERNALS__?: object }).__TAURI_INTERNALS__ = {};
+    client.getState
+      .mockResolvedValueOnce({ ...nativeState, masterEnabled: false, backendStatus: 'faulted' })
+      .mockResolvedValueOnce({ ...nativeState, masterEnabled: false, backendStatus: 'ready' });
+
+    const { result } = renderHook(() => useVoxveilState());
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.state.backendStatus).toBe('faulted');
+
+    await act(async () => {
+      vi.advanceTimersByTime(1500);
+      await Promise.resolve();
+    });
+
+    expect(result.current.state.backendStatus).toBe('ready');
+    expect(client.getState).toHaveBeenCalledTimes(2);
+  });
+
   it('does not enable communication audio in preview mode', () => {
     const { result } = renderHook(() => useVoxveilState());
     const call = result.current.state.apps.find((app) => app.bypassReason === 'communication');
@@ -97,6 +118,7 @@ describe('useVoxveilState', () => {
     act(() => result.current.setAppEnabled(call.id, true));
     expect(result.current.state.apps.find((app) => app.id === call.id)?.enabled).toBe(false);
   });
+
   it('fails safe when native state hydration is unavailable', async () => {
     (window as Window & { __TAURI_INTERNALS__?: object }).__TAURI_INTERNALS__ = {};
     client.getState.mockRejectedValueOnce(new Error('backend unavailable'));
