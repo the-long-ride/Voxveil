@@ -1,6 +1,6 @@
 name: One-shot Master Cleanup and Windows Build
 
-# retry: native APO compiler fixes
+# retry: ATL object-wrapper fix
 on:
   push:
     branches:
