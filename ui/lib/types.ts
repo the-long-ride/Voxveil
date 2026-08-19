@@ -4,6 +4,7 @@ export type OutputMode = 'physical' | 'virtual' | 'both';
 export type ThemeMode = 'system' | 'light' | 'dark';
 export type ProcessingLoad = 'idle' | 'low' | 'medium' | 'high';
 export type ProcessingBackendStatus = 'ready' | 'component-required' | 'routing-required' | 'unsupported' | 'faulted';
+export type SystemAudioEndpointStatus = 'ready' | 'installable' | 'component-required' | 'ambiguous' | 'unsupported';
 
 export interface AppSource {
   id: string;
@@ -11,6 +12,21 @@ export interface AppSource {
   category: 'media' | 'game' | 'communication' | 'system';
   enabled: boolean;
   bypassReason?: 'communication';
+}
+
+export interface SystemAudioEndpoint {
+  endpointId: string;
+  displayName: string;
+  adapterName?: string;
+  isDefault: boolean;
+  status: SystemAudioEndpointStatus;
+  detail?: string;
+}
+
+export interface SystemAudioInstallResult {
+  endpointId: string;
+  outcome: 'launched' | 'cancelled' | 'device-changed' | 'installed-not-loaded';
+  detail?: string;
 }
 
 export interface VoxveilState {
