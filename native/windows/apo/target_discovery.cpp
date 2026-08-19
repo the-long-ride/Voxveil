@@ -1,5 +1,5 @@
 #include <windows.h>
-#include <wtypes.h>
+#include <propidl.h>
 #include <devpkey.h>
 #include <propkeydef.h>
 #include <functiondiscoverykeys_devpkey.h>
