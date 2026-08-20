@@ -23,23 +23,16 @@ AddComponent = VoxveilApo,,Apo_AddComponent
 ComponentIDs = VEN_VXV&CID_APO
 Description = "Voxveil Audio Processing Object"
 
-[DeviceExtensions.I.APO]
-AddReg = APO.I.Association0.AddReg
-
-[APO.I.Association0.AddReg]
-HKR,FX\0,%PKEY_FX_Association%,,%KSNODETYPE_ANY%
-HKR,FX\0,%PKEY_CompositeFX_StreamEffectClsid%,0x00010000,%VOXVEIL_SFX_CLSID%
-HKR,FX\0,%PKEY_SFX_ProcessingModes_Supported_For_Streaming%,%REG_MULTI_SZ%,%AUDIO_SIGNALPROCESSINGMODE_DEFAULT%,%AUDIO_SIGNALPROCESSINGMODE_MEDIA%,%AUDIO_SIGNALPROCESSINGMODE_MOVIE%
-
-[DeviceExtension_Install.Interfaces]
-AddInterface = %KSCATEGORY_AUDIO%, %REFERENCE_STRING%, DeviceExtensions.I.APO
-AddInterface = %KSCATEGORY_TOPOLOGY%, %REFERENCE_STRING%, DeviceExtensions.I.APO
+; Normal Voxveil installs bind FX properties to the exact runtime SetupAPI
+; device-interface paths after this signed extension creates the APO component.
+; The generator expands this marker only for the legacy INF-reference fallback.
+@@LEGACY_INTERFACE_ASSOCIATION@@
 
 [Strings]
 MfgName              = "Voxveil"
 ProviderName         = "Voxveil"
 Device.ExtensionDesc = "Voxveil active render endpoint APO extension"
-REFERENCE_STRING     = "@@REFERENCE_STRING@@"
+@@REFERENCE_STRING_DEFINITION@@
 VOXVEIL_SFX_CLSID    = "{F3F2A99F-8FB7-4B88-949E-448BF8A05221}"
 PKEY_FX_Association  = "{D04E05A6-594B-4FB6-A80D-01AF5EED7D1D},0"
 PKEY_CompositeFX_StreamEffectClsid = "{D04E05A6-594B-4fb6-A80D-01AF5EED7D1D},13"
