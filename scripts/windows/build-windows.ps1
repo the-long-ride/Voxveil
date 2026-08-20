@@ -33,6 +33,19 @@ function Assert-Wdk {
   }
 }
 
+function Get-RelativePackagePath([string]$BasePath, [string]$TargetPath) {
+  $base = [IO.Path]::GetFullPath($BasePath)
+  $separator = [IO.Path]::DirectorySeparatorChar.ToString()
+  if (-not $base.EndsWith($separator)) {
+    $base += $separator
+  }
+  $target = [IO.Path]::GetFullPath($TargetPath)
+  if (-not $target.StartsWith($base, [StringComparison]::OrdinalIgnoreCase)) {
+    throw "Package file escapes staging root: $target"
+  }
+  return $target.Substring($base.Length).Replace('\', '/')
+}
+
 $msbuild = Find-MSBuild
 Assert-Wdk
 
@@ -110,7 +123,7 @@ Voxveil Windows x64 development package
 $hashFiles = Get-ChildItem $output -Recurse -File | Where-Object { $_.Name -ne 'SHA256SUMS.txt' }
 $hashLines = foreach ($file in $hashFiles) {
   $hash = (Get-FileHash $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-  $relative = [IO.Path]::GetRelativePath($output, $file.FullName).Replace('\', '/')
+  $relative = Get-RelativePackagePath $output $file.FullName
   "$hash  $relative"
 }
 $hashLines | Set-Content (Join-Path $output 'SHA256SUMS.txt') -Encoding ascii
