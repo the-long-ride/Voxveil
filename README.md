@@ -25,12 +25,14 @@ The Windows backend no longer treats a SysVAD/virtual render endpoint as the pro
 The APO uses the Windows componentized-audio package model:
 
 - `native/windows/package/VoxveilApo.inf` installs the APO software component and COM/audio-engine registration;
-- `native/windows/package/VoxveilApoExtension.inf.template` associates the APO CLSID with one selected render driver's audio topology interface;
-- `scripts/windows/new-apo-extension-inf.ps1` generates the device-specific development Extension INF;
-- `scripts/windows/install-system-audio-component.ps1` installs either a locally test-signed development package or a matching prebuilt production-signed package;
-- `scripts/windows/uninstall-system-audio-component.ps1` removes only Voxveil-owned driver packages.
+- `native/windows/package/VoxveilApoExtension.inf.template` adds that APO component to a selected render driver;
+- runtime endpoint discovery resolves the exact `KSCATEGORY_TOPOLOGY` interface plus its `KSCATEGORY_AUDIO` alias with SetupAPI and treats both paths as opaque;
+- the elevated installer revalidates those exact interfaces against the expected PnP instance, then `voxveil-control.exe attach-effects` opens each interface registry key through SetupAPI and appends Voxveil's SFX registration without deleting OEM effects;
+- `scripts/windows/new-apo-extension-inf.ps1` generates a runtime-binding development Extension INF from the selected hardware ID alone;
+- OEM INF `AddInterface` reference parsing is retained only as a fallback for devices where the runtime interface pair cannot be safely resolved;
+- `scripts/windows/uninstall-system-audio-component.ps1` removes Voxveil's runtime FX CLSID before uninstalling only Voxveil-owned driver packages.
 
-For a development install, use a dedicated Windows/WDK machine with TESTSIGNING enabled and pass the selected render device's hardware ID and topology reference string to the installer. Normal Secure Boot/end-user distribution requires production-signed APO/catalog files and a device-compatible prebuilt Extension INF. The repository does not represent an unsigned/test-signed package as production-ready.
+The normal UI does not ask the user for hardware IDs or topology reference strings. A development runtime-binding install still requires a dedicated Windows/WDK test machine, TESTSIGNING where appropriate, and a driver-compatible extension package. Normal Secure Boot/end-user distribution requires production-signed APO/catalog files and a per-driver compatible Extension INF. The repository does not represent an unsigned/test-signed package as production-ready.
 
 Build the Windows development package from an x64 Developer PowerShell with Visual Studio C++ Build Tools and the Windows Driver Kit installed:
 
