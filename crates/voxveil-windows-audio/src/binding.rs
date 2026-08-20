@@ -9,20 +9,17 @@ pub(crate) enum RuntimeBindingKind {
 
 pub(crate) fn classify_runtime_binding(
     runtime_binding: RuntimeBindingKind,
-    fallback_pnp_resolved: bool,
+    pnp_resolved: bool,
     topology_references: &[String],
     package_available: bool,
 ) -> SystemAudioEndpointStatus {
     match runtime_binding {
         RuntimeBindingKind::Ambiguous => SystemAudioEndpointStatus::Ambiguous,
-        RuntimeBindingKind::Unique => match topology_references.len() {
-            0 => SystemAudioEndpointStatus::ComponentRequired,
-            1 if package_available => SystemAudioEndpointStatus::Installable,
-            1 => SystemAudioEndpointStatus::ComponentRequired,
-            _ => SystemAudioEndpointStatus::Ambiguous,
-        },
+        RuntimeBindingKind::Unique if !pnp_resolved => SystemAudioEndpointStatus::Unsupported,
+        RuntimeBindingKind::Unique if package_available => SystemAudioEndpointStatus::Installable,
+        RuntimeBindingKind::Unique => SystemAudioEndpointStatus::ComponentRequired,
         RuntimeBindingKind::None => classify_binding(
-            fallback_pnp_resolved,
+            pnp_resolved,
             topology_references,
             package_available,
         ),
@@ -57,6 +54,14 @@ mod tests {
         assert_eq!(
             classify_runtime_binding(RuntimeBindingKind::Unique, true, &[], true),
             SystemAudioEndpointStatus::Installable
+        );
+    }
+
+    #[test]
+    fn unique_runtime_binding_requires_driver_metadata() {
+        assert_eq!(
+            classify_runtime_binding(RuntimeBindingKind::Unique, false, &[], true),
+            SystemAudioEndpointStatus::Unsupported
         );
     }
 
