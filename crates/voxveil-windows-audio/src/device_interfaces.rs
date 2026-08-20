@@ -2,6 +2,7 @@
 pub(crate) struct TopologyCandidate {
     pub(crate) device_instance_id: String,
     pub(crate) interface_path: String,
+    pub(crate) audio_interface_path: Option<String>,
     pub(crate) alias_match: bool,
 }
 
@@ -99,64 +100,86 @@ mod windows_runtime {
                 }
                 index += 1;
 
-                let mut required_size = 0u32;
-                let _ = SetupDiGetDeviceInterfaceDetailW(
-                    set.0,
-                    &interface_data,
-                    None,
-                    0,
-                    Some(&mut required_size),
-                    None,
-                );
-                if required_size == 0 {
-                    continue;
-                }
-
-                let mut detail_buffer = vec![0u8; required_size as usize];
-                let detail = detail_buffer
-                    .as_mut_ptr()
-                    .cast::<SP_DEVICE_INTERFACE_DETAIL_DATA_W>();
-                (*detail).cbSize = size_of::<SP_DEVICE_INTERFACE_DETAIL_DATA_W>() as u32;
-                let mut device_info = SP_DEVINFO_DATA {
-                    cbSize: size_of::<SP_DEVINFO_DATA>() as u32,
-                    ..Default::default()
-                };
-                SetupDiGetDeviceInterfaceDetailW(
-                    set.0,
-                    &interface_data,
-                    Some(detail),
-                    required_size,
-                    None,
-                    Some(&mut device_info),
-                )
-                .map_err(|error| format!("failed to read topology interface detail: {error}"))?;
-
-                let interface_path = PCWSTR::from_raw((*detail).DevicePath.as_ptr())
-                    .to_string()
-                    .map_err(|error| format!("invalid topology interface path: {error}"))?;
+                let (interface_path, device_info) = interface_detail(set.0, &interface_data)?;
                 let device_instance_id = device_instance_id(set.0, &device_info)?;
 
                 let mut alias_data = SP_DEVICE_INTERFACE_DATA {
                     cbSize: size_of::<SP_DEVICE_INTERFACE_DATA>() as u32,
                     ..Default::default()
                 };
-                let alias_match = SetupDiGetDeviceInterfaceAlias(
+                let audio_interface_path = if SetupDiGetDeviceInterfaceAlias(
                     set.0,
                     &interface_data,
                     &KSCATEGORY_AUDIO,
                     &mut alias_data,
                 )
-                .is_ok();
+                .is_ok()
+                {
+                    interface_detail(set.0, &alias_data)
+                        .ok()
+                        .map(|(path, _)| path)
+                } else {
+                    None
+                };
 
                 candidates.push(TopologyCandidate {
                     device_instance_id,
                     interface_path,
-                    alias_match,
+                    alias_match: audio_interface_path.is_some(),
+                    audio_interface_path,
                 });
             }
 
             Ok(candidates)
         }
+    }
+
+    unsafe fn interface_detail(
+        set: HDEVINFO,
+        interface_data: &SP_DEVICE_INTERFACE_DATA,
+    ) -> Result<(String, SP_DEVINFO_DATA), String> {
+        let mut required_size = 0u32;
+        let _ = unsafe {
+            SetupDiGetDeviceInterfaceDetailW(
+                set,
+                interface_data,
+                None,
+                0,
+                Some(&mut required_size),
+                None,
+            )
+        };
+        if required_size == 0 {
+            return Err("device interface detail size was unavailable".into());
+        }
+
+        let mut detail_buffer = vec![0u8; required_size as usize];
+        let detail = detail_buffer
+            .as_mut_ptr()
+            .cast::<SP_DEVICE_INTERFACE_DETAIL_DATA_W>();
+        unsafe {
+            (*detail).cbSize = size_of::<SP_DEVICE_INTERFACE_DETAIL_DATA_W>() as u32;
+        }
+        let mut device_info = SP_DEVINFO_DATA {
+            cbSize: size_of::<SP_DEVINFO_DATA>() as u32,
+            ..Default::default()
+        };
+        unsafe {
+            SetupDiGetDeviceInterfaceDetailW(
+                set,
+                interface_data,
+                Some(detail),
+                required_size,
+                None,
+                Some(&mut device_info),
+            )
+        }
+        .map_err(|error| format!("failed to read device interface detail: {error}"))?;
+
+        let path = unsafe { PCWSTR::from_raw((*detail).DevicePath.as_ptr()) }
+            .to_string()
+            .map_err(|error| format!("invalid device interface path: {error}"))?;
+        Ok((path, device_info))
     }
 
     unsafe fn device_instance_id(
@@ -201,6 +224,7 @@ mod tests {
         TopologyCandidate {
             device_instance_id: device_instance_id.into(),
             interface_path: interface_path.into(),
+            audio_interface_path: alias_match.then(|| format!("{interface_path}-audio")),
             alias_match,
         }
     }
