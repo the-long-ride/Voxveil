@@ -1,0 +1,36 @@
+name: Runtime interface verification
+
+on:
+  push:
+    branches:
+      - fix/runtime-interface-apo-binding
+
+concurrency:
+  group: runtime-interface-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install JavaScript dependencies
+        run: npm ci --ignore-scripts --no-fund --no-audit
+      - name: Rust Windows audio tests
+        run: cargo test -p voxveil-windows-audio
+      - name: Node quality tests
+        run: npm run test:quality
+      - name: Build control CLI
+        shell: powershell
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $msbuild = & $vswhere -latest -products * -requires Microsoft.Component.MSBuild -find 'MSBuild\**\Bin\MSBuild.exe' | Select-Object -First 1
+          if (-not $msbuild) { throw 'MSBuild not found' }
+          & $msbuild native/windows/apo/VoxveilControlCli.vcxproj /m /t:Rebuild /p:Configuration=Release /p:Platform=x64 /verbosity:minimal
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
