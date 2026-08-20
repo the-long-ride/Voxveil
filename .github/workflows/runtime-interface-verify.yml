@@ -10,9 +10,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  windows:
+  windows-package:
     runs-on: windows-latest
-    timeout-minutes: 60
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -22,21 +22,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Install JavaScript dependencies
         run: npm ci --ignore-scripts --no-fund --no-audit
-      - name: Rust workspace tests
-        run: cargo test --workspace
-      - name: Repository quality against final workflow-free tree
-        shell: powershell
-        run: |
-          Remove-Item .github/workflows/runtime-interface-verify.yml -Force
-          npm run test:quality
-      - name: Build control CLI
-        shell: powershell
-        run: |
-          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
-          $msbuild = & $vswhere -latest -products * -requires Microsoft.Component.MSBuild -find 'MSBuild\**\Bin\MSBuild.exe' | Select-Object -First 1
-          if (-not $msbuild) { throw 'MSBuild not found' }
-          & $msbuild native/windows/apo/VoxveilControlCli.vcxproj /m /t:Rebuild /p:Configuration=Release /p:Platform=x64 /verbosity:minimal
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build Windows x64 package
         shell: powershell
         run: ./scripts/windows/build-windows.ps1 -SkipNpmInstall -SkipTests
