@@ -17,6 +17,8 @@ pub struct SystemAudioEndpoint {
     pub pnp_instance_id: Option<String>,
     pub hardware_ids: Vec<String>,
     pub driver_inf: Option<String>,
+    pub topology_interface_path: Option<String>,
+    pub audio_interface_path: Option<String>,
     pub topology_reference: Option<String>,
     pub status: SystemAudioEndpointStatus,
     pub detail: Option<String>,
@@ -38,20 +40,40 @@ pub(crate) fn classify_binding(
     }
 }
 
+pub(crate) fn extension_inf_matches_hardware(text: &str, hardware_ids: &[String]) -> bool {
+    if hardware_ids.is_empty() {
+        return false;
+    }
+    let text = text.to_ascii_lowercase();
+    hardware_ids
+        .iter()
+        .any(|hardware_id| text.contains(&hardware_id.to_ascii_lowercase()))
+}
+
+pub(crate) fn runtime_extension_inf_matches(text: &str, hardware_ids: &[String]) -> bool {
+    extension_inf_matches_hardware(text, hardware_ids)
+        && !text.lines().any(|line| {
+            line.split(';')
+                .next()
+                .unwrap_or_default()
+                .trim()
+                .to_ascii_lowercase()
+                .starts_with("addinterface")
+        })
+}
+
 pub(crate) fn extension_inf_matches(
     text: &str,
     hardware_ids: &[String],
     topology_reference: &str,
 ) -> bool {
-    if hardware_ids.is_empty() || topology_reference.is_empty() {
+    if topology_reference.is_empty() {
         return false;
     }
-    let text = text.to_ascii_lowercase();
-    let topology = topology_reference.to_ascii_lowercase();
-    hardware_ids
-        .iter()
-        .any(|hardware_id| text.contains(&hardware_id.to_ascii_lowercase()))
-        && text.contains(&topology)
+    extension_inf_matches_hardware(text, hardware_ids)
+        && text
+            .to_ascii_lowercase()
+            .contains(&topology_reference.to_ascii_lowercase())
 }
 
 #[cfg(windows)]
@@ -64,7 +86,10 @@ mod windows {
 
     use serde::{Deserialize, Serialize};
 
-    use super::{SystemAudioEndpoint, SystemAudioEndpointStatus, extension_inf_matches};
+    use super::{
+        SystemAudioEndpoint, SystemAudioEndpointStatus, extension_inf_matches,
+        runtime_extension_inf_matches,
+    };
     use crate::binding::{
         RuntimeBindingKind, classify_runtime_binding, fallback_device_matches_runtime,
     };
@@ -80,6 +105,8 @@ mod windows {
     #[derive(Clone, Debug)]
     struct RuntimeResolution {
         binding_pnp_instance_id: Option<String>,
+        topology_interface_path: Option<String>,
+        audio_interface_path: Option<String>,
         kind: RuntimeBindingKind,
         alias_match: bool,
     }
@@ -152,6 +179,8 @@ mod windows {
                 let key = endpoint.id.to_ascii_lowercase();
                 let runtime = runtime_by_id.remove(&key).unwrap_or(RuntimeResolution {
                     binding_pnp_instance_id: None,
+                    topology_interface_path: None,
+                    audio_interface_path: None,
                     kind: RuntimeBindingKind::None,
                     alias_match: false,
                 });
@@ -190,9 +219,15 @@ mod windows {
                     && driver_inf.is_some();
                 let topology_reference = (topology_references.len() == 1)
                     .then(|| topology_references[0].clone());
-                let package_available = topology_reference.as_deref().is_some_and(|reference| {
-                    production_package_matches(package_directory, &hardware_ids, reference)
-                });
+                let runtime_bound = matches!(runtime.kind, RuntimeBindingKind::Unique)
+                    && runtime.topology_interface_path.is_some()
+                    && runtime.audio_interface_path.is_some();
+                let package_available = production_package_matches(
+                    package_directory,
+                    &hardware_ids,
+                    runtime_bound,
+                    topology_reference.as_deref(),
+                );
                 let status = classify_runtime_binding(
                     runtime.kind,
                     pnp_resolved,
@@ -200,12 +235,7 @@ mod windows {
                     package_available,
                 );
                 let fallback_detail = item.and_then(|value| value.detail);
-                let detail = resolution_detail(
-                    runtime.kind,
-                    status,
-                    &topology_references,
-                    fallback_detail,
-                );
+                let detail = resolution_detail(runtime.kind, status, fallback_detail);
 
                 SystemAudioEndpoint {
                     endpoint_id: endpoint.id,
@@ -216,6 +246,8 @@ mod windows {
                     pnp_instance_id,
                     hardware_ids,
                     driver_inf,
+                    topology_interface_path: runtime.topology_interface_path,
+                    audio_interface_path: runtime.audio_interface_path,
                     topology_reference,
                     status,
                     detail,
@@ -229,29 +261,36 @@ mod windows {
         candidates: &[TopologyCandidate],
     ) -> RuntimeResolution {
         let Ok(Some(adapter_device_id)) = resolve_adapter_device_id(endpoint_id) else {
-            return RuntimeResolution {
-                binding_pnp_instance_id: None,
-                kind: RuntimeBindingKind::None,
-                alias_match: false,
-            };
+            return empty_runtime(RuntimeBindingKind::None);
         };
 
         match select_topology_candidate(&adapter_device_id, candidates) {
-            CandidateSelection::Unique(candidate) => RuntimeResolution {
-                binding_pnp_instance_id: Some(candidate.device_instance_id),
-                kind: RuntimeBindingKind::Unique,
-                alias_match: candidate.alias_match,
-            },
-            CandidateSelection::Ambiguous => RuntimeResolution {
-                binding_pnp_instance_id: None,
-                kind: RuntimeBindingKind::Ambiguous,
-                alias_match: false,
-            },
-            CandidateSelection::None => RuntimeResolution {
-                binding_pnp_instance_id: None,
-                kind: RuntimeBindingKind::None,
-                alias_match: false,
-            },
+            CandidateSelection::Unique(candidate) => {
+                let alias_match = candidate.audio_interface_path.is_some();
+                RuntimeResolution {
+                    binding_pnp_instance_id: Some(candidate.device_instance_id),
+                    topology_interface_path: Some(candidate.interface_path),
+                    audio_interface_path: candidate.audio_interface_path,
+                    kind: if alias_match {
+                        RuntimeBindingKind::Unique
+                    } else {
+                        RuntimeBindingKind::None
+                    },
+                    alias_match,
+                }
+            }
+            CandidateSelection::Ambiguous => empty_runtime(RuntimeBindingKind::Ambiguous),
+            CandidateSelection::None => empty_runtime(RuntimeBindingKind::None),
+        }
+    }
+
+    fn empty_runtime(kind: RuntimeBindingKind) -> RuntimeResolution {
+        RuntimeResolution {
+            binding_pnp_instance_id: None,
+            topology_interface_path: None,
+            audio_interface_path: None,
+            kind,
+            alias_match: false,
         }
     }
 
@@ -305,7 +344,8 @@ mod windows {
     fn production_package_matches(
         directory: &Path,
         hardware_ids: &[String],
-        topology_reference: &str,
+        runtime_bound: bool,
+        topology_reference: Option<&str>,
     ) -> bool {
         let extension = directory.join("VoxveilApoExtension.inf");
         if !directory.join("VoxveilApo.cat").is_file()
@@ -315,24 +355,25 @@ mod windows {
             return false;
         }
         std::fs::read_to_string(extension)
-            .map(|text| extension_inf_matches(&text, hardware_ids, topology_reference))
+            .map(|text| {
+                if runtime_bound {
+                    runtime_extension_inf_matches(&text, hardware_ids)
+                } else {
+                    topology_reference.is_some_and(|reference| {
+                        extension_inf_matches(&text, hardware_ids, reference)
+                    })
+                }
+            })
             .unwrap_or(false)
     }
 
     fn resolution_detail(
         runtime_kind: RuntimeBindingKind,
         status: SystemAudioEndpointStatus,
-        topology_references: &[String],
         fallback_detail: Option<String>,
     ) -> Option<String> {
         match runtime_kind {
             RuntimeBindingKind::Ambiguous => default_detail(SystemAudioEndpointStatus::Ambiguous),
-            RuntimeBindingKind::Unique if topology_references.is_empty() => fallback_detail.or_else(|| {
-                Some(
-                    "Windows resolved this output topology at runtime, but the installed driver did not expose the literal reference string required by the extension package."
-                        .into(),
-                )
-            }),
             RuntimeBindingKind::Unique => default_detail(status),
             RuntimeBindingKind::None => fallback_detail.or_else(|| default_detail(status)),
         }
@@ -399,7 +440,7 @@ mod tests {
     }
 
     #[test]
-    fn signed_extension_must_match_hardware_and_topology() {
+    fn signed_extension_must_match_hardware_and_topology_for_fallback() {
         let text = "HardwareId=HDAUDIO\\FUNC_01&VEN_10EC\nReference=PrimaryLineOutTopo";
         let hardware_ids = vec!["HDAUDIO\\FUNC_01&VEN_10EC".into()];
         assert!(extension_inf_matches(text, &hardware_ids, "PrimaryLineOutTopo"));
@@ -409,5 +450,19 @@ mod tests {
             &["USB\\VID_1234".into()],
             "PrimaryLineOutTopo"
         ));
+    }
+
+    #[test]
+    fn runtime_extension_matches_hardware_without_reference_string() {
+        let text = "Model=HDAUDIO\\FUNC_01&VEN_10EC\n; runtime interface binding";
+        let hardware_ids = vec!["HDAUDIO\\FUNC_01&VEN_10EC".into()];
+        assert!(runtime_extension_inf_matches(text, &hardware_ids));
+    }
+
+    #[test]
+    fn runtime_extension_rejects_legacy_add_interface_package() {
+        let text = "Model=HDAUDIO\\FUNC_01&VEN_10EC\nAddInterface = {GUID}, Ref, Section";
+        let hardware_ids = vec!["HDAUDIO\\FUNC_01&VEN_10EC".into()];
+        assert!(!runtime_extension_inf_matches(text, &hardware_ids));
     }
 }
