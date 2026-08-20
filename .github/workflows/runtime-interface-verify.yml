@@ -12,7 +12,7 @@ concurrency:
 jobs:
   windows:
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -37,3 +37,13 @@ jobs:
           if (-not $msbuild) { throw 'MSBuild not found' }
           & $msbuild native/windows/apo/VoxveilControlCli.vcxproj /m /t:Rebuild /p:Configuration=Release /p:Platform=x64 /verbosity:minimal
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build Windows x64 package
+        shell: powershell
+        run: ./scripts/windows/build-windows.ps1 -SkipNpmInstall -SkipTests
+      - name: Upload Windows x64 package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Voxveil-windows-x64-runtime-interface
+          path: dist/windows-x64/Voxveil
+          if-no-files-found: error
+          compression-level: 9
