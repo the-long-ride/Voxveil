@@ -46,7 +46,7 @@ int ParsePercent(const wchar_t* text, unsigned int* value) {
     }
 }
 
-int ReadDeviceInstanceId(HDEVINFO set, const SP_DEVINFO_DATA& deviceInfo, std::wstring* value) {
+int ReadDeviceInstanceId(HDEVINFO set, SP_DEVINFO_DATA& deviceInfo, std::wstring* value) {
     DWORD required = 0;
     SetupDiGetDeviceInstanceIdW(set, &deviceInfo, nullptr, 0, &required);
     if (required == 0) {
