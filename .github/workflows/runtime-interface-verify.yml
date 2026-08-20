@@ -4,9 +4,12 @@ on:
   push:
     branches:
       - fix/runtime-interface-apo-binding
+  pull_request:
+    branches:
+      - master
 
 concurrency:
-  group: runtime-interface-${{ github.ref }}
+  group: runtime-interface-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
 jobs:
