@@ -22,6 +22,11 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Install JavaScript dependencies
         run: npm ci --ignore-scripts --no-fund --no-audit
+      - name: Repository quality against final workflow-free tree
+        shell: powershell
+        run: |
+          Remove-Item .github/workflows/runtime-interface-verify.yml -Force
+          npm run test:quality
       - name: Build Windows x64 package
         shell: powershell
         run: ./scripts/windows/build-windows.ps1 -SkipNpmInstall -SkipTests
