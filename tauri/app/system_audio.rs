@@ -11,6 +11,11 @@ use serde::Serialize;
 use voxveil_windows_audio::{SystemAudioEndpoint, SystemAudioEndpointStatus};
 
 #[cfg(target_os = "windows")]
+fn has_runtime_interface_binding(endpoint: &SystemAudioEndpoint) -> bool {
+    endpoint.topology_interface_path.is_some() && endpoint.audio_interface_path.is_some()
+}
+
+#[cfg(target_os = "windows")]
 fn select_installable_endpoint(
     endpoints: Vec<SystemAudioEndpoint>,
     endpoint_id: &str,
@@ -22,12 +27,12 @@ fn select_installable_endpoint(
     if endpoint.status != SystemAudioEndpointStatus::Installable {
         return Err("The selected playback endpoint is not installable by this Voxveil package.".into());
     }
-    if endpoint.binding_pnp_instance_id.is_none()
-        || endpoint.pnp_instance_id.is_none()
-        || endpoint.hardware_ids.is_empty()
-        || endpoint.driver_inf.is_none()
-        || endpoint.topology_reference.is_none()
-    {
+    let binding_complete = endpoint.binding_pnp_instance_id.is_some()
+        && endpoint.pnp_instance_id.is_some()
+        && !endpoint.hardware_ids.is_empty()
+        && endpoint.driver_inf.is_some()
+        && (has_runtime_interface_binding(&endpoint) || endpoint.topology_reference.is_some());
+    if !binding_complete {
         return Err("The selected playback endpoint no longer has a complete driver binding.".into());
     }
     Ok(endpoint)
@@ -49,6 +54,14 @@ pub(super) fn validate_revalidated_binding(
             current.pnp_instance_id.as_deref(),
         )
         || !same_optional_value(selected.driver_inf.as_deref(), current.driver_inf.as_deref())
+        || !same_optional_value(
+            selected.topology_interface_path.as_deref(),
+            current.topology_interface_path.as_deref(),
+        )
+        || !same_optional_value(
+            selected.audio_interface_path.as_deref(),
+            current.audio_interface_path.as_deref(),
+        )
         || !same_optional_value(
             selected.topology_reference.as_deref(),
             current.topology_reference.as_deref(),
@@ -132,7 +145,9 @@ struct EndpointInstallDescriptor {
     hardware_id: String,
     hardware_ids: Vec<String>,
     driver_inf: String,
-    topology_reference: String,
+    topology_interface_path: Option<String>,
+    audio_interface_path: Option<String>,
+    topology_reference: Option<String>,
 }
 
 #[cfg(target_os = "windows")]
@@ -140,6 +155,17 @@ impl TryFrom<SystemAudioEndpoint> for EndpointInstallDescriptor {
     type Error = String;
 
     fn try_from(endpoint: SystemAudioEndpoint) -> Result<Self, Self::Error> {
+        let topology_interface_path = endpoint.topology_interface_path;
+        let audio_interface_path = endpoint.audio_interface_path;
+        let topology_reference = endpoint.topology_reference;
+        let has_runtime_binding = topology_interface_path.is_some() && audio_interface_path.is_some();
+        if topology_interface_path.is_some() != audio_interface_path.is_some() {
+            return Err("incomplete runtime device-interface binding".into());
+        }
+        if !has_runtime_binding && topology_reference.is_none() {
+            return Err("missing runtime interface binding and topology reference fallback".into());
+        }
+
         Ok(Self {
             endpoint_id: endpoint.endpoint_id,
             binding_pnp_instance_id: endpoint
@@ -157,9 +183,9 @@ impl TryFrom<SystemAudioEndpoint> for EndpointInstallDescriptor {
             driver_inf: endpoint
                 .driver_inf
                 .ok_or_else(|| "missing installed driver INF".to_string())?,
-            topology_reference: endpoint
-                .topology_reference
-                .ok_or_else(|| "missing topology reference".to_string())?,
+            topology_interface_path,
+            audio_interface_path,
+            topology_reference,
         })
     }
 }
@@ -271,11 +297,13 @@ mod tests {
             display_name: "Speakers".into(),
             adapter_name: Some("Example Audio".into()),
             is_default: true,
-            binding_pnp_instance_id: Some("SWD\\MMDEVAPI\\BINDING".into()),
+            binding_pnp_instance_id: Some("HDAUDIO\\EXAMPLE".into()),
             pnp_instance_id: Some("HDAUDIO\\EXAMPLE".into()),
             hardware_ids: vec!["HDAUDIO\\EXAMPLE".into()],
             driver_inf: Some("oem42.inf".into()),
-            topology_reference: Some("Topology".into()),
+            topology_interface_path: Some("\\\\?\\topology-example".into()),
+            audio_interface_path: Some("\\\\?\\audio-example".into()),
+            topology_reference: None,
             status,
             detail: None,
         }
@@ -290,6 +318,17 @@ mod tests {
         .unwrap();
         assert_eq!(selected.endpoint_id, "endpoint-a");
         assert_eq!(selected.hardware_ids[0], "HDAUDIO\\EXAMPLE");
+    }
+
+    #[test]
+    fn runtime_binding_does_not_require_topology_reference() {
+        let selected = select_installable_endpoint(
+            vec![endpoint("endpoint-a", SystemAudioEndpointStatus::Installable)],
+            "endpoint-a",
+        )
+        .unwrap();
+        assert!(selected.topology_reference.is_none());
+        assert!(has_runtime_interface_binding(&selected));
     }
 
     #[test]
