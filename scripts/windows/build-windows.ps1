@@ -97,12 +97,14 @@ Voxveil Windows x64 development package
 
 - voxveil.exe is the desktop application.
 - system-audio/VoxveilApo.dll is the real in-process Windows SFX APO.
-- system-audio/VoxveilControl.dll + voxveil-control.exe control the APO shared state.
-- Voxveil automatically enumerates Windows playback endpoints and resolves their PnP/driver/topology identity internally.
+- system-audio/VoxveilControl.dll + voxveil-control.exe control the APO and bind FX properties.
+- Voxveil resolves the selected endpoint to exact KSCATEGORY_TOPOLOGY + KSCATEGORY_AUDIO interface paths with Windows SetupAPI.
+- Those device-interface paths are treated as opaque and are revalidated against their owning PnP instance immediately before mutation.
+- The normal runtime path does not require an OEM INF AddInterface reference string; INF reference parsing remains fallback-only.
 - The normal UI never asks for Hardware IDs or topology reference strings.
 - The APO uses the Windows componentized-audio model; it does NOT install a virtual output device.
 - Normal endpoint installation is offered only when the package contains a compatible production-signed Extension INF/catalog set.
-- The raw -HardwareId/-ReferenceString/-TestSign script parameters remain for dedicated driver-development diagnostics only.
+- The raw -HardwareId/-ReferenceString/-TestSign parameters remain only for legacy/focused driver-development diagnostics.
 '@ | Set-Content (Join-Path $output 'README-WINDOWS.txt') -Encoding utf8
 
 $hashFiles = Get-ChildItem $output -Recurse -File | Where-Object { $_.Name -ne 'SHA256SUMS.txt' }
@@ -115,4 +117,4 @@ $hashLines | Set-Content (Join-Path $output 'SHA256SUMS.txt') -Encoding ascii
 
 Write-Host ''
 Write-Host "Windows package staged: $output"
-Write-Host 'Next real-device validation step: verify auto-discovery on physical outputs and confirm AudioDG loads VoxveilApo.dll after a compatible signed package is installed.'
+Write-Host 'Next real-device validation step: verify runtime binding on physical outputs and confirm AudioDG loads VoxveilApo.dll after a compatible signed package is installed.'
