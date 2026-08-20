@@ -176,9 +176,10 @@ mod windows_runtime {
         }
         .map_err(|error| format!("failed to read device interface detail: {error}"))?;
 
-        let path = unsafe { PCWSTR::from_raw((*detail).DevicePath.as_ptr()) }
-            .to_string()
-            .map_err(|error| format!("invalid device interface path: {error}"))?;
+        let path = unsafe {
+            PCWSTR::from_raw((*detail).DevicePath.as_ptr()).to_string()
+        }
+        .map_err(|error| format!("invalid device interface path: {error}"))?;
         Ok((path, device_info))
     }
 
