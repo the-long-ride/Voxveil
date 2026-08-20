@@ -45,10 +45,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn unique_runtime_binding_without_reference_requires_component() {
+    fn unique_runtime_binding_without_reference_requires_component_without_package() {
         assert_eq!(
-            classify_runtime_binding(RuntimeBindingKind::Unique, false, &[], false),
+            classify_runtime_binding(RuntimeBindingKind::Unique, true, &[], false),
             SystemAudioEndpointStatus::ComponentRequired
+        );
+    }
+
+    #[test]
+    fn unique_runtime_binding_without_reference_is_installable_with_package() {
+        assert_eq!(
+            classify_runtime_binding(RuntimeBindingKind::Unique, true, &[], true),
+            SystemAudioEndpointStatus::Installable
         );
     }
 
