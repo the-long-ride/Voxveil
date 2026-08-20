@@ -35,13 +35,30 @@ function Find-WdkTool([string]$Name) {
     Select-Object -First 1 -ExpandProperty FullName
 }
 
+function Get-OptionalProperty($Object, [string]$Name) {
+  $property = $Object.PSObject.Properties[$Name]
+  if ($property) { return $property.Value }
+  return $null
+}
+
 function Resolve-EndpointDescriptor([string]$DescriptorPath, [string]$Root) {
   if (-not (Test-Path $DescriptorPath -PathType Leaf)) {
     throw "device-changed: endpoint descriptor no longer exists: $DescriptorPath"
   }
   $descriptor = Get-Content $DescriptorPath -Raw | ConvertFrom-Json
-  foreach ($name in @('endpointId', 'bindingPnpInstanceId', 'pnpInstanceId', 'hardwareId', 'driverInf', 'topologyReference')) {
+  foreach ($name in @('endpointId', 'bindingPnpInstanceId', 'pnpInstanceId', 'hardwareId', 'driverInf')) {
     if (-not $descriptor.$name) { throw "device-changed: endpoint descriptor is missing $name" }
+  }
+
+  $topologyInterfacePath = [string](Get-OptionalProperty $descriptor 'topologyInterfacePath')
+  $audioInterfacePath = [string](Get-OptionalProperty $descriptor 'audioInterfacePath')
+  $topologyReference = [string](Get-OptionalProperty $descriptor 'topologyReference')
+  if ([bool]$topologyInterfacePath -ne [bool]$audioInterfacePath) {
+    throw 'device-changed: endpoint descriptor has an incomplete runtime interface binding.'
+  }
+  $runtimeBound = [bool]$topologyInterfacePath -and [bool]$audioInterfacePath
+  if (-not $runtimeBound -and -not $topologyReference) {
+    throw 'device-changed: endpoint descriptor has neither runtime interfaces nor a legacy topology reference.'
   }
 
   $helper = Join-Path $Root 'discover-system-audio-endpoints.ps1'
@@ -53,7 +70,7 @@ function Resolve-EndpointDescriptor([string]$DescriptorPath, [string]$Root) {
     displayName = ''
     isDefault = $false
     runtimeDeviceId = [string]$descriptor.bindingPnpInstanceId
-    runtimeAliasMatch = $true
+    runtimeAliasMatch = $runtimeBound
   }) -Compress
   $output = $request | & powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File $helper
   if ($LASTEXITCODE -ne 0) { throw 'device-changed: endpoint discovery failed during elevated revalidation.' }
@@ -78,16 +95,22 @@ function Resolve-EndpointDescriptor([string]$DescriptorPath, [string]$Root) {
   if (-not ($currentHardware -icontains [string]$descriptor.hardwareId)) {
     throw 'device-changed: the playback endpoint hardware IDs changed after discovery.'
   }
-  $currentTopology = @($resolved.topologyReferences | ForEach-Object { [string]$_ })
-  $expectedTopology = [string]$descriptor.topologyReference
-  if (-not ($currentTopology | Where-Object { $_ -ieq $expectedTopology })) {
-    throw 'device-changed: the playback endpoint topology binding changed.'
+
+  if (-not $runtimeBound) {
+    $currentTopology = @($resolved.topologyReferences | ForEach-Object { [string]$_ })
+    if (-not ($currentTopology | Where-Object { $_ -ieq $topologyReference })) {
+      throw 'device-changed: the playback endpoint topology binding changed.'
+    }
   }
 
   return [pscustomobject]@{
     EndpointId = [string]$descriptor.endpointId
+    BindingPnpInstanceId = [string]$descriptor.bindingPnpInstanceId
     HardwareId = [string]$descriptor.hardwareId
-    ReferenceString = [string]$descriptor.topologyReference
+    RuntimeBound = $runtimeBound
+    TopologyInterfacePath = $topologyInterfacePath
+    AudioInterfacePath = $audioInterfacePath
+    ReferenceString = $topologyReference
   }
 }
 
@@ -95,10 +118,18 @@ Assert-Administrator
 
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $selectedEndpointId = $null
+$bindingPnpInstanceId = $null
+$topologyInterfacePath = $null
+$audioInterfacePath = $null
+$runtimeBound = $false
 if ($PSCmdlet.ParameterSetName -eq 'Descriptor') {
   $binding = Resolve-EndpointDescriptor $EndpointDescriptor $root
   $selectedEndpointId = $binding.EndpointId
+  $bindingPnpInstanceId = $binding.BindingPnpInstanceId
   $HardwareId = $binding.HardwareId
+  $runtimeBound = $binding.RuntimeBound
+  $topologyInterfacePath = $binding.TopologyInterfacePath
+  $audioInterfacePath = $binding.AudioInterfacePath
   $ReferenceString = $binding.ReferenceString
 }
 
@@ -122,7 +153,11 @@ try {
     foreach ($required in @($template, $generator)) {
       if (-not (Test-Path $required)) { throw "Required development packaging file not found: $required" }
     }
-    & $generator -HardwareId $HardwareId -ReferenceString $ReferenceString -TemplatePath $template -OutputPath $extensionInf
+    if ($runtimeBound) {
+      & $generator -HardwareId $HardwareId -TemplatePath $template -OutputPath $extensionInf
+    } else {
+      & $generator -HardwareId $HardwareId -ReferenceString $ReferenceString -TemplatePath $template -OutputPath $extensionInf
+    }
 
     $inf2cat = Find-WdkTool 'Inf2Cat.exe'
     $signtool = Find-WdkTool 'signtool.exe'
@@ -172,8 +207,15 @@ try {
     }
 
     $prebuiltText = Get-Content $prebuiltExtension -Raw
-    if (-not $prebuiltText.Contains($HardwareId) -or -not $prebuiltText.Contains($ReferenceString)) {
-      throw 'The signed Voxveil Extension INF does not match the automatically resolved playback endpoint.'
+    if (-not $prebuiltText.Contains($HardwareId)) {
+      throw 'The signed Voxveil Extension INF does not match the automatically resolved playback endpoint hardware ID.'
+    }
+    if ($runtimeBound) {
+      if ($prebuiltText -match '(?im)^\s*AddInterface\s*=') {
+        throw 'The signed Voxveil Extension INF uses the legacy reference-string binding and cannot be used with this runtime interface binding.'
+      }
+    } elseif (-not $prebuiltText.Contains($ReferenceString)) {
+      throw 'The signed Voxveil Extension INF does not match the automatically resolved playback endpoint topology reference.'
     }
     Copy-Item $prebuiltExtension $extensionInf
     Copy-Item $apoCat, $extensionCat -Destination $work
@@ -187,6 +229,17 @@ try {
   pnputil.exe /add-driver $extensionInf /install | Out-Host
   if ($LASTEXITCODE -ne 0) { throw "PnPUtil failed to install VoxveilApoExtension.inf (exit $LASTEXITCODE)." }
 
+  if ($runtimeBound) {
+    if (-not (Test-Path $control -PathType Leaf)) {
+      throw 'Runtime interface binding requires voxveil-control.exe in the packaged system-audio directory.'
+    }
+    Write-Host 'Attaching Voxveil FX properties to the exact Windows audio interfaces...'
+    & $control attach-effects $bindingPnpInstanceId $topologyInterfacePath $audioInterfacePath | Out-Host
+    if ($LASTEXITCODE -ne 0) {
+      throw "Runtime interface FX attachment failed (exit $LASTEXITCODE)."
+    }
+  }
+
   Write-Host 'Restarting Windows Audio so AudioDG rebuilds the endpoint graph...'
   Restart-Service Audiosrv -Force
   Start-Sleep -Seconds 2
@@ -198,6 +251,10 @@ try {
     installedInfNames = @($installed)
     endpointId = $selectedEndpointId
     hardwareId = $HardwareId
+    bindingMode = if ($runtimeBound) { 'runtime-interface' } else { 'legacy-reference' }
+    bindingPnpInstanceId = $bindingPnpInstanceId
+    topologyInterfacePath = $topologyInterfacePath
+    audioInterfacePath = $audioInterfacePath
     referenceString = $ReferenceString
   } | ConvertTo-Json -Depth 3 | Set-Content (Join-Path $root 'install-state.json') -Encoding utf8
 
