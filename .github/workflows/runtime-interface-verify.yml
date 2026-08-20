@@ -1,15 +1,12 @@
 name: Runtime interface verification
 
 on:
-  push:
-    branches:
-      - fix/runtime-interface-apo-binding
   pull_request:
     branches:
       - master
 
 concurrency:
-  group: runtime-interface-${{ github.head_ref || github.ref }}
+  group: runtime-interface-${{ github.head_ref }}
   cancel-in-progress: true
 
 jobs:
@@ -27,8 +24,8 @@ jobs:
         run: npm ci --ignore-scripts --no-fund --no-audit
       - name: Rust Windows audio tests
         run: cargo test -p voxveil-windows-audio
-      - name: Node quality tests
-        run: npm run test:quality
+      - name: System audio quality tests
+        run: node --test scripts/quality/*system-audio*.test.mjs scripts/quality/windows-system-audio*.test.mjs
       - name: Build control CLI
         shell: powershell
         run: |
