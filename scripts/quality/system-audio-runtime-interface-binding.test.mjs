@@ -20,7 +20,8 @@ test('runtime discovery retains exact topology and audio alias paths', () => {
 test('runtime APO attachment opens opaque SetupAPI interface registry keys', () => {
   assert.match(control, /SetupDiOpenDeviceInterfaceW/);
   assert.match(control, /SetupDiOpenDeviceInterfaceRegKey/);
-  assert.match(control, /PKEY_CompositeFX_StreamEffectClsid/);
+  assert.match(control, /kCompositeSfx/);
+  assert.match(control, /\{D04E05A6-594B-4fb6-A80D-01AF5EED7D1D\},13/i);
   assert.match(control, /attach-effects/);
   assert.match(control, /detach-effects/);
   assert.doesNotMatch(control, /ReferenceString|reference string/i);
