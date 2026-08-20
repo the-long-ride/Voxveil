@@ -246,6 +246,18 @@ mod tests {
     }
 
     #[test]
+    fn selected_candidate_retains_audio_alias_path() {
+        let expected = TopologyCandidate {
+            device_instance_id: "HDAUDIO\\FUNC_01".into(),
+            interface_path: "topology-interface".into(),
+            audio_interface_path: Some("audio-interface".into()),
+            alias_match: true,
+        };
+        let selection = select_topology_candidate("HDAUDIO\\FUNC_01", &[expected.clone()]);
+        assert_eq!(selection, CandidateSelection::Unique(expected));
+    }
+
+    #[test]
     fn indistinguishable_same_device_candidates_are_ambiguous() {
         let selection = select_topology_candidate(
             "HDAUDIO\\FUNC_01",
