@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files"><UniqueIdentifier>{F05A8DF7-5FC6-4A4F-9CE5-B389A58560FC}</UniqueIdentifier></Filter>
+    <Filter Include="Header Files"><UniqueIdentifier>{BFED1A6C-A50E-4CFB-91E0-79D248B81D98}</UniqueIdentifier></Filter>
+    <Filter Include="Resource Files"><UniqueIdentifier>{CE23082A-B3E0-40E8-9D30-6EBA72B1224B}</UniqueIdentifier></Filter>
+    <Filter Include="Pinned SysVAD"><UniqueIdentifier>{137B4829-8443-4DC1-8938-F8055F0771B0}</UniqueIdentifier></Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="voxveil_savedata.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="voxveil_tonegenerator.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="..\..\..\third_party\microsoft\windows-driver-samples\audio\sysvad\adapter.cpp"><Filter>Pinned SysVAD</Filter></ClCompile>
+    <ClCompile Include="..\..\..\third_party\microsoft\windows-driver-samples\audio\sysvad\basetopo.cpp"><Filter>Pinned SysVAD</Filter></ClCompile>
+    <ClCompile Include="..\..\..\third_party\microsoft\windows-driver-samples\audio\sysvad\common.cpp"><Filter>Pinned SysVAD</Filter></ClCompile>
+    <ClCompile Include="..\..\..\third_party\microsoft\windows-driver-samples\audio\sysvad\hw.cpp"><Filter>Pinned SysVAD</Filter></ClCompile>
+    <ClCompile Include="..\..\..\third_party\microsoft\windows-driver-samples\audio\sysvad\kshelper.cpp"><Filter>Pinned SysVAD</Filter></ClCompile>
+    <ClCompile Include="..\..\..\third_party\microsoft\windows-driver-samples\audio\sysvad\EndpointsCommon\AudioModuleHelper.cpp"><Filter>Pinned SysVAD</Filter></ClCompile>
+    <ClCompile Include="..\..\..\third_party\microsoft\windows-driver-samples\audio\sysvad\EndpointsCommon\MiniportAudioEngineNode.cpp"><Filter>Pinned SysVAD</Filter></ClCompile>
+    <ClCompile Include="..\..\..\third_party\microsoft\windows-driver-samples\audio\sysvad\EndpointsCommon\MiniportStreamAudioEngineNode.cpp"><Filter>Pinned SysVAD</Filter></ClCompile>
+    <ClCompile Include="..\..\..\third_party\microsoft\windows-driver-samples\audio\sysvad\EndpointsCommon\minwavert.cpp"><Filter>Pinned SysVAD</Filter></ClCompile>
+    <ClCompile Include="..\..\..\third_party\microsoft\windows-driver-samples\audio\sysvad\EndpointsCommon\minwavertstream.cpp"><Filter>Pinned SysVAD</Filter></ClCompile>
+    <ClCompile Include="..\..\..\third_party\microsoft\windows-driver-samples\audio\sysvad\EndpointsCommon\mintopo.cpp"><Filter>Pinned SysVAD</Filter></ClCompile>
+    <ClCompile Include="..\..\..\third_party\microsoft\windows-driver-samples\audio\sysvad\EndpointsCommon\NewDelete.cpp"><Filter>Pinned SysVAD</Filter></ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="minipairs.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="voxveil_endpoint.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="voxveil_ids.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="voxveil_topology.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="voxveil_wavert.h"><Filter>Header Files</Filter></ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="VoxveilVirtualAudio.rc"><Filter>Resource Files</Filter></ResourceCompile>
+  </ItemGroup>
+</Project>
