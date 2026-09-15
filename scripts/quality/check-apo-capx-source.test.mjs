@@ -13,9 +13,12 @@ test('APO project stays on the approved C++17 Windows driver toolchain', () => {
 
 test('APO constructor never claims a loaded processing instance', () => {
   const text = read('native/windows/apo/VoxveilApo.cpp');
-  const constructor = text.match(/CVoxveilApo::CVoxveilApo\(\) noexcept[\s\S]*?\n}\n\nCVoxveilApo::~CVoxveilApo/);
-  assert.ok(constructor, 'APO constructor block not found');
-  assert.doesNotMatch(constructor[0], /loadedInstances|capxInstances/);
+  const constructorStart = text.indexOf('CVoxveilApo::CVoxveilApo() noexcept');
+  const destructorStart = text.indexOf('CVoxveilApo::~CVoxveilApo', constructorStart);
+  assert.ok(constructorStart >= 0, 'APO constructor not found');
+  assert.ok(destructorStart > constructorStart, 'APO destructor marker not found');
+  const constructor = text.slice(constructorStart, destructorStart);
+  assert.doesNotMatch(constructor, /loadedInstances|capxInstances/);
 });
 
 test('APO initialization owns discovery-aware readiness counting', () => {
