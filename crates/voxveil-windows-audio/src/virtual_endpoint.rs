@@ -101,6 +101,20 @@ mod tests {
     }
 
     #[test]
+    fn recognizes_multichannel_vb_cable_render_variant() {
+        let endpoint = endpoint(
+            "cable-16ch",
+            "CABLE In 16ch (VB-Audio Virtual Cable)",
+            "VB-Audio Virtual Cable",
+            "CABLE In 16ch",
+        );
+        assert_eq!(
+            classify_virtual_endpoint(&endpoint),
+            Some(VirtualEndpointKind::VbCable)
+        );
+    }
+
+    #[test]
     fn recognizes_voxveil_virtual_audio_endpoint() {
         let endpoint = endpoint(
             "voxveil-id",
