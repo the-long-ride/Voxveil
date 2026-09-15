@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import type {
   AiModelStatus,
+  AudioOutput,
   EngineKind,
   OutputMode,
   ProcessingMode,
@@ -15,8 +16,13 @@ export function createVoxveilClient(call: InvokeFn = invoke) {
   return {
     getState: () => call<VoxveilState>('get_app_state'),
     listSystemAudioEndpoints: () => call<SystemAudioEndpoint[]>('list_system_audio_endpoints'),
+    listAudioOutputs: () => call<AudioOutput[]>('list_audio_outputs'),
     installSystemAudioComponent: (endpointId: string) =>
       call<SystemAudioInstallResult>('install_system_audio_component', { endpointId }),
+    setPhysicalAudioOutput: (endpointId: string) =>
+      call<void>('set_physical_audio_output', { endpointId }),
+    openWindowsSoundSettings: () => call<void>('open_windows_sound_settings'),
+    openVbCableDownload: () => call<void>('open_vb_cable_download'),
     setMasterEnabled: (enabled: boolean) => call<void>('set_master_enabled', { enabled }),
     setProcessingMode: (mode: ProcessingMode) => call<void>('set_processing_mode', { mode }),
     setEngine: (engine: EngineKind) => call<void>('set_engine', { engine }),

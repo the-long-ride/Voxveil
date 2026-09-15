@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PREVIEW_STATE, SAFE_NATIVE_STATE } from '../lib/demo-state';
 import { createVoxveilClient } from '../lib/tauri';
 import type {
+  AudioOutput,
   EngineKind,
   OutputMode,
   ProcessingMode,
@@ -29,6 +30,7 @@ export function useVoxveilState() {
   const native = isTauriRuntime();
   const [state, setState] = useState<VoxveilState>(() => native ? SAFE_NATIVE_STATE : PREVIEW_STATE);
   const [systemAudioEndpoints, setSystemAudioEndpoints] = useState<SystemAudioEndpoint[]>([]);
+  const [physicalOutputs, setPhysicalOutputs] = useState<AudioOutput[]>([]);
   const [systemAudioEndpointsBusy, setSystemAudioEndpointsBusy] = useState(false);
   const [systemAudioInstallBusyId, setSystemAudioInstallBusyId] = useState<string | null>(null);
   const [systemAudioInstallError, setSystemAudioInstallError] = useState<string | null>(null);
@@ -46,11 +48,20 @@ export function useVoxveilState() {
     }
   }, [client, native]);
 
+  const refreshPhysicalOutputs = useCallback(async () => {
+    if (!native) return;
+    try {
+      setPhysicalOutputs(await client.listAudioOutputs());
+    } catch (error) {
+      setSystemAudioInstallError(errorMessage(error));
+    }
+  }, [client, native]);
+
   const refreshNativeState = useCallback(async () => {
     if (!native) return;
     try { setState(await client.getState()); } catch { setState(SAFE_NATIVE_STATE); }
-    await refreshSystemAudioEndpoints();
-  }, [client, native, refreshSystemAudioEndpoints]);
+    await Promise.all([refreshSystemAudioEndpoints(), refreshPhysicalOutputs()]);
+  }, [client, native, refreshPhysicalOutputs, refreshSystemAudioEndpoints]);
 
   useEffect(() => {
     if (!native) return;
@@ -104,6 +115,35 @@ export function useVoxveilState() {
     await refreshNativeState();
   }, [client, native, refreshNativeState, systemAudioEndpoints, systemAudioInstallBusyId]);
 
+  const selectPhysicalOutput = useCallback(async (endpointId: string) => {
+    if (!native) return;
+    setSystemAudioInstallError(null);
+    try {
+      await client.setPhysicalAudioOutput(endpointId);
+      await refreshNativeState();
+    } catch (error) {
+      setSystemAudioInstallError(errorMessage(error));
+    }
+  }, [client, native, refreshNativeState]);
+
+  const openWindowsSoundSettings = useCallback(async () => {
+    if (!native) return;
+    try {
+      await client.openWindowsSoundSettings();
+    } catch (error) {
+      setSystemAudioInstallError(errorMessage(error));
+    }
+  }, [client, native]);
+
+  const openVbCableDownload = useCallback(async () => {
+    if (!native) return;
+    try {
+      await client.openVbCableDownload();
+    } catch (error) {
+      setSystemAudioInstallError(errorMessage(error));
+    }
+  }, [client, native]);
+
   const setMasterEnabled = (masterEnabled: boolean) => {
     if (masterEnabled && state.backendStatus !== 'ready') return;
     commit({ masterEnabled }, () => client.setMasterEnabled(masterEnabled));
@@ -139,12 +179,16 @@ export function useVoxveilState() {
   return {
     state,
     systemAudioEndpoints,
+    physicalOutputs,
     systemAudioEndpointsBusy,
     systemAudioInstallBusyId,
     systemAudioInstallError,
-    refreshSystemAudioEndpoints: () => { void refreshSystemAudioEndpoints(); },
+    refreshSystemAudioEndpoints: () => { void refreshNativeState(); },
     installSystemAudioEndpoint: (endpointId: string) => { void installSystemAudioEndpoint(endpointId); },
     installAllSystemAudioEndpoints: () => { void installAllSystemAudioEndpoints(); },
+    selectPhysicalOutput: (endpointId: string) => { void selectPhysicalOutput(endpointId); },
+    openWindowsSoundSettings: () => { void openWindowsSoundSettings(); },
+    openVbCableDownload: () => { void openVbCableDownload(); },
     setMasterEnabled,
     setProcessingMode,
     setEngine,

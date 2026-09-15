@@ -31,7 +31,10 @@ function backendDescription(status: Exclude<ProcessingBackendStatus, 'ready'>, t
 export function HomeScreen({ model, aiModelReady }: { model: VoxveilModel; aiModelReady: boolean }) {
   const { t } = useTranslation();
   const { state } = model;
-  const showSystemAudio = state.backendStatus === 'component-required' || model.systemAudioEndpoints.length > 0;
+  const showSystemAudio = state.backendStatus === 'component-required'
+    || state.backendStatus === 'routing-required'
+    || state.backendKind !== null
+    || model.systemAudioEndpoints.length > 0;
 
   return (
     <section className="screen" aria-labelledby="home-title">
@@ -47,12 +50,19 @@ export function HomeScreen({ model, aiModelReady }: { model: VoxveilModel; aiMod
       {showSystemAudio && (
         <SystemAudioEndpoints
           endpoints={model.systemAudioEndpoints}
+          backendStatus={state.backendStatus}
+          backendKind={state.backendKind}
+          physicalOutputs={model.physicalOutputs}
+          selectedPhysicalOutputId={state.physicalOutputEndpointId}
           busy={model.systemAudioEndpointsBusy}
           installBusyId={model.systemAudioInstallBusyId}
           error={model.systemAudioInstallError}
           onRefresh={model.refreshSystemAudioEndpoints}
           onInstall={model.installSystemAudioEndpoint}
           onInstallAll={model.installAllSystemAudioEndpoints}
+          onSelectPhysicalOutput={model.selectPhysicalOutput}
+          onOpenSoundSettings={model.openWindowsSoundSettings}
+          onGetVbCable={model.openVbCableDownload}
         />
       )}
 

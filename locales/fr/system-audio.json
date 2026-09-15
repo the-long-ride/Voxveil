@@ -1,7 +1,7 @@
 {
   "title": "Audio système Windows",
-  "description": "Sorties de lecture détectées",
-  "backendDescription": "Voxveil a détecté ci-dessous vos sorties de lecture Windows. La liaison du pilote et la compatibilité sont résolues automatiquement.",
+  "description": "Sorties de lecture et routage système détectés",
+  "backendDescription": "Voxveil peut utiliser son APO natif lorsqu'il est chargé, son point de terminaison virtuel vérifié ou le VB-CABLE standard pour traiter l'audio de tout le système.",
   "default": "Par défaut",
   "readyToInstall": "Prêt à installer",
   "signedComponentRequired": "Composant signé requis",
@@ -12,5 +12,14 @@
   "refresh": "Actualiser",
   "refreshing": "Actualisation…",
   "detecting": "Détection des sorties de lecture…",
-  "none": "Aucune sortie de lecture détectée."
+  "none": "Aucune sortie de lecture détectée.",
+  "routeTitle": "Routage système",
+  "vbCableMissing": "Installez le périphérique audio virtuel VB-CABLE standard pour activer le traitement de tout le système.",
+  "getVbCable": "Obtenir VB-CABLE",
+  "routeInstructionVbCable": "Définissez CABLE Input comme sortie Windows, choisissez la sortie physique ci-dessous, puis revenez dans Voxveil.",
+  "routeInstructionVoxveilCable": "Définissez Voxveil Input comme sortie Windows, choisissez la sortie physique ci-dessous, puis revenez dans Voxveil.",
+  "routeActive": "L'audio système est traité et envoyé vers la sortie physique sélectionnée.",
+  "openSoundSettings": "Ouvrir les paramètres audio",
+  "physicalOutput": "Sortie physique",
+  "selectPhysicalOutput": "Sélectionner une sortie physique"
 }
