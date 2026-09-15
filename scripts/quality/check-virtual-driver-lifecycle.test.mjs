@@ -45,6 +45,13 @@ test('Voxveil owns a minimal SetupAPI helper for exact root devnode lifecycle', 
   assert.doesNotMatch(source, /DevCon|UpdateDriverForPlugAndPlayDevices/i);
 });
 
+test('SetupAPI helper imports the Configuration Manager class-name limit it uses', () => {
+  const source = read('native/windows/driver/VoxveilVirtualAudioDevice.cpp');
+  assert.match(source, /#include\s*<cfgmgr32\.h>/i);
+  assert.match(source, /wchar_t\s+className\s*\[\s*MAX_CLASS_NAME_LEN\s*\]/i);
+  assert.match(source, /SetupDiGetINFClassW\s*\([\s\S]*?className[\s\S]*?std::size\(className\)[\s\S]*?nullptr\s*\)/i);
+});
+
 test('virtual driver install creates the exact devnode before PnPUtil and records its instance ID', () => {
   const text = installer();
   assert.match(text, /voxveil-virtual-device\.exe/i);
