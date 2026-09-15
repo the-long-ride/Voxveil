@@ -50,16 +50,52 @@ pub(crate) fn extension_inf_matches_hardware(text: &str, hardware_ids: &[String]
         .any(|hardware_id| text.contains(&hardware_id.to_ascii_lowercase()))
 }
 
-pub(crate) fn runtime_extension_inf_matches(text: &str, hardware_ids: &[String]) -> bool {
-    extension_inf_matches_hardware(text, hardware_ids)
-        && !text.lines().any(|line| {
-            line.split(';')
-                .next()
-                .unwrap_or_default()
-                .trim()
-                .to_ascii_lowercase()
-                .starts_with("addinterface")
-        })
+pub(crate) fn capx_extension_inf_matches(
+    text: &str,
+    hardware_ids: &[String],
+    topology_reference: Option<&str>,
+) -> bool {
+    const CAPX_CONTEXT_GUID: &str = "63e268ce-4cbc-48e0-beb6-55103316f477";
+
+    if !extension_inf_matches_hardware(text, hardware_ids) {
+        return false;
+    }
+
+    let text = text.to_ascii_lowercase();
+    if !text.contains(CAPX_CONTEXT_GUID) || !text.contains("voxveil_apo_context") {
+        return false;
+    }
+    if topology_reference.is_some_and(|reference| {
+        reference.is_empty() || !text.contains(&reference.to_ascii_lowercase())
+    }) {
+        return false;
+    }
+
+    let mut has_add_interface = false;
+    let mut has_context_association = false;
+    let mut has_legacy_root_association = false;
+    for line in text.lines() {
+        let directive: String = line
+            .split(';')
+            .next()
+            .unwrap_or_default()
+            .chars()
+            .filter(|value| !value.is_ascii_whitespace())
+            .collect();
+        if directive.starts_with("addinterface=") {
+            has_add_interface = true;
+        }
+        if directive.starts_with(
+            r"hkr,fx\0\%voxveil_apo_context%,%pkey_fx_association%",
+        ) {
+            has_context_association = true;
+        }
+        if directive.starts_with(r"hkr,fx\0,%pkey_fx_association%") {
+            has_legacy_root_association = true;
+        }
+    }
+
+    has_add_interface && has_context_association && !has_legacy_root_association
 }
 
 pub(crate) fn extension_inf_matches(
@@ -86,10 +122,7 @@ mod windows {
 
     use serde::{Deserialize, Serialize};
 
-    use super::{
-        SystemAudioEndpoint, SystemAudioEndpointStatus, extension_inf_matches,
-        runtime_extension_inf_matches,
-    };
+    use super::{SystemAudioEndpoint, SystemAudioEndpointStatus, capx_extension_inf_matches};
     use crate::binding::{
         RuntimeBindingKind, classify_runtime_binding, fallback_device_matches_runtime,
     };
@@ -101,6 +134,8 @@ mod windows {
     use crate::topology::resolve_adapter_device_id;
 
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    const EXPECTED_EXTENSION_ID: &str = "1D81E93D-AB81-473B-9E5E-94FAE8D2377F";
+    const EXPECTED_CAPX_CONTEXT: &str = "63E268CE-4CBC-48E0-BEB6-55103316F477";
 
     #[derive(Clone, Debug)]
     struct RuntimeResolution {
@@ -134,6 +169,18 @@ mod windows {
         #[serde(default)]
         topology_references: Vec<String>,
         detail: Option<String>,
+    }
+
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct ApoVerification {
+        apo_inf_sha256: String,
+        apo_dll_sha256: String,
+        apo_catalog_sha256: String,
+        extension_inf_sha256: String,
+        extension_catalog_sha256: String,
+        extension_id: String,
+        capx_context: String,
     }
 
     pub(crate) fn enrich_endpoints(
@@ -341,6 +388,27 @@ mod windows {
             .map_err(|error| format!("Windows endpoint discovery returned invalid JSON: {error}"))
     }
 
+    fn is_sha256(value: &str) -> bool {
+        value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+    }
+
+    fn verified_apo_stage_matches(directory: &Path) -> bool {
+        let path = directory.join("apo-verification.json");
+        let Ok(bytes) = std::fs::read(path) else {
+            return false;
+        };
+        let Ok(verification) = serde_json::from_slice::<ApoVerification>(&bytes) else {
+            return false;
+        };
+        verification.extension_id.eq_ignore_ascii_case(EXPECTED_EXTENSION_ID)
+            && verification.capx_context.eq_ignore_ascii_case(EXPECTED_CAPX_CONTEXT)
+            && is_sha256(&verification.apo_inf_sha256)
+            && is_sha256(&verification.apo_dll_sha256)
+            && is_sha256(&verification.apo_catalog_sha256)
+            && is_sha256(&verification.extension_inf_sha256)
+            && is_sha256(&verification.extension_catalog_sha256)
+    }
+
     fn production_package_matches(
         directory: &Path,
         hardware_ids: &[String],
@@ -348,22 +416,25 @@ mod windows {
         topology_reference: Option<&str>,
     ) -> bool {
         let extension = directory.join("VoxveilApoExtension.inf");
-        if !directory.join("VoxveilApo.cat").is_file()
-            || !directory.join("VoxveilApoExtension.cat").is_file()
-            || !extension.is_file()
-        {
+        for required in [
+            "VoxveilApo.inf",
+            "VoxveilApo.dll",
+            "VoxveilApo.cat",
+            "VoxveilApoExtension.inf",
+            "VoxveilApoExtension.cat",
+        ] {
+            if !directory.join(required).is_file() {
+                return false;
+            }
+        }
+        if !verified_apo_stage_matches(directory) {
+            return false;
+        }
+        if !runtime_bound && topology_reference.is_none() {
             return false;
         }
         std::fs::read_to_string(extension)
-            .map(|text| {
-                if runtime_bound {
-                    runtime_extension_inf_matches(&text, hardware_ids)
-                } else {
-                    topology_reference.is_some_and(|reference| {
-                        extension_inf_matches(&text, hardware_ids, reference)
-                    })
-                }
-            })
+            .map(|text| capx_extension_inf_matches(&text, hardware_ids, topology_reference))
             .unwrap_or(false)
     }
 
@@ -382,7 +453,7 @@ mod windows {
     fn default_detail(status: SystemAudioEndpointStatus) -> Option<String> {
         match status {
             SystemAudioEndpointStatus::ComponentRequired => Some(
-                "Output identified, but this build has no matching signed extension package for its driver"
+                "Output identified, but this build has no verified matching signed CAPX extension package for its driver"
                     .into(),
             ),
             SystemAudioEndpointStatus::Ambiguous => Some(
@@ -402,6 +473,12 @@ pub(crate) use windows::enrich_endpoints;
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn capx_inf(hardware_id: &str, reference: &str) -> String {
+        format!(
+            "Model={hardware_id}\nExtensionId={{1D81E93D-AB81-473B-9E5E-94FAE8D2377F}}\nVOXVEIL_APO_CONTEXT=\"{{63E268CE-4CBC-48E0-BEB6-55103316F477}}\"\nREFERENCE_STRING=\"{reference}\"\nHKR,FX\\0\\%VOXVEIL_APO_CONTEXT%,%PKEY_FX_Association%,,%KSNODETYPE_ANY%\nAddInterface=%KSCATEGORY_AUDIO%,%REFERENCE_STRING%,DeviceExtensions.I.APO\n"
+        )
+    }
 
     #[test]
     fn unique_topology_is_installable_when_package_is_available() {
@@ -441,28 +518,62 @@ mod tests {
 
     #[test]
     fn signed_extension_must_match_hardware_and_topology_for_fallback() {
-        let text = "HardwareId=HDAUDIO\\FUNC_01&VEN_10EC\nReference=PrimaryLineOutTopo";
         let hardware_ids = vec!["HDAUDIO\\FUNC_01&VEN_10EC".into()];
-        assert!(extension_inf_matches(text, &hardware_ids, "PrimaryLineOutTopo"));
-        assert!(!extension_inf_matches(text, &hardware_ids, "HeadphoneTopo"));
-        assert!(!extension_inf_matches(
-            text,
+        let text = capx_inf(&hardware_ids[0], "PrimaryLineOutTopo");
+        assert!(capx_extension_inf_matches(
+            &text,
+            &hardware_ids,
+            Some("PrimaryLineOutTopo")
+        ));
+        assert!(!capx_extension_inf_matches(
+            &text,
+            &hardware_ids,
+            Some("HeadphoneTopo")
+        ));
+        assert!(!capx_extension_inf_matches(
+            &text,
             &["USB\\VID_1234".into()],
-            "PrimaryLineOutTopo"
+            Some("PrimaryLineOutTopo")
         ));
     }
 
     #[test]
-    fn runtime_extension_matches_hardware_without_reference_string() {
-        let text = "Model=HDAUDIO\\FUNC_01&VEN_10EC\n; runtime interface binding";
+    fn runtime_binding_accepts_signed_capx_addinterface_package() {
         let hardware_ids = vec!["HDAUDIO\\FUNC_01&VEN_10EC".into()];
-        assert!(runtime_extension_inf_matches(text, &hardware_ids));
+        let text = capx_inf(&hardware_ids[0], "PrimaryLineOutTopo");
+        assert!(capx_extension_inf_matches(&text, &hardware_ids, None));
     }
 
     #[test]
-    fn runtime_extension_rejects_legacy_add_interface_package() {
-        let text = "Model=HDAUDIO\\FUNC_01&VEN_10EC\nAddInterface = {GUID}, Ref, Section";
+    fn capx_package_rejects_legacy_root_fx_association() {
         let hardware_ids = vec!["HDAUDIO\\FUNC_01&VEN_10EC".into()];
-        assert!(!runtime_extension_inf_matches(text, &hardware_ids));
+        let mut text = capx_inf(&hardware_ids[0], "PrimaryLineOutTopo");
+        text.push_str("HKR,FX\\0,%PKEY_FX_Association%,,%KSNODETYPE_ANY%\n");
+        assert!(!capx_extension_inf_matches(&text, &hardware_ids, None));
+    }
+
+    #[test]
+    fn capx_package_requires_signed_interface_binding() {
+        let hardware_ids = vec!["HDAUDIO\\FUNC_01&VEN_10EC".into()];
+        let text = capx_inf(&hardware_ids[0], "PrimaryLineOutTopo")
+            .lines()
+            .filter(|line| !line.to_ascii_lowercase().starts_with("addinterface"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(!capx_extension_inf_matches(&text, &hardware_ids, None));
+    }
+
+    #[test]
+    fn legacy_non_capx_package_is_not_production_installable() {
+        let text = "Model=HDAUDIO\\FUNC_01&VEN_10EC\n; runtime interface binding";
+        let hardware_ids = vec!["HDAUDIO\\FUNC_01&VEN_10EC".into()];
+        assert!(!capx_extension_inf_matches(&text, &hardware_ids, None));
+    }
+
+    #[test]
+    fn legacy_topology_helper_still_matches_exact_reference_text() {
+        let text = "HardwareId=HDAUDIO\\FUNC_01&VEN_10EC\nReference=PrimaryLineOutTopo";
+        let hardware_ids = vec!["HDAUDIO\\FUNC_01&VEN_10EC".into()];
+        assert!(extension_inf_matches(text, &hardware_ids, "PrimaryLineOutTopo"));
     }
 }

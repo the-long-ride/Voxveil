@@ -1,18 +1,26 @@
 #![deny(unsafe_code)]
 
+mod apo_route;
 mod binding;
 mod device;
 mod device_interfaces;
 mod discovery;
+mod relay_engine;
+mod route;
 mod sample;
+mod virtual_endpoint;
 
 #[cfg(windows)]
 mod relay;
 #[cfg(windows)]
+mod wasapi_relay;
+#[cfg(windows)]
 #[allow(unsafe_code)]
 mod topology;
 
-pub use device::{BackendProbe, EndpointDescriptor, RelayReadiness};
+pub use device::{
+    BackendProbe, EndpointDescriptor, RelayReadiness, WindowsAudioRoute, WindowsInterceptionKind,
+};
 pub use discovery::{SystemAudioEndpoint, SystemAudioEndpointStatus};
 pub use sample::process_f32le_stereo;
 
