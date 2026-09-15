@@ -26,6 +26,14 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function canRequestProcessingStart(state: VoxveilState): boolean {
+  if (state.backendStatus === 'ready') return true;
+  if (state.backendStatus !== 'routing-required' || state.physicalOutputEndpointId === null) {
+    return false;
+  }
+  return state.backendKind === 'vb-cable-relay' || state.backendKind === 'voxveil-cable-relay';
+}
+
 export function useVoxveilState() {
   const native = isTauriRuntime();
   const [state, setState] = useState<VoxveilState>(() => native ? SAFE_NATIVE_STATE : PREVIEW_STATE);
@@ -35,6 +43,7 @@ export function useVoxveilState() {
   const [systemAudioInstallBusyId, setSystemAudioInstallBusyId] = useState<string | null>(null);
   const [systemAudioInstallError, setSystemAudioInstallError] = useState<string | null>(null);
   const client = useMemo(() => createVoxveilClient(), []);
+  const canStartProcessing = canRequestProcessingStart(state);
 
   const refreshSystemAudioEndpoints = useCallback(async () => {
     if (!native) return;
@@ -145,7 +154,7 @@ export function useVoxveilState() {
   }, [client, native]);
 
   const setMasterEnabled = (masterEnabled: boolean) => {
-    if (masterEnabled && state.backendStatus !== 'ready') return;
+    if (masterEnabled && !canStartProcessing) return;
     commit({ masterEnabled }, () => client.setMasterEnabled(masterEnabled));
   };
   const setProcessingMode = (processingMode: ProcessingMode) =>
@@ -178,6 +187,7 @@ export function useVoxveilState() {
 
   return {
     state,
+    canStartProcessing,
     systemAudioEndpoints,
     physicalOutputs,
     systemAudioEndpointsBusy,
