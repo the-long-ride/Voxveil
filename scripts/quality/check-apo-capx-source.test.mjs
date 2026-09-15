@@ -11,13 +11,19 @@ test('APO project stays on the approved C++17 Windows driver toolchain', () => {
   assert.doesNotMatch(project, /stdcpp20|stdcpplatest/i);
 });
 
-test('APO translation unit instantiates Windows SDK service GUIDs before APO headers', () => {
+test('APO translation unit loads ATL COM identities before instantiating SDK service GUIDs', () => {
   const text = read('native/windows/apo/VoxveilApo.cpp');
+  const atlBaseIndex = text.indexOf('#include <atlbase.h>');
+  const atlComIndex = text.indexOf('#include <atlcom.h>');
   const initGuidIndex = text.indexOf('#include <initguid.h>');
   const apoHeaderIndex = text.indexOf('#include "VoxveilApo.h"');
+  assert.ok(atlBaseIndex >= 0, 'VoxveilApo.cpp must include atlbase.h before initguid.h');
+  assert.ok(atlComIndex >= 0, 'VoxveilApo.cpp must include atlcom.h before initguid.h');
   assert.ok(initGuidIndex >= 0, 'VoxveilApo.cpp must include initguid.h');
   assert.ok(apoHeaderIndex >= 0, 'VoxveilApo.cpp must include VoxveilApo.h');
-  assert.ok(initGuidIndex < apoHeaderIndex, 'initguid.h must precede VoxveilApo.h so SDK GUIDs are defined');
+  assert.ok(atlBaseIndex < initGuidIndex, 'atlbase.h must precede initguid.h so core COM GUID declarations exist');
+  assert.ok(atlComIndex < initGuidIndex, 'atlcom.h must precede initguid.h so ATL sees core COM GUID declarations');
+  assert.ok(initGuidIndex < apoHeaderIndex, 'initguid.h must precede VoxveilApo.h so APO SDK GUIDs are instantiated');
 });
 
 test('APO constructor never claims a loaded processing instance', () => {
