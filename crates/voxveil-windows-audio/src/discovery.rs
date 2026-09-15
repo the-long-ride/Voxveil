@@ -518,7 +518,7 @@ mod tests {
 
     #[test]
     fn signed_extension_must_match_hardware_and_topology_for_fallback() {
-        let hardware_ids = vec!["HDAUDIO\\FUNC_01&VEN_10EC".into()];
+        let hardware_ids: Vec<String> = vec!["HDAUDIO\\FUNC_01&VEN_10EC".into()];
         let text = capx_inf(&hardware_ids[0], "PrimaryLineOutTopo");
         assert!(capx_extension_inf_matches(
             &text,
@@ -539,14 +539,14 @@ mod tests {
 
     #[test]
     fn runtime_binding_accepts_signed_capx_addinterface_package() {
-        let hardware_ids = vec!["HDAUDIO\\FUNC_01&VEN_10EC".into()];
+        let hardware_ids: Vec<String> = vec!["HDAUDIO\\FUNC_01&VEN_10EC".into()];
         let text = capx_inf(&hardware_ids[0], "PrimaryLineOutTopo");
         assert!(capx_extension_inf_matches(&text, &hardware_ids, None));
     }
 
     #[test]
     fn capx_package_rejects_legacy_root_fx_association() {
-        let hardware_ids = vec!["HDAUDIO\\FUNC_01&VEN_10EC".into()];
+        let hardware_ids: Vec<String> = vec!["HDAUDIO\\FUNC_01&VEN_10EC".into()];
         let mut text = capx_inf(&hardware_ids[0], "PrimaryLineOutTopo");
         text.push_str("HKR,FX\\0,%PKEY_FX_Association%,,%KSNODETYPE_ANY%\n");
         assert!(!capx_extension_inf_matches(&text, &hardware_ids, None));
@@ -554,7 +554,7 @@ mod tests {
 
     #[test]
     fn capx_package_requires_signed_interface_binding() {
-        let hardware_ids = vec!["HDAUDIO\\FUNC_01&VEN_10EC".into()];
+        let hardware_ids: Vec<String> = vec!["HDAUDIO\\FUNC_01&VEN_10EC".into()];
         let text = capx_inf(&hardware_ids[0], "PrimaryLineOutTopo")
             .lines()
             .filter(|line| !line.to_ascii_lowercase().starts_with("addinterface"))
