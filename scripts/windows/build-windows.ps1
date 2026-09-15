@@ -50,6 +50,21 @@ function Get-RelativePackagePath([string]$BasePath, [string]$TargetPath) {
   return $target.Substring($base.Length).Replace('\', '/')
 }
 
+function Get-Sha256Hex([string]$Path) {
+  $stream = [IO.File]::OpenRead($Path)
+  try {
+    $sha256 = [Security.Cryptography.SHA256]::Create()
+    try {
+      $hashBytes = $sha256.ComputeHash($stream)
+      return ([BitConverter]::ToString($hashBytes)).Replace('-', '').ToLowerInvariant()
+    } finally {
+      $sha256.Dispose()
+    }
+  } finally {
+    $stream.Dispose()
+  }
+}
+
 $msbuild = Find-MSBuild
 Assert-Wdk
 
@@ -192,7 +207,7 @@ Voxveil Windows x64 package
 
 $hashFiles = Get-ChildItem $output -Recurse -File | Where-Object { $_.Name -ne 'SHA256SUMS.txt' }
 $hashLines = foreach ($file in $hashFiles) {
-  $hash = (Get-FileHash $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+  $hash = Get-Sha256Hex $file.FullName
   $relative = Get-RelativePackagePath $output $file.FullName
   "$hash  $relative"
 }
