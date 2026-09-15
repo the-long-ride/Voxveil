@@ -1,0 +1,126 @@
+name: Manual Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      windows:
+        description: Build the Windows x64 package
+        required: false
+        type: boolean
+        default: true
+      linux:
+        description: Build Linux bundles
+        required: false
+        type: boolean
+        default: false
+      macos:
+        description: Build macOS bundles
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: Windows x64
+    if: ${{ inputs.windows }}
+    runs-on: windows-2022
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.17.0'
+          cache: npm
+
+      - name: Build Windows package
+        shell: pwsh
+        run: npm run build:windows
+
+      - name: Upload Windows package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Voxveil-windows-x64-${{ github.sha }}
+          path: dist/windows-x64/Voxveil/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+  linux:
+    name: Linux x64
+    if: ${{ inputs.linux }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            curl \
+            file \
+            libasound2-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            libwebkit2gtk-4.1-dev \
+            libxdo-dev \
+            wget
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.17.0'
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        run: npm ci --ignore-scripts --no-fund --no-audit
+
+      - name: Build Linux bundles
+        run: npm run build
+
+      - name: Upload Linux bundles
+        uses: actions/upload-artifact@v4
+        with:
+          name: Voxveil-linux-x64-${{ github.sha }}
+          path: target/release/bundle/
+          if-no-files-found: error
+          retention-days: 7
+
+  macos:
+    name: macOS
+    if: ${{ inputs.macos }}
+    runs-on: macos-15
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.17.0'
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        run: npm ci --ignore-scripts --no-fund --no-audit
+
+      - name: Build macOS bundles
+        run: npm run build
+
+      - name: Upload macOS bundles
+        uses: actions/upload-artifact@v4
+        with:
+          name: Voxveil-macos-${{ github.sha }}
+          path: target/release/bundle/
+          if-no-files-found: error
+          retention-days: 7
