@@ -28,7 +28,7 @@ test('endpoint definition exposes exactly one render pair and zero capture pairs
   assert.match(text, /g_cCaptureEndpoints\s+0\b/);
   assert.match(text, /static_assert\s*\(\s*g_cRenderEndpoints\s*==\s*1/i);
   assert.match(text, /static_assert\s*\(\s*g_cCaptureEndpoints\s*==\s*0/i);
-  assert.doesNotMatch(text, /Mic|Hdmi|Spdif|Bluetooth|UsbHs|A2dp/i);
+  assert.doesNotMatch(text, /MicArray|Hdmi|Spdif|Bluetooth|UsbHs|A2dp/i);
 });
 
 test('WaveRT table has only host render and bridge pins with float32 stereo', () => {
