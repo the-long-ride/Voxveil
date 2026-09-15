@@ -5,8 +5,17 @@ use voxveil_types::ProcessingBackendStatus;
 #[derive(Clone, Debug)]
 pub struct BackendSnapshot {
     pub status: ProcessingBackendStatus,
+    pub backend_kind: Option<String>,
     pub physical_output: Option<String>,
+    pub physical_output_endpoint_id: Option<String>,
     pub per_app_available: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PhysicalOutput {
+    pub endpoint_id: String,
+    pub display_name: String,
+    pub is_default: bool,
 }
 
 pub struct ProcessingController {
@@ -35,7 +44,9 @@ impl ProcessingController {
         #[cfg(not(target_os = "windows"))]
         BackendSnapshot {
             status: super::processing_backend_status(),
+            backend_kind: None,
             physical_output: None,
+            physical_output_endpoint_id: None,
             per_app_available: false,
         }
     }
@@ -64,7 +75,7 @@ impl ProcessingController {
     pub fn set_vocal_level(&self, value: u8) -> Result<(), String> {
         #[cfg(target_os = "windows")]
         {
-            let backend = self
+            let mut backend = self
                 .backend
                 .lock()
                 .map_err(|_| "Windows audio backend lock is poisoned".to_string())?;
@@ -73,13 +84,44 @@ impl ProcessingController {
         Ok(())
     }
 
-    pub fn physical_outputs(&self) -> Vec<String> {
+    pub fn set_physical_output(
+        &self,
+        endpoint_id: Option<String>,
+    ) -> Result<BackendSnapshot, String> {
+        #[cfg(target_os = "windows")]
+        {
+            let mut backend = self
+                .backend
+                .lock()
+                .map_err(|_| "Windows audio backend lock is poisoned".to_string())?;
+            return backend
+                .set_physical_output(endpoint_id)
+                .map(from_windows_probe);
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            let _ = endpoint_id;
+            Err("physical Windows audio routing is unavailable on this platform".into())
+        }
+    }
+
+    pub fn physical_outputs(&self) -> Vec<PhysicalOutput> {
         #[cfg(target_os = "windows")]
         {
             return self
                 .backend
                 .lock()
-                .map(|backend| backend.physical_outputs())
+                .map(|backend| {
+                    backend
+                        .physical_outputs()
+                        .into_iter()
+                        .map(|output| PhysicalOutput {
+                            endpoint_id: output.id,
+                            display_name: output.name,
+                            is_default: output.is_default,
+                        })
+                        .collect()
+                })
                 .unwrap_or_default();
         }
         #[cfg(not(target_os = "windows"))]
@@ -98,6 +140,16 @@ impl ProcessingController {
 }
 
 #[cfg(target_os = "windows")]
+fn interception_name(kind: voxveil_windows_audio::WindowsInterceptionKind) -> &'static str {
+    use voxveil_windows_audio::WindowsInterceptionKind;
+    match kind {
+        WindowsInterceptionKind::Apo => "apo",
+        WindowsInterceptionKind::VbCableRelay => "vb-cable-relay",
+        WindowsInterceptionKind::VoxveilCableRelay => "voxveil-cable-relay",
+    }
+}
+
+#[cfg(target_os = "windows")]
 fn from_windows_probe(probe: voxveil_windows_audio::BackendProbe) -> BackendSnapshot {
     use voxveil_windows_audio::RelayReadiness;
     let status = match probe.readiness {
@@ -107,9 +159,12 @@ fn from_windows_probe(probe: voxveil_windows_audio::BackendProbe) -> BackendSnap
         RelayReadiness::Faulted => ProcessingBackendStatus::Faulted,
         RelayReadiness::Unsupported => ProcessingBackendStatus::Unsupported,
     };
+    let route = probe.route;
     BackendSnapshot {
         status,
-        physical_output: probe.physical_output,
+        backend_kind: route.interception.map(interception_name).map(str::to_string),
+        physical_output: route.physical_output_display_name,
+        physical_output_endpoint_id: route.physical_output_endpoint_id,
         per_app_available: false,
     }
 }
@@ -117,7 +172,28 @@ fn from_windows_probe(probe: voxveil_windows_audio::BackendProbe) -> BackendSnap
 fn faulted_snapshot() -> BackendSnapshot {
     BackendSnapshot {
         status: ProcessingBackendStatus::Faulted,
+        backend_kind: None,
         physical_output: None,
+        physical_output_endpoint_id: None,
         per_app_available: false,
+    }
+}
+
+#[cfg(all(test, target_os = "windows"))]
+mod tests {
+    use super::*;
+    use voxveil_windows_audio::WindowsInterceptionKind;
+
+    #[test]
+    fn interception_names_are_stable_for_ui_contract() {
+        assert_eq!(interception_name(WindowsInterceptionKind::Apo), "apo");
+        assert_eq!(
+            interception_name(WindowsInterceptionKind::VbCableRelay),
+            "vb-cable-relay"
+        );
+        assert_eq!(
+            interception_name(WindowsInterceptionKind::VoxveilCableRelay),
+            "voxveil-cable-relay"
+        );
     }
 }

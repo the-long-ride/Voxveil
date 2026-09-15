@@ -17,6 +17,14 @@ pub struct AppSourceDto {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct AudioOutputDto {
+    pub endpoint_id: String,
+    pub display_name: String,
+    pub is_default: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SystemAudioEndpointDto {
     pub endpoint_id: String,
     pub display_name: String,
@@ -43,6 +51,7 @@ pub struct AppViewState {
     pub edition: String,
     pub master_enabled: bool,
     pub backend_status: ProcessingBackendStatus,
+    pub backend_kind: Option<String>,
     pub processing_mode: ProcessingMode,
     pub per_app_processing_available: bool,
     pub engine: ProcessingEngineKind,
@@ -50,6 +59,7 @@ pub struct AppViewState {
     pub quality: u8,
     pub output_mode: OutputMode,
     pub physical_output: String,
+    pub physical_output_endpoint_id: Option<String>,
     pub virtual_output_available: bool,
     pub estimated_latency_ms: u16,
     pub load: ProcessingLoad,
@@ -59,6 +69,8 @@ pub struct AppViewState {
 impl AppViewState {
     pub fn apply_backend(&mut self, snapshot: &crate::platform::BackendSnapshot) {
         self.backend_status = snapshot.status;
+        self.backend_kind = snapshot.backend_kind.clone();
+        self.physical_output_endpoint_id = snapshot.physical_output_endpoint_id.clone();
         if let Some(output) = &snapshot.physical_output {
             self.physical_output = output.clone();
         }
@@ -78,6 +90,7 @@ impl Default for AppViewState {
             edition: crate::config::current_edition().as_str().into(),
             master_enabled: false,
             backend_status: crate::platform::processing_backend_status(),
+            backend_kind: None,
             processing_mode: ProcessingMode::All,
             per_app_processing_available: false,
             engine: ProcessingEngineKind::Auto,
@@ -85,6 +98,7 @@ impl Default for AppViewState {
             quality: 50,
             output_mode: OutputMode::Physical,
             physical_output: "System Default".into(),
+            physical_output_endpoint_id: None,
             virtual_output_available: false,
             estimated_latency_ms: 0,
             load: ProcessingLoad::Idle,
