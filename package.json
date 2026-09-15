@@ -12,6 +12,8 @@
     "dev:windows": "scripts\\dev-windows.cmd",
     "build": "npm run build --workspace @voxveil/tauri-shell",
     "build:windows": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/windows/build-windows.ps1",
+    "build:windows-driver:x64": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/windows/build-virtual-driver.ps1 -Architecture x64 -Configuration Release",
+    "build:windows-driver:arm64": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/windows/build-virtual-driver.ps1 -Architecture ARM64 -Configuration Release",
     "build:ui": "npm run build --workspace @voxveil/ui",
     "dev:ui": "npm run dev --workspace @voxveil/ui",
     "tauri": "npm run tauri --workspace @voxveil/tauri-shell --",

@@ -14,9 +14,15 @@ release-metadata/
 
 *.tsbuildinfo
 
-
 # Git
 *.patch
 *.diff
-# Windows kernel/virtual-audio driver source is intentionally external to the app repository.
-/platform/
+
+# Windows virtual-audio driver generated output
+native/windows/driver/build/
+native/windows/driver/bin/
+native/windows/driver/obj/
+native/windows/driver/out/
+native/windows/driver/submission/
+native/windows/driver/signed/
+*.cab
