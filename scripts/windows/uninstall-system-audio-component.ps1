@@ -20,7 +20,7 @@ if (Test-Path $statePath) {
   $infNames = @($state.installedInfNames) | Where-Object { $_ -match '^oem\d+\.inf$' }
 }
 
-if ($state -and [string]$state.bindingMode -eq 'runtime-interface') {
+if ($state -and [string]$state.bindingMode -eq 'legacy-runtime-interface') {
   foreach ($name in @('bindingPnpInstanceId', 'topologyInterfacePath', 'audioInterfacePath')) {
     if (-not $state.$name) {
       throw "Cannot safely detach Voxveil runtime FX registration: install-state.json is missing $name."
@@ -29,7 +29,7 @@ if ($state -and [string]$state.bindingMode -eq 'runtime-interface') {
   if (-not (Test-Path $control -PathType Leaf)) {
     throw 'Cannot safely detach Voxveil runtime FX registration: voxveil-control.exe is missing.'
   }
-  Write-Host 'Detaching Voxveil FX properties from the selected Windows audio interfaces...'
+  Write-Host 'Detaching Voxveil legacy development FX properties from the selected Windows audio interfaces...'
   & $control detach-effects `
     ([string]$state.bindingPnpInstanceId) `
     ([string]$state.topologyInterfacePath) `
@@ -40,19 +40,13 @@ if ($state -and [string]$state.bindingMode -eq 'runtime-interface') {
 }
 
 if ($infNames.Count -eq 0) {
-  $infNames = @(Get-CimInstance Win32_PnPSignedDriver |
-    Where-Object { $_.DriverProviderName -eq 'Voxveil' -and $_.InfName -match '^oem\d+\.inf$' } |
-    Select-Object -ExpandProperty InfName -Unique)
-}
-
-if ($infNames.Count -eq 0) {
   Remove-Item $statePath -Force -ErrorAction SilentlyContinue
-  Write-Host 'No installed Voxveil driver packages were found.'
+  Write-Host 'No APO/Extension package identities were recorded; no driver packages were removed to avoid deleting other Voxveil components.'
   return
 }
 
 foreach ($inf in $infNames) {
-  Write-Host "Removing Voxveil driver package $inf ..."
+  Write-Host "Removing recorded Voxveil APO/Extension driver package $inf ..."
   pnputil.exe /delete-driver $inf /uninstall /force | Out-Host
   if ($LASTEXITCODE -ne 0) {
     throw "PnPUtil failed to remove $inf (exit $LASTEXITCODE)."
@@ -61,4 +55,4 @@ foreach ($inf in $infNames) {
 
 Remove-Item $statePath -Force -ErrorAction SilentlyContinue
 Restart-Service Audiosrv -Force
-Write-Host 'Voxveil componentized APO packages removed.'
+Write-Host 'Recorded Voxveil componentized APO packages removed.'

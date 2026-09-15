@@ -13,6 +13,7 @@ namespace {
 using SetEnabledFn = int(__stdcall*)(int);
 using SetVocalFn = int(__stdcall*)(unsigned int);
 using GetStateFn = int(__stdcall*)(int*, unsigned int*, unsigned int*, unsigned int*);
+using GetCapxStateFn = int(__stdcall*)(int*, unsigned int*);
 
 constexpr wchar_t kFxKey[] = L"FX\\0";
 constexpr wchar_t kFxAssociation[] = L"{D04E05A6-594B-4FB6-A80D-01AF5EED7D1D},0";
@@ -336,13 +337,15 @@ void PrintUsage() {
     std::wcerr
         << L"usage: voxveil-control status | enabled <0|1> | vocal <0..100> | "
         << L"attach-effects <binding-instance-id> <topology-interface-path> <audio-interface-path> | "
-        << L"detach-effects <binding-instance-id> <topology-interface-path> <audio-interface-path>\n";
+        << L"detach-effects <binding-instance-id> <topology-interface-path> <audio-interface-path>\n"
+        << L"attach-effects/detach-effects are legacy development operations; they are not the Windows 11 CAPX production path.\n";
 }
 
 } // namespace
 
 int wmain(int argc, wchar_t** argv) {
     if (argc == 5 && std::wstring(argv[1]) == L"attach-effects") {
+        std::wcerr << L"warning: attach-effects writes legacy FX\\0 properties for development/legacy use only; it is not CAPX production binding.\n";
         const int result = MutateRuntimeInterfaces(true, argv[2], argv[3], argv[4]);
         if (result != ERROR_SUCCESS) {
             std::wcerr << L"runtime interface attachment failed: " << result << L'\n';
@@ -366,6 +369,7 @@ int wmain(int argc, wchar_t** argv) {
     auto setEnabled = reinterpret_cast<SetEnabledFn>(GetProcAddress(module, "VoxveilSetEnabled"));
     auto setVocal = reinterpret_cast<SetVocalFn>(GetProcAddress(module, "VoxveilSetVocalLevel"));
     auto getState = reinterpret_cast<GetStateFn>(GetProcAddress(module, "VoxveilGetState"));
+    auto getCapxState = reinterpret_cast<GetCapxStateFn>(GetProcAddress(module, "VoxveilGetCapxState"));
     if (setEnabled == nullptr || setVocal == nullptr || getState == nullptr) {
         std::wcerr << L"VoxveilControl.dll is missing required exports\n";
         FreeLibrary(module);
@@ -383,7 +387,18 @@ int wmain(int argc, wchar_t** argv) {
             std::wcout << L"enabled=" << enabled
                        << L" vocal=" << vocal
                        << L" heartbeat=" << heartbeat
-                       << L" loaded=" << loaded << L'\n';
+                       << L" loaded=" << loaded;
+
+            if (getCapxState != nullptr) {
+                int systemEffectEnabled = 0;
+                unsigned int capxInstances = 0;
+                const int capxResult = getCapxState(&systemEffectEnabled, &capxInstances);
+                if (capxResult == ERROR_SUCCESS) {
+                    std::wcout << L" system-effect=" << systemEffectEnabled
+                               << L" capx=" << capxInstances;
+                }
+            }
+            std::wcout << L'\n';
         }
     } else if (argc == 3 && std::wstring(argv[1]) == L"enabled") {
         const std::wstring value(argv[2]);

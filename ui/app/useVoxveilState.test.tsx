@@ -6,6 +6,7 @@ const nativeState: VoxveilState = {
   edition: 'pro-system',
   masterEnabled: true,
   backendStatus: 'ready',
+  backendKind: 'apo',
   processingMode: 'all',
   perAppProcessingAvailable: false,
   engine: 'auto',
@@ -13,6 +14,7 @@ const nativeState: VoxveilState = {
   quality: 50,
   outputMode: 'both',
   physicalOutput: 'Native Output',
+  physicalOutputEndpointId: 'native-output',
   virtualOutputAvailable: true,
   estimatedLatencyMs: 42,
   load: 'medium',
@@ -85,6 +87,24 @@ describe('useVoxveilState', () => {
     act(() => result.current.installSystemAudioEndpoint('speakers'));
 
     await waitFor(() => expect(client.installSystemAudioComponent).toHaveBeenCalledWith('speakers'));
+  });
+
+  it('allows a configured relay to request processing startup', async () => {
+    (window as Window & { __TAURI_INTERNALS__?: object }).__TAURI_INTERNALS__ = {};
+    client.getState.mockResolvedValueOnce({
+      ...nativeState,
+      masterEnabled: false,
+      backendStatus: 'routing-required',
+      backendKind: 'vb-cable-relay',
+      physicalOutputEndpointId: 'speakers',
+    });
+    const { result } = renderHook(() => useVoxveilState());
+    await waitFor(() => expect(result.current.state.backendStatus).toBe('routing-required'));
+
+    expect(result.current.canStartProcessing).toBe(true);
+    act(() => result.current.setMasterEnabled(true));
+
+    expect(client.setMasterEnabled).toHaveBeenCalledWith(true);
   });
 
   it('does not optimistically enable processing when the native backend is unavailable', async () => {

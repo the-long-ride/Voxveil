@@ -1,7 +1,7 @@
 {
   "title": "Âm thanh hệ thống Windows",
-  "description": "Các đầu ra phát lại đã phát hiện",
-  "backendDescription": "Voxveil đã phát hiện các đầu ra phát lại Windows bên dưới. Liên kết trình điều khiển và khả năng tương thích được xác định tự động.",
+  "description": "Đầu ra phát lại và định tuyến toàn hệ thống đã phát hiện",
+  "backendDescription": "Voxveil có thể dùng APO gốc khi đã được tải, đầu cuối ảo Voxveil đã xác minh hoặc VB-CABLE tiêu chuẩn để xử lý âm thanh toàn hệ thống.",
   "default": "Mặc định",
   "readyToInstall": "Sẵn sàng cài đặt",
   "signedComponentRequired": "Cần thành phần đã ký",
@@ -12,5 +12,14 @@
   "refresh": "Làm mới",
   "refreshing": "Đang làm mới…",
   "detecting": "Đang phát hiện đầu ra phát lại…",
-  "none": "Không phát hiện đầu ra phát lại nào."
+  "none": "Không phát hiện đầu ra phát lại nào.",
+  "routeTitle": "Định tuyến toàn hệ thống",
+  "vbCableMissing": "Cài thiết bị âm thanh ảo VB-CABLE tiêu chuẩn để bật xử lý toàn hệ thống.",
+  "getVbCable": "Tải VB-CABLE",
+  "routeInstructionVbCable": "Đặt CABLE Input làm đầu ra Windows, chọn đầu ra vật lý bên dưới rồi quay lại Voxveil.",
+  "routeInstructionVoxveilCable": "Đặt Voxveil Input làm đầu ra Windows, chọn đầu ra vật lý bên dưới rồi quay lại Voxveil.",
+  "routeActive": "Âm thanh hệ thống đang được xử lý và gửi tới đầu ra vật lý đã chọn.",
+  "openSoundSettings": "Mở cài đặt Âm thanh",
+  "physicalOutput": "Đầu ra vật lý",
+  "selectPhysicalOutput": "Chọn đầu ra vật lý"
 }

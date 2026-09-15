@@ -1,0 +1,52 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import test from 'node:test';
+
+const installer = readFileSync('scripts/windows/install-system-audio-component.ps1', 'utf8');
+const uninstaller = readFileSync('scripts/windows/uninstall-system-audio-component.ps1', 'utf8');
+const apoRoute = readFileSync('crates/voxveil-windows-audio/src/apo_route.rs', 'utf8');
+
+const modes = ['capx-extension', 'legacy-runtime-interface', 'legacy-reference'];
+
+test('installer, runtime readiness, and uninstaller share stable binding-mode names', () => {
+  for (const mode of modes) {
+    assert.match(installer, new RegExp(mode));
+    assert.match(apoRoute, new RegExp(mode));
+  }
+  assert.match(uninstaller, /legacy-runtime-interface/);
+  assert.doesNotMatch(uninstaller, /bindingMode\s*-eq\s*'runtime-interface'/i);
+});
+
+test('legacy runtime attachment is detached before driver package removal', () => {
+  assert.match(uninstaller, /detach-effects/);
+  assert.match(uninstaller, /bindingPnpInstanceId/);
+  assert.match(uninstaller, /topologyInterfacePath/);
+  assert.match(uninstaller, /audioInterfacePath/);
+});
+
+test('installer records only Voxveil package INF names added by its own invocation', () => {
+  assert.match(installer, /beforeInstalledInfNames/);
+  assert.match(installer, /afterInstalledInfNames/);
+  assert.match(installer, /previousInstalledInfNames/);
+  assert.match(installer, /Where-Object\s*\{\s*\$beforeInstalledInfNames\s*-inotcontains\s*\$_\s*\}/s);
+});
+
+test('APO uninstall never falls back to deleting every Voxveil provider package', () => {
+  assert.doesNotMatch(
+    uninstaller,
+    /Get-CimInstance\s+Win32_PnPSignedDriver[\s\S]*DriverProviderName\s+-eq\s*'Voxveil'/i,
+  );
+  assert.match(uninstaller, /No APO\/Extension package identities were recorded/i);
+});
+
+test('manual legacy-reference installs without endpoint identity are not treated as corrupt state', () => {
+  assert.match(apoRoute, /endpoint_id:\s*Option<String>/);
+  assert.match(apoRoute, /legacy-reference/);
+  assert.match(apoRoute, /return\s+Ok\(None\)/);
+});
+
+test('raw HardwareId and ReferenceString mode is development/test-sign only', () => {
+  assert.match(installer, /ParameterSetName\s+-eq\s*'Manual'/i);
+  assert.match(installer, /-not\s+\$TestSign/);
+  assert.match(installer, /Manual[^'\r\n]*development|development[^'\r\n]*Manual/i);
+});

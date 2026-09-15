@@ -1,7 +1,7 @@
 {
   "title": "Windows 시스템 오디오",
-  "description": "감지된 재생 출력",
-  "backendDescription": "Voxveil이 아래에서 Windows 재생 출력을 감지했습니다. 드라이버 바인딩과 호환성은 자동으로 확인됩니다.",
+  "description": "감지된 재생 출력 및 시스템 전체 라우팅",
+  "backendDescription": "Voxveil은 로드된 기본 APO, 검증된 자체 가상 엔드포인트 또는 표준 VB-CABLE을 사용해 시스템 전체 오디오를 처리할 수 있습니다.",
   "default": "기본값",
   "readyToInstall": "설치 준비됨",
   "signedComponentRequired": "서명된 구성 요소 필요",
@@ -12,5 +12,14 @@
   "refresh": "새로 고침",
   "refreshing": "새로 고치는 중…",
   "detecting": "재생 출력을 감지하는 중…",
-  "none": "감지된 재생 출력이 없습니다."
+  "none": "감지된 재생 출력이 없습니다.",
+  "routeTitle": "시스템 전체 라우팅",
+  "vbCableMissing": "시스템 전체 처리를 사용하려면 표준 VB-CABLE 가상 오디오 장치를 설치하세요.",
+  "getVbCable": "VB-CABLE 받기",
+  "routeInstructionVbCable": "CABLE Input을 Windows 출력으로 설정하고 아래에서 물리 출력을 선택한 다음 Voxveil로 돌아오세요.",
+  "routeInstructionVoxveilCable": "Voxveil Input을 Windows 출력으로 설정하고 아래에서 물리 출력을 선택한 다음 Voxveil로 돌아오세요.",
+  "routeActive": "시스템 오디오가 처리되어 선택한 물리 출력으로 전송되고 있습니다.",
+  "openSoundSettings": "소리 설정 열기",
+  "physicalOutput": "물리 출력",
+  "selectPhysicalOutput": "물리 출력 선택"
 }

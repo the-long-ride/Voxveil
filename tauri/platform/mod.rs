@@ -1,6 +1,6 @@
 mod controller;
 
-pub use controller::{BackendSnapshot, ProcessingController};
+pub use controller::{BackendSnapshot, PhysicalOutput, ProcessingController};
 
 pub mod android;
 pub mod ios;

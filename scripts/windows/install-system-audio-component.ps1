@@ -41,6 +41,51 @@ function Get-OptionalProperty($Object, [string]$Name) {
   return $null
 }
 
+function Get-VoxveilPublishedInfNames {
+  @(Get-CimInstance Win32_PnPSignedDriver |
+    Where-Object { $_.DriverProviderName -eq 'Voxveil' -and $_.InfName -match '^oem\d+\.inf$' } |
+    Select-Object -ExpandProperty InfName -Unique)
+}
+
+function Assert-StagedFileHash([string]$Path, [string]$ExpectedSha256, [string]$Description) {
+  if (-not (Test-Path $Path -PathType Leaf)) {
+    throw "Verified production APO artifact is missing: $Description ($Path)"
+  }
+  if ($ExpectedSha256 -notmatch '^[0-9A-Fa-f]{64}$') {
+    throw "apo-verification.json contains an invalid SHA-256 value for $Description."
+  }
+  $actual = (Get-FileHash $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+  if ($actual -ne $ExpectedSha256.ToLowerInvariant()) {
+    throw "Verified production APO artifact changed after staging: $Description."
+  }
+}
+
+function Assert-StagedProductionApo([string]$Root) {
+  $manifestPath = Join-Path $Root 'apo-verification.json'
+  if (-not (Test-Path $manifestPath -PathType Leaf)) {
+    throw 'Production install requires apo-verification.json created by the signed APO staging gate.'
+  }
+  $verification = Get-Content $manifestPath -Raw | ConvertFrom-Json
+  if ([string]$verification.extensionId -ine '1D81E93D-AB81-473B-9E5E-94FAE8D2377F') {
+    throw 'apo-verification.json does not match the committed Voxveil extension servicing lineage.'
+  }
+  if ([string]$verification.capxContext -ine '63E268CE-4CBC-48E0-BEB6-55103316F477') {
+    throw 'apo-verification.json does not match the committed Voxveil CAPX property context.'
+  }
+
+  $artifacts = @(
+    @('VoxveilApo.inf', [string]$verification.apoInfSha256),
+    @('VoxveilApo.dll', [string]$verification.apoDllSha256),
+    @('VoxveilApo.cat', [string]$verification.apoCatalogSha256),
+    @('VoxveilApoExtension.inf', [string]$verification.extensionInfSha256),
+    @('VoxveilApoExtension.cat', [string]$verification.extensionCatalogSha256)
+  )
+  foreach ($artifact in $artifacts) {
+    Assert-StagedFileHash (Join-Path $Root $artifact[0]) $artifact[1] $artifact[0]
+  }
+  return $verification
+}
+
 function Resolve-EndpointDescriptor([string]$DescriptorPath, [string]$Root) {
   if (-not (Test-Path $DescriptorPath -PathType Leaf)) {
     throw "device-changed: endpoint descriptor no longer exists: $DescriptorPath"
@@ -115,8 +160,20 @@ function Resolve-EndpointDescriptor([string]$DescriptorPath, [string]$Root) {
 }
 
 Assert-Administrator
+if ($PSCmdlet.ParameterSetName -eq 'Manual' -and -not $TestSign) {
+  throw 'Manual HardwareId/ReferenceString mode is development-only and requires -TestSign.'
+}
 
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
+$statePath = Join-Path $root 'install-state.json'
+$previousInstalledInfNames = @()
+if (Test-Path $statePath -PathType Leaf) {
+  $previousState = Get-Content $statePath -Raw | ConvertFrom-Json
+  $previousInstalledInfNames = @($previousState.installedInfNames) |
+    Where-Object { $_ -match '^oem\d+\.inf$' }
+}
+$beforeInstalledInfNames = @(Get-VoxveilPublishedInfNames)
+
 $selectedEndpointId = $null
 $bindingPnpInstanceId = $null
 $topologyInterfacePath = $null
@@ -138,6 +195,7 @@ $apoDll = Join-Path $root 'VoxveilApo.dll'
 $template = Join-Path $root 'VoxveilApoExtension.inf.template'
 $generator = Join-Path $root 'new-apo-extension-inf.ps1'
 $control = Join-Path $root 'voxveil-control.exe'
+$useLegacyRuntimeAttachment = $TestSign -and $runtimeBound
 
 foreach ($required in @($apoInf, $apoDll)) {
   if (-not (Test-Path $required)) { throw "Required system-audio file not found: $required" }
@@ -154,9 +212,9 @@ try {
       if (-not (Test-Path $required)) { throw "Required development packaging file not found: $required" }
     }
     if ($runtimeBound) {
-      & $generator -HardwareId $HardwareId -TemplatePath $template -OutputPath $extensionInf
+      & $generator -HardwareId $HardwareId -FxPropertyMode Legacy -TemplatePath $template -OutputPath $extensionInf
     } else {
-      & $generator -HardwareId $HardwareId -ReferenceString $ReferenceString -TemplatePath $template -OutputPath $extensionInf
+      & $generator -HardwareId $HardwareId -ReferenceString $ReferenceString -FxPropertyMode Legacy -TemplatePath $template -OutputPath $extensionInf
     }
 
     $inf2cat = Find-WdkTool 'Inf2Cat.exe'
@@ -197,26 +255,34 @@ try {
       if ($LASTEXITCODE -ne 0) { throw "Failed to sign catalog: $($_.Name)" }
     }
   } else {
+    $null = Assert-StagedProductionApo $root
     $prebuiltExtension = Join-Path $root 'VoxveilApoExtension.inf'
     $apoCat = Join-Path $root 'VoxveilApo.cat'
     $extensionCat = Join-Path $root 'VoxveilApoExtension.cat'
-    foreach ($required in @($prebuiltExtension, $apoCat, $extensionCat)) {
-      if (-not (Test-Path $required)) {
-        throw 'Production install requires a matching production-signed extension package for this audio driver.'
-      }
-    }
 
     $prebuiltText = Get-Content $prebuiltExtension -Raw
     if (-not $prebuiltText.Contains($HardwareId)) {
       throw 'The signed Voxveil Extension INF does not match the automatically resolved playback endpoint hardware ID.'
     }
-    if ($runtimeBound) {
-      if ($prebuiltText -match '(?im)^\s*AddInterface\s*=') {
-        throw 'The signed Voxveil Extension INF uses the legacy reference-string binding and cannot be used with this runtime interface binding.'
-      }
-    } elseif (-not $prebuiltText.Contains($ReferenceString)) {
-      throw 'The signed Voxveil Extension INF does not match the automatically resolved playback endpoint topology reference.'
+    if ($prebuiltText -notmatch '(?im)^\s*ExtensionId\s*=\s*\{1D81E93D-AB81-473B-9E5E-94FAE8D2377F\}\s*$') {
+      throw 'The signed Voxveil Extension INF does not match the committed Voxveil extension servicing lineage.'
     }
+    if ($prebuiltText -notmatch '(?i)VOXVEIL_APO_CONTEXT\s*=\s*"\{63E268CE-4CBC-48E0-BEB6-55103316F477\}"') {
+      throw 'The signed Voxveil Extension INF is not the expected CAPX production package: the fixed property-context identity is missing.'
+    }
+    if ($prebuiltText -notmatch '(?im)^\s*HKR\s*,\s*FX\\0\\%VOXVEIL_APO_CONTEXT%\s*,\s*%PKEY_FX_Association%') {
+      throw 'The signed Voxveil Extension INF is not CAPX production-bound to the Voxveil property context.'
+    }
+    if ($prebuiltText -match '(?im)^\s*HKR\s*,\s*FX\\0\s*,\s*%PKEY_FX_Association%') {
+      throw 'The signed Voxveil Extension INF contains the legacy root FX association; production CAPX packages must not mix legacy and context property stores.'
+    }
+    if ($prebuiltText -notmatch '(?im)^\s*AddInterface\s*=') {
+      throw 'The signed Voxveil Extension INF has no signed endpoint interface binding. Runtime registry attachment is not a CAPX production path.'
+    }
+    if ($ReferenceString -and -not $prebuiltText.Contains($ReferenceString)) {
+      throw 'The signed Voxveil Extension INF does not match the resolved playback endpoint topology reference.'
+    }
+
     Copy-Item $prebuiltExtension $extensionInf
     Copy-Item $apoCat, $extensionCat -Destination $work
   }
@@ -229,14 +295,14 @@ try {
   pnputil.exe /add-driver $extensionInf /install | Out-Host
   if ($LASTEXITCODE -ne 0) { throw "PnPUtil failed to install VoxveilApoExtension.inf (exit $LASTEXITCODE)." }
 
-  if ($runtimeBound) {
+  if ($useLegacyRuntimeAttachment) {
     if (-not (Test-Path $control -PathType Leaf)) {
-      throw 'Runtime interface binding requires voxveil-control.exe in the packaged system-audio directory.'
+      throw 'Legacy development runtime interface binding requires voxveil-control.exe in the packaged system-audio directory.'
     }
-    Write-Host 'Attaching Voxveil FX properties to the exact Windows audio interfaces...'
+    Write-Warning 'Applying legacy development FX\\0 registry attachment. This is not the Windows 11 CAPX production path.'
     & $control attach-effects $bindingPnpInstanceId $topologyInterfacePath $audioInterfacePath | Out-Host
     if ($LASTEXITCODE -ne 0) {
-      throw "Runtime interface FX attachment failed (exit $LASTEXITCODE)."
+      throw "Legacy runtime interface FX attachment failed (exit $LASTEXITCODE)."
     }
   }
 
@@ -244,31 +310,45 @@ try {
   Restart-Service Audiosrv -Force
   Start-Sleep -Seconds 2
 
-  $installed = Get-CimInstance Win32_PnPSignedDriver |
-    Where-Object { $_.DriverProviderName -eq 'Voxveil' -and $_.InfName } |
-    Select-Object -ExpandProperty InfName -Unique
+  $afterInstalledInfNames = @(Get-VoxveilPublishedInfNames)
+  $newInstalledInfNames = @($afterInstalledInfNames | Where-Object { $beforeInstalledInfNames -inotcontains $_ })
+  $previousStillInstalledInfNames = @($previousInstalledInfNames | Where-Object { $afterInstalledInfNames -icontains $_ })
+  $installed = @($previousStillInstalledInfNames + $newInstalledInfNames)
+  $installed = @($installed | Sort-Object -Unique)
+
+  $bindingMode = if (-not $TestSign) {
+    'capx-extension'
+  } elseif ($useLegacyRuntimeAttachment) {
+    'legacy-runtime-interface'
+  } else {
+    'legacy-reference'
+  }
   @{
     installedInfNames = @($installed)
     endpointId = $selectedEndpointId
     hardwareId = $HardwareId
-    bindingMode = if ($runtimeBound) { 'runtime-interface' } else { 'legacy-reference' }
+    bindingMode = $bindingMode
     bindingPnpInstanceId = $bindingPnpInstanceId
     topologyInterfacePath = $topologyInterfacePath
     audioInterfacePath = $audioInterfacePath
     referenceString = $ReferenceString
-  } | ConvertTo-Json -Depth 3 | Set-Content (Join-Path $root 'install-state.json') -Encoding utf8
+  } | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
 
   if (Test-Path $control) {
     $status = & $control status 2>&1
     Write-Host "APO control status: $status"
     if ($LASTEXITCODE -ne 0 -or $status -notmatch 'loaded=[1-9][0-9]*') {
-      throw 'installed-not-loaded: the package installed, but AudioDG did not load VoxveilApo.dll on the selected playback endpoint.'
+      throw 'installed-not-loaded: the package installed, but AudioDG did not load a real Voxveil processing instance on the selected playback endpoint.'
     }
   } else {
     Write-Warning 'voxveil-control.exe was not present, so AudioDG load verification was skipped.'
   }
 
-  Write-Host 'Voxveil componentized APO installed and attached to the selected render endpoint.'
+  if ($TestSign) {
+    Write-Host 'Voxveil development/test APO installed. This is not a production qualification result.'
+  } else {
+    Write-Host 'Voxveil production-signed CAPX APO package installed and bound to the selected render endpoint.'
+  }
 }
 finally {
   Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue

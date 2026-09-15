@@ -2,7 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import { describe, expect, it, vi } from 'vitest';
 import { getI18n } from '../../i18n';
-import type { SystemAudioEndpoint } from '../../lib/types';
+import type { AudioOutput, ProcessingBackendStatus, SystemAudioEndpoint, WindowsInterceptionKind } from '../../lib/types';
 import { SystemAudioEndpoints } from './SystemAudioEndpoints';
 
 const endpoint = (
@@ -12,16 +12,37 @@ const endpoint = (
   isDefault = false,
 ): SystemAudioEndpoint => ({ endpointId, displayName, adapterName: 'Example Audio', status, isDefault });
 
-function renderPanel(endpoints: SystemAudioEndpoint[]) {
+const output = (endpointId: string, displayName: string, isDefault = false): AudioOutput => ({
+  endpointId,
+  displayName,
+  isDefault,
+});
+
+function renderPanel(
+  endpoints: SystemAudioEndpoint[],
+  options: {
+    backendStatus?: ProcessingBackendStatus;
+    backendKind?: WindowsInterceptionKind | null;
+    physicalOutputs?: AudioOutput[];
+    selectedPhysicalOutputId?: string | null;
+  } = {},
+) {
   const actions = {
     onRefresh: vi.fn(),
     onInstall: vi.fn(),
     onInstallAll: vi.fn(),
+    onSelectPhysicalOutput: vi.fn(),
+    onOpenSoundSettings: vi.fn(),
+    onGetVbCable: vi.fn(),
   };
   render(
     <I18nextProvider i18n={getI18n()}>
       <SystemAudioEndpoints
         endpoints={endpoints}
+        backendStatus={options.backendStatus ?? 'component-required'}
+        backendKind={options.backendKind ?? null}
+        physicalOutputs={options.physicalOutputs ?? []}
+        selectedPhysicalOutputId={options.selectedPhysicalOutputId ?? null}
         busy={false}
         installBusyId={null}
         error={null}
@@ -33,6 +54,50 @@ function renderPanel(endpoints: SystemAudioEndpoint[]) {
 }
 
 describe('SystemAudioEndpoints', () => {
+  it('offers the official VB-CABLE action when the relay component is missing', () => {
+    const actions = renderPanel([], { backendStatus: 'component-required' });
+    fireEvent.click(screen.getByRole('button', { name: 'Get VB-CABLE' }));
+    expect(actions.onGetVbCable).toHaveBeenCalledOnce();
+  });
+
+  it('guides VB-CABLE routing and allows a physical sink selection', () => {
+    const actions = renderPanel([], {
+      backendStatus: 'routing-required',
+      backendKind: 'vb-cable-relay',
+      physicalOutputs: [output('speakers', 'Speakers'), output('dac', 'USB DAC')],
+      selectedPhysicalOutputId: 'speakers',
+    });
+    expect(screen.getByText(/Set CABLE Input as the Windows output/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Open Sound settings' }));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Physical output' }), {
+      target: { value: 'dac' },
+    });
+    expect(actions.onOpenSoundSettings).toHaveBeenCalledOnce();
+    expect(actions.onSelectPhysicalOutput).toHaveBeenCalledWith('dac');
+  });
+
+  it('uses Voxveil Input guidance for the first-party relay', () => {
+    renderPanel([], {
+      backendStatus: 'routing-required',
+      backendKind: 'voxveil-cable-relay',
+      physicalOutputs: [output('speakers', 'Speakers')],
+      selectedPhysicalOutputId: 'speakers',
+    });
+    expect(screen.getByText(/Set Voxveil Input as the Windows output/)).toBeInTheDocument();
+    expect(screen.queryByText(/Set CABLE Input as the Windows output/)).toBeNull();
+  });
+
+  it('shows the active VB-CABLE route when ready', () => {
+    renderPanel([], {
+      backendStatus: 'ready',
+      backendKind: 'vb-cable-relay',
+      physicalOutputs: [output('speakers', 'Speakers')],
+      selectedPhysicalOutputId: 'speakers',
+    });
+    expect(screen.getByText('VB-CABLE')).toBeInTheDocument();
+    expect(screen.getByText('Speakers')).toBeInTheDocument();
+  });
+
   it('renders every discovered playback endpoint and marks the default', () => {
     renderPanel([
       endpoint('a', 'Speakers', 'installable', true),
@@ -61,17 +126,24 @@ describe('SystemAudioEndpoints', () => {
   });
 
   it('shows bulk install only when at least two endpoints are installable', () => {
+    const commonProps = {
+      backendStatus: 'component-required' as const,
+      backendKind: null,
+      physicalOutputs: [] as AudioOutput[],
+      selectedPhysicalOutputId: null,
+      busy: false,
+      installBusyId: null,
+      error: null,
+      onRefresh: vi.fn(),
+      onInstall: vi.fn(),
+      onInstallAll: vi.fn(),
+      onSelectPhysicalOutput: vi.fn(),
+      onOpenSoundSettings: vi.fn(),
+      onGetVbCable: vi.fn(),
+    };
     const { rerender } = render(
       <I18nextProvider i18n={getI18n()}>
-        <SystemAudioEndpoints
-          endpoints={[endpoint('a', 'A', 'installable')]}
-          busy={false}
-          installBusyId={null}
-          error={null}
-          onRefresh={vi.fn()}
-          onInstall={vi.fn()}
-          onInstallAll={vi.fn()}
-        />
+        <SystemAudioEndpoints endpoints={[endpoint('a', 'A', 'installable')]} {...commonProps} />
       </I18nextProvider>,
     );
     expect(screen.queryByRole('button', { name: 'Install all compatible outputs' })).toBeNull();
@@ -79,12 +151,7 @@ describe('SystemAudioEndpoints', () => {
       <I18nextProvider i18n={getI18n()}>
         <SystemAudioEndpoints
           endpoints={[endpoint('a', 'A', 'installable'), endpoint('b', 'B', 'installable')]}
-          busy={false}
-          installBusyId={null}
-          error={null}
-          onRefresh={vi.fn()}
-          onInstall={vi.fn()}
-          onInstallAll={vi.fn()}
+          {...commonProps}
         />
       </I18nextProvider>,
     );

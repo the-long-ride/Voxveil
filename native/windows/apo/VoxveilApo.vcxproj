@@ -27,7 +27,7 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard>stdcpp17</LanguageStandard>
       <WarningLevel>Level4</WarningLevel>
       <TreatWarningAsError>true</TreatWarningAsError>
       <PreprocessorDefinitions>_WINDLL;_USRDLL;UNICODE;_UNICODE;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -35,12 +35,14 @@
     </ClCompile>
     <Link>
       <ModuleDefinitionFile>VoxveilApo.def</ModuleDefinitionFile>
-      <AdditionalDependencies>%(AdditionalDependencies);Kernel32.lib;Ole32.lib;OleAut32.lib;Advapi32.lib;User32.lib;Uuid.lib;AudioBaseProcessingObjectV140.lib;audiomediatypecrt.lib;AudioEng.lib;rtworkq.lib</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies);Kernel32.lib;Ole32.lib;OleAut32.lib;Advapi32.lib;User32.lib;Uuid.lib;Propsys.lib;AudioBaseProcessingObjectV140.lib;audiomediatypecrt.lib;AudioEng.lib;rtworkq.lib</AdditionalDependencies>
       <EntryPointSymbol>_DllMainCRTStartup</EntryPointSymbol>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="VoxveilApo.h" />
+    <ClInclude Include="VoxveilApoIds.h" />
+    <ClInclude Include="VoxveilApoPolicy.h" />
     <ClInclude Include="VoxveilSharedState.h" />
     <ClCompile Include="VoxveilApo.cpp" />
     <ClCompile Include="dllmain.cpp" />

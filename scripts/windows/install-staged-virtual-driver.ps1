@@ -1,0 +1,153 @@
+[CmdletBinding()]
+param(
+  [string]$PackageDir
+)
+
+$ErrorActionPreference = 'Stop'
+Set-StrictMode -Version Latest
+
+function Assert-Administrator {
+  $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+  $principal = [Security.Principal.WindowsPrincipal]::new($identity)
+  if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    throw 'Run this script from an elevated PowerShell (Run as administrator).'
+  }
+}
+
+function Assert-StagedFileHash(
+  [Parameter(Mandatory = $true)][string]$Path,
+  [Parameter(Mandatory = $true)][string]$ExpectedSha256,
+  [Parameter(Mandatory = $true)][string]$Description
+) {
+  if (-not (Test-Path $Path -PathType Leaf)) {
+    throw "Verified virtual-driver artifact is missing: $Description ($Path)"
+  }
+  if ($ExpectedSha256 -notmatch '^[0-9A-Fa-f]{64}$') {
+    throw "verification.json contains an invalid SHA-256 value for $Description."
+  }
+  $actual = (Get-FileHash $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+  if ($actual -ne $ExpectedSha256.ToLowerInvariant()) {
+    throw "Verified virtual-driver artifact changed after staging: $Description."
+  }
+}
+
+function Get-HelperValue([string[]]$Output, [string]$Name) {
+  $prefix = "$Name="
+  $line = $Output | Where-Object { $_.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1
+  if (-not $line) { return $null }
+  return $line.Substring($prefix.Length).Trim()
+}
+
+Assert-Administrator
+
+if (-not $PackageDir) {
+  $PackageDir = Join-Path $PSScriptRoot 'virtual-driver'
+}
+$package = [IO.Path]::GetFullPath($PackageDir)
+if (-not (Test-Path $package -PathType Container)) {
+  throw "Staged virtual-driver directory not found: $package"
+}
+
+$manifestPath = Join-Path $package 'verification.json'
+if (-not (Test-Path $manifestPath -PathType Leaf)) {
+  throw 'Staged virtual-driver installation requires verification.json created by stage-signed-virtual-driver.ps1.'
+}
+$verification = Get-Content $manifestPath -Raw | ConvertFrom-Json
+if ([string]$verification.releaseChannel -notin @('pilot', 'retail')) {
+  throw 'verification.json has an invalid virtual-driver release channel.'
+}
+if ([string]$verification.architecture -notin @('x64', 'ARM64')) {
+  throw 'verification.json has an invalid virtual-driver architecture.'
+}
+
+$inf = Join-Path $package 'VoxveilVirtualAudio.inf'
+$cat = Join-Path $package 'VoxveilVirtualAudio.cat'
+$sys = Join-Path $package 'VoxveilVirtualAudio.sys'
+Assert-StagedFileHash $inf ([string]$verification.infSha256) 'VoxveilVirtualAudio.inf'
+Assert-StagedFileHash $cat ([string]$verification.catalogSha256) 'VoxveilVirtualAudio.cat'
+Assert-StagedFileHash $sys ([string]$verification.driverSha256) 'VoxveilVirtualAudio.sys'
+
+$infText = Get-Content $inf -Raw
+if ($infText -notmatch '(?im)Root\\VoxveilVirtualAudio') {
+  throw 'Staged virtual-driver INF does not contain Root\VoxveilVirtualAudio.'
+}
+if ($infText -notmatch '(?i)79E4E58C-9714-44E8-ACA1-426F24B7A1E9') {
+  throw 'Staged virtual-driver INF does not contain the fixed Voxveil device-interface identity.'
+}
+if ($infText -notmatch '(?im)^\s*CatalogFile\s*=\s*VoxveilVirtualAudio\.cat\s*$') {
+  throw 'Staged virtual-driver INF does not reference VoxveilVirtualAudio.cat.'
+}
+if ($infText -match '(?i)TESTSIGNING|test certificate|Sysvad_|Tablet Audio Sample|Contoso|SwapAPO|DelayAPO') {
+  throw 'Staged virtual-driver INF contains a development or Microsoft-sample identity.'
+}
+
+$catalogSignature = Get-AuthenticodeSignature $cat
+if ($catalogSignature.Status -ne 'Valid' -or -not $catalogSignature.SignerCertificate) {
+  throw 'Staged virtual-driver catalog does not have a valid Authenticode signature.'
+}
+$signerText = $catalogSignature.SignerCertificate.Subject + ' ' + $catalogSignature.SignerCertificate.Issuer
+if ($signerText -notmatch '(?i)Microsoft') {
+  throw "Staged virtual-driver catalog signer is not identified as Microsoft: $($catalogSignature.SignerCertificate.Subject)"
+}
+
+$deviceHelper = Join-Path $PSScriptRoot 'voxveil-virtual-device.exe'
+if (-not (Test-Path $deviceHelper -PathType Leaf)) {
+  throw "Voxveil root-device helper is missing: $deviceHelper"
+}
+
+$deviceInstanceId = $null
+$deviceCreated = $false
+try {
+  Write-Host "Preparing Root\VoxveilVirtualAudio devnode..."
+  $ensureOutput = @(& $deviceHelper ensure $inf)
+  if ($LASTEXITCODE -ne 0) {
+    throw "voxveil-virtual-device.exe failed to ensure the root devnode (exit $LASTEXITCODE)."
+  }
+  $deviceInstanceId = Get-HelperValue $ensureOutput 'instanceId'
+  $createdValue = Get-HelperValue $ensureOutput 'created'
+  if (-not $deviceInstanceId -or $deviceInstanceId -match '[\r\n]' -or $createdValue -notin @('0', '1')) {
+    throw 'voxveil-virtual-device.exe returned invalid ensure metadata.'
+  }
+  $deviceCreated = $createdValue -eq '1'
+
+  Write-Host "Installing verified Voxveil virtual driver ($($verification.releaseChannel), $($verification.architecture))..."
+  pnputil.exe /add-driver $inf /install | Out-Host
+  if ($LASTEXITCODE -ne 0) {
+    throw "PnPUtil failed to install VoxveilVirtualAudio.inf (exit $LASTEXITCODE)."
+  }
+
+  $installedDrivers = @(Get-CimInstance Win32_PnPSignedDriver |
+    Where-Object {
+      $_.DeviceID -ieq $deviceInstanceId -and
+      $_.DriverProviderName -eq 'Voxveil' -and
+      $_.DeviceName -eq 'Voxveil Virtual Audio' -and
+      $_.InfName -match '^oem\d+\.inf$'
+    })
+  if ($installedDrivers.Count -ne 1) {
+    throw "Installed Voxveil Virtual Audio devnode could not be resolved to exactly one signed driver binding (found $($installedDrivers.Count))."
+  }
+  $publishedInf = [string]$installedDrivers[0].InfName
+
+  @{
+    publishedInf = $publishedInf
+    deviceInstanceId = $deviceInstanceId
+    releaseChannel = [string]$verification.releaseChannel
+    architecture = [string]$verification.architecture
+    infSha256 = ([string]$verification.infSha256).ToLowerInvariant()
+    catalogSha256 = ([string]$verification.catalogSha256).ToLowerInvariant()
+    driverSha256 = ([string]$verification.driverSha256).ToLowerInvariant()
+  } | ConvertTo-Json -Depth 3 | Set-Content (Join-Path $package 'virtual-driver-install-state.json') -Encoding utf8
+
+  Write-Host "Voxveil Virtual Audio installed as $publishedInf on $deviceInstanceId."
+  Write-Host 'Use Windows Sound settings to select Voxveil Input when the relay path is desired.'
+}
+catch {
+  if ($deviceCreated -and $deviceInstanceId) {
+    Write-Warning "Rolling back newly created Voxveil devnode $deviceInstanceId after installation failure."
+    & $deviceHelper remove $deviceInstanceId | Out-Host
+    if ($LASTEXITCODE -ne 0) {
+      Write-Warning "Devnode rollback failed with exit code $LASTEXITCODE; manual cleanup may be required."
+    }
+  }
+  throw
+}

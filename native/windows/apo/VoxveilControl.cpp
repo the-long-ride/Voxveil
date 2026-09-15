@@ -66,3 +66,23 @@ extern "C" __declspec(dllexport) int __stdcall VoxveilGetState(
     voxveil::CloseSharedState(mapping, state);
     return ERROR_SUCCESS;
 }
+
+extern "C" __declspec(dllexport) int __stdcall VoxveilGetCapxState(
+    int* systemEffectEnabled,
+    unsigned int* capxInstances) noexcept {
+    if (systemEffectEnabled == nullptr || capxInstances == nullptr) {
+        return ERROR_INVALID_PARAMETER;
+    }
+
+    HANDLE mapping = nullptr;
+    voxveil::SharedState* state = nullptr;
+    const int error = OpenState(&mapping, &state);
+    if (error != ERROR_SUCCESS) {
+        return error;
+    }
+
+    *systemEffectEnabled = InterlockedCompareExchange(&state->systemEffectEnabled, 0, 0) != 0 ? 1 : 0;
+    *capxInstances = static_cast<unsigned int>(InterlockedCompareExchange(&state->capxInstances, 0, 0));
+    voxveil::CloseSharedState(mapping, state);
+    return ERROR_SUCCESS;
+}

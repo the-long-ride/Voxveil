@@ -17,7 +17,7 @@ test('runtime discovery retains exact topology and audio alias paths', () => {
   assert.match(discovery, /audio_interface_path/);
 });
 
-test('runtime APO attachment opens opaque SetupAPI interface registry keys', () => {
+test('legacy development APO attachment opens opaque SetupAPI interface registry keys', () => {
   assert.match(control, /SetupDiOpenDeviceInterfaceW/);
   assert.match(control, /SetupDiOpenDeviceInterfaceRegKey/);
   assert.match(control, /kCompositeSfx/);
@@ -27,10 +27,12 @@ test('runtime APO attachment opens opaque SetupAPI interface registry keys', () 
   assert.doesNotMatch(control, /ReferenceString|reference string/i);
 });
 
-test('installer uses runtime interface attachment instead of requiring AddInterface text', () => {
+test('production CAPX uses signed AddInterface while runtime registry attachment is test-sign only', () => {
+  assert.match(extensionTemplate, /VOXVEIL_APO_CONTEXT/);
+  assert.match(generator, /AddInterface\s*=\s*%KSCATEGORY_AUDIO%/i);
+  assert.match(generator, /FX\\0\\%VOXVEIL_APO_CONTEXT%/i);
+  assert.match(installer, /CAPX production/i);
+  assert.match(installer, /\$TestSign\s+-and\s+\$runtimeBound/);
   assert.match(installer, /attach-effects/);
-  assert.match(installer, /topologyInterfacePath/);
-  assert.match(installer, /audioInterfacePath/);
-  assert.doesNotMatch(extensionTemplate, /^\s*AddInterface\s*=/m);
   assert.doesNotMatch(generator, /Mandatory\s*=\s*\$true[^\r\n]*\r?\n[^\r\n]*\[string\]\$ReferenceString/);
 });

@@ -1,0 +1,74 @@
+use tauri::{AppHandle, State};
+
+use super::state::AppState;
+use crate::platform::ProcessingController;
+
+const WINDOWS_SOUND_SETTINGS_URI: &str = "ms-settings:sound";
+const VB_CABLE_DOWNLOAD_URL: &str = "https://vb-audio.com/Cable/";
+
+#[tauri::command]
+pub fn set_physical_audio_output(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    controller: State<'_, ProcessingController>,
+    endpoint_id: String,
+) -> Result<(), String> {
+    let mut preferences = crate::config::windows_audio::load(&app)?;
+    let previous_endpoint_id = preferences.physical_output_endpoint_id.clone();
+    let snapshot = controller.set_physical_output(Some(endpoint_id.clone()))?;
+
+    preferences.physical_output_endpoint_id = Some(endpoint_id);
+    if let Err(error) = crate::config::windows_audio::save(&app, &preferences) {
+        // Keep the live route and persisted preference consistent when storage
+        // fails. Best-effort rollback uses the exact previously persisted ID.
+        let _ = controller.set_physical_output(previous_endpoint_id);
+        return Err(error);
+    }
+
+    state.lock()?.apply_backend(&snapshot);
+    Ok(())
+}
+
+#[cfg(target_os = "windows")]
+fn open_with_explorer(target: &str, description: &str) -> Result<(), String> {
+    use std::os::windows::process::CommandExt;
+
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    std::process::Command::new("explorer.exe")
+        .arg(target)
+        .creation_flags(CREATE_NO_WINDOW)
+        .spawn()
+        .map(|_| ())
+        .map_err(|error| format!("failed to open {description}: {error}"))
+}
+
+#[tauri::command]
+pub fn open_windows_sound_settings() -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        return open_with_explorer(WINDOWS_SOUND_SETTINGS_URI, "Windows Sound settings");
+    }
+    #[cfg(not(target_os = "windows"))]
+    Err("Windows Sound settings are unavailable on this platform".into())
+}
+
+#[tauri::command]
+pub fn open_vb_cable_download() -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        return open_with_explorer(VB_CABLE_DOWNLOAD_URL, "the official VB-CABLE website");
+    }
+    #[cfg(not(target_os = "windows"))]
+    Err("VB-CABLE onboarding is available only on Windows".into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn external_targets_are_fixed_and_official() {
+        assert_eq!(WINDOWS_SOUND_SETTINGS_URI, "ms-settings:sound");
+        assert_eq!(VB_CABLE_DOWNLOAD_URL, "https://vb-audio.com/Cable/");
+    }
+}

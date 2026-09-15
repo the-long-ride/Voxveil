@@ -2,6 +2,8 @@
 pub struct EndpointDescriptor {
     pub id: String,
     pub name: String,
+    pub interface_name: Option<String>,
+    pub description: Option<String>,
     pub is_default: bool,
 }
 
@@ -14,10 +16,26 @@ pub enum RelayReadiness {
     Unsupported,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WindowsInterceptionKind {
+    Apo,
+    VbCableRelay,
+    VoxveilCableRelay,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct WindowsAudioRoute {
+    pub interception: Option<WindowsInterceptionKind>,
+    pub source_endpoint_id: Option<String>,
+    pub source_display_name: Option<String>,
+    pub physical_output_endpoint_id: Option<String>,
+    pub physical_output_display_name: Option<String>,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BackendProbe {
     pub readiness: RelayReadiness,
-    pub physical_output: Option<String>,
+    pub route: WindowsAudioRoute,
     pub detail: Option<String>,
 }
 
@@ -25,7 +43,7 @@ impl BackendProbe {
     pub fn unsupported() -> Self {
         Self {
             readiness: RelayReadiness::Unsupported,
-            physical_output: None,
+            route: WindowsAudioRoute::default(),
             detail: None,
         }
     }
@@ -36,10 +54,15 @@ pub(crate) fn component_probe(
     loaded_instances: u32,
     physical_output: Option<String>,
 ) -> BackendProbe {
+    let physical_route = WindowsAudioRoute {
+        physical_output_display_name: physical_output,
+        ..WindowsAudioRoute::default()
+    };
+
     if !control_available {
         return BackendProbe {
             readiness: RelayReadiness::ComponentRequired,
-            physical_output,
+            route: physical_route,
             detail: Some(
                 "Voxveil system-audio component is not installed beside the application".into(),
             ),
@@ -49,7 +72,7 @@ pub(crate) fn component_probe(
     if loaded_instances == 0 {
         return BackendProbe {
             readiness: RelayReadiness::ComponentRequired,
-            physical_output,
+            route: physical_route,
             detail: Some(
                 "VoxveilApo.dll is installed but AudioDG has not loaded it on the active render endpoint"
                     .into(),
@@ -59,7 +82,10 @@ pub(crate) fn component_probe(
 
     BackendProbe {
         readiness: RelayReadiness::Ready,
-        physical_output,
+        route: WindowsAudioRoute {
+            interception: Some(WindowsInterceptionKind::Apo),
+            ..physical_route
+        },
         detail: None,
     }
 }
@@ -67,6 +93,29 @@ pub(crate) fn component_probe(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn backend_probe_carries_interception_route() {
+        let probe = BackendProbe {
+            readiness: RelayReadiness::Ready,
+            route: WindowsAudioRoute {
+                interception: Some(WindowsInterceptionKind::VbCableRelay),
+                source_endpoint_id: Some("cable".into()),
+                source_display_name: Some("CABLE Input (VB-Audio Virtual Cable)".into()),
+                physical_output_endpoint_id: Some("speakers".into()),
+                physical_output_display_name: Some("Speakers".into()),
+            },
+            detail: None,
+        };
+        assert_eq!(
+            probe.route.interception,
+            Some(WindowsInterceptionKind::VbCableRelay)
+        );
+        assert_eq!(
+            probe.route.physical_output_endpoint_id.as_deref(),
+            Some("speakers")
+        );
+    }
 
     #[test]
     fn missing_control_component_is_not_ready() {
@@ -85,7 +134,11 @@ mod tests {
     fn loaded_apo_is_ready() {
         let probe = component_probe(true, 1, Some("Speakers".into()));
         assert_eq!(probe.readiness, RelayReadiness::Ready);
-        assert_eq!(probe.physical_output.as_deref(), Some("Speakers"));
+        assert_eq!(
+            probe.route.physical_output_display_name.as_deref(),
+            Some("Speakers")
+        );
+        assert_eq!(probe.route.interception, Some(WindowsInterceptionKind::Apo));
     }
 
     #[test]
