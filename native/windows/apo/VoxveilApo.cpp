@@ -1,3 +1,4 @@
+#include <initguid.h>
 #include "VoxveilApo.h"
 
 #include <algorithm>
