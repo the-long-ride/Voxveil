@@ -1,3 +1,5 @@
+#include <atlbase.h>
+#include <atlcom.h>
 #include <initguid.h>
 #include "VoxveilApo.h"
 
