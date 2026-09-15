@@ -6,11 +6,39 @@ pub(crate) enum VirtualEndpointKind {
     VoxveilCable,
 }
 
+fn is_standard_vb_cable(endpoint: &EndpointDescriptor) -> bool {
+    let name = endpoint.name.trim();
+    let description = endpoint.description.as_deref().unwrap_or("").trim();
+    let interface_name = endpoint.interface_name.as_deref().unwrap_or("").trim();
+    let canonical_full_name = name.eq_ignore_ascii_case("CABLE Input (VB-Audio Virtual Cable)");
+    let canonical_short_name = name.eq_ignore_ascii_case("CABLE Input");
+    let canonical_description = description.eq_ignore_ascii_case("CABLE Input");
+    let vendor_metadata = interface_name
+        .to_ascii_lowercase()
+        .contains("vb-audio virtual cable");
+
+    canonical_full_name || (canonical_short_name && canonical_description && vendor_metadata)
+}
+
+fn is_vb_cable_render_variant(endpoint: &EndpointDescriptor) -> bool {
+    let name = endpoint.name.trim().to_ascii_lowercase();
+    let interface_name = endpoint
+        .interface_name
+        .as_deref()
+        .unwrap_or("")
+        .trim()
+        .to_ascii_lowercase();
+    let vendor_metadata = interface_name.contains("vb-audio virtual cable");
+
+    vendor_metadata
+        && name.starts_with("cable in ")
+        && name.ends_with("(vb-audio virtual cable)")
+}
+
 pub(crate) fn classify_virtual_endpoint(
     endpoint: &EndpointDescriptor,
 ) -> Option<VirtualEndpointKind> {
     let name = endpoint.name.trim();
-    let description = endpoint.description.as_deref().unwrap_or("").trim();
     let interface_name = endpoint.interface_name.as_deref().unwrap_or("").trim();
 
     let voxveil_name = name.eq_ignore_ascii_case("Voxveil Input");
@@ -19,14 +47,7 @@ pub(crate) fn classify_virtual_endpoint(
         return Some(VirtualEndpointKind::VoxveilCable);
     }
 
-    let canonical_full_name = name.eq_ignore_ascii_case("CABLE Input (VB-Audio Virtual Cable)");
-    let canonical_short_name = name.eq_ignore_ascii_case("CABLE Input");
-    let canonical_description = description.eq_ignore_ascii_case("CABLE Input");
-    let vendor_metadata = interface_name
-        .to_ascii_lowercase()
-        .contains("vb-audio virtual cable");
-
-    if canonical_full_name || (canonical_short_name && canonical_description && vendor_metadata) {
+    if is_standard_vb_cable(endpoint) || is_vb_cable_render_variant(endpoint) {
         Some(VirtualEndpointKind::VbCable)
     } else {
         None
@@ -36,9 +57,7 @@ pub(crate) fn classify_virtual_endpoint(
 pub(crate) fn find_standard_vb_cable(
     endpoints: &[EndpointDescriptor],
 ) -> Option<&EndpointDescriptor> {
-    endpoints.iter().find(|endpoint| {
-        classify_virtual_endpoint(endpoint) == Some(VirtualEndpointKind::VbCable)
-    })
+    endpoints.iter().find(|endpoint| is_standard_vb_cable(endpoint))
 }
 
 pub(crate) fn find_voxveil_cable(
