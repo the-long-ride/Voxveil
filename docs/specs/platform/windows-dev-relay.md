@@ -1,33 +1,51 @@
 # Windows Development Audio Relay
 
-## Purpose
+> Historical/development context. This document describes the earlier SysVAD-based relay experiment and is not the current end-user interception path. For the current architecture see `docs/superpowers/specs/2026-09-14-windows-signed-audio-paths-design.md`, `docs/specs/platform/windows.md`, and the Tier 2 signed-driver plan.
 
-Windows all-output processing uses a virtual render endpoint plus the user-mode Rust relay:
+## Historical purpose
+
+The original Windows all-output experiment established the relay shape:
 
 ```text
-Windows apps
-  -> virtual render endpoint (Voxveil Output / compatible SysVAD endpoint)
-  -> WASAPI loopback capture on that render endpoint
+Windows applications
+  -> controlled virtual render endpoint
+  -> WASAPI loopback capture
   -> voxveil-windows-audio
   -> Classic DSP / optional AI
   -> physical output
 ```
 
-The separate `Voxveil Monitor` capture endpoint is no longer required. WASAPI loopback captures the system mix directly from the virtual render endpoint.
+The separate virtual capture/monitor endpoint was not required because WASAPI loopback can capture the mix from a render endpoint.
 
-## GitHub Actions development component
+## Superseded development path
 
-`.github/workflows/windows-portable.yml` builds the app together with Microsoft's SysVAD sample and the DevCon helper. The uploaded artifact contains `voxveil.exe` plus `system-audio/driver`, `system-audio/devcon.exe`, and install/uninstall scripts.
+Earlier revisions used a compatible Microsoft SysVAD sample endpoint and test-signed development packaging. They also referenced a GitHub Actions portable bundle. That workflow no longer exists and must not be restored as part of the current Windows audio work.
 
-This is a development path only. The SysVAD package produced by CI is test-signed. Windows does not load test-signed kernel drivers in normal production mode; a test machine must be prepared for TESTSIGNING, while a normal end-user build needs a Microsoft production-signed Voxveil driver package.
+Test-signed SysVAD output is development-only and cannot be treated as a normal Secure Boot/end-user package.
 
-## Runtime contract
+## Current near-term path
 
-- no virtual render endpoint: `backendStatus = component-required`;
-- virtual endpoint installed but not default: `backendStatus = routing-required`;
-- virtual endpoint is default and the relay starts: `backendStatus = ready`;
-- communication bypass and per-app routing remain later milestones.
+Until a Voxveil-owned driver reaches the required signing/release gate, the supported relay dependency is the standard VB-Audio VB-CABLE render endpoint:
 
-## Production boundary
+```text
+Windows applications
+  -> CABLE Input
+  -> WASAPI loopback capture
+  -> Voxveil Rust DSP / optional AI
+  -> selected physical output
+```
 
-The development artifact proves the full app -> virtual endpoint -> WASAPI loopback -> DSP -> physical output path. It is not the production distribution architecture. Production still requires a reviewed Voxveil driver identity, stable hardware IDs, HLK/Partner Center signing as applicable, uninstall/upgrade handling, and crash-safe routing restoration.
+Voxveil does not redistribute VB-CABLE. The user installs it from VB-Audio and configures `CABLE Input` as the Windows default render endpoint manually through Windows Sound settings.
+
+Current readiness semantics are:
+
+- no loaded APO and no supported cable: `component-required`;
+- supported cable installed but not default, or no safe physical sink: `routing-required`;
+- relay startup/runtime failure: `faulted`;
+- capture + processing + physical render active: `ready`.
+
+## Future first-party driver
+
+Tier 2 reintroduces SysVAD only as source material for a Voxveil-owned render-only virtual driver with stable Voxveil identities, reproducible package/CAB tooling, and explicit Microsoft signing/qualification gates. That first-party endpoint will reuse the same user-mode relay instead of creating a second processing implementation.
+
+See `docs/superpowers/plans/2026-09-14-windows-tier2-signed-virtual-driver.md` for the implementation plan and `docs/superpowers/plans/2026-09-14-windows-signed-audio-paths-review-notes.md` for authoritative signing corrections.
