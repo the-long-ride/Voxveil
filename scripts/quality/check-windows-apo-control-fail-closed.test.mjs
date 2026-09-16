@@ -41,7 +41,7 @@ test('live vocal and profile setters use the fail-closed APO control resolver', 
   assert.match(profile, /control_executable_for_installed_apo\(\)\?/);
 });
 
-test('master disable verifies the APO control path before committing disabled state', () => {
+test('master disable clears local active state before relay or APO teardown can fail', () => {
   const text = relay();
   const setter = text.slice(text.indexOf('pub fn set_enabled'), text.indexOf('pub fn set_vocal_level'));
   const disable = setter.match(/if !enabled \{[\s\S]*?return Ok\(self\.probe\(\)\);\n        \}/)?.[0] ?? '';
@@ -49,8 +49,13 @@ test('master disable verifies the APO control path before committing disabled st
   assert.match(disable, /control_executable_for_installed_apo\(\)\?/);
   assert.doesNotMatch(disable, /control_executable\(\)\.is_some\(\)/);
   assert.ok(
-    disable.indexOf('self.enabled = false') > disable.indexOf('control_executable_for_installed_apo()?'),
-    'local disabled state must be committed only after the APO disable path is available and succeeds',
+    disable.indexOf('self.enabled = false') >= 0
+      && disable.indexOf('self.enabled = false') < disable.indexOf('if let Some(mut relay)'),
+    'local active state must be cleared before relay teardown can return an error',
+  );
+  assert.ok(
+    disable.indexOf('self.enabled = false') < disable.indexOf('control_executable_for_installed_apo()?'),
+    'local active state must be cleared before APO control resolution can return an error',
   );
 });
 
