@@ -42,6 +42,17 @@ test('virtual driver installer never changes TESTSIGNING or imports certificates
   assert.match(text, /pnputil(?:\.exe)?\s+\/add-driver/i);
 });
 
+test('virtual driver installer rejects unsupported Windows before creating the root devnode', () => {
+  const text = installer();
+  assert.match(text, /CurrentBuildNumber/i);
+  assert.match(text, /22621/);
+  assert.match(text, /Assert-SupportedWindowsBuild/i);
+  assert.match(text, /Assert-Administrator\s*\r?\nAssert-SupportedWindowsBuild/i);
+  const preflight = text.search(/Assert-Administrator\s*\r?\nAssert-SupportedWindowsBuild/i);
+  const ensure = text.search(/&\s*\$deviceHelper\s+ensure/i);
+  assert.ok(preflight >= 0 && ensure > preflight, 'OS floor must be checked before ensuring the devnode');
+});
+
 test('Voxveil owns a minimal SetupAPI helper for exact root devnode lifecycle', () => {
   const project = read('native/windows/driver/VoxveilVirtualAudioDevice.vcxproj');
   const source = read('native/windows/driver/VoxveilVirtualAudioDevice.cpp');
