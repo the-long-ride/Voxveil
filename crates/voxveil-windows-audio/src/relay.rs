@@ -113,13 +113,13 @@ impl WindowsAudioBackend {
         self.vocal_level = vocal_level.min(100);
 
         if !enabled {
-            self.enabled = false;
             if let Some(mut relay) = self.relay.take() {
                 relay.stop()?;
             }
-            if control_executable().is_some() {
-                set_apo_enabled(false)?;
+            if let Some(control) = control_executable_for_installed_apo()? {
+                run_control(&control, &["enabled", "0"])?;
             }
+            self.enabled = false;
             return Ok(self.probe());
         }
 
@@ -714,7 +714,7 @@ mod tests {
         let physical = physical("speakers", false);
         let decision = decide_backend(
             false,
-            Some((VirtualEndpointKind::VbCable, &cable)),
+            Some((VirtualEndpointKind::VbCableRelay, &cable)),
             Some(&physical),
             Some(&RelayRuntimeState::Running),
         );
