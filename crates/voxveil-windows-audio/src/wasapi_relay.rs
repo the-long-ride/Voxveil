@@ -101,7 +101,7 @@ pub(crate) fn run_relay_worker_with_profile(
 fn run_relay_worker_inner(
     spec: RelaySpec,
     initial_vocal_level: u8,
-    initial_profile: ClassicSuppressionProfile,
+    _initial_profile: ClassicSuppressionProfile,
     control_rx: Receiver<RelayCommand>,
     state: &Arc<Mutex<RelayRuntimeState>>,
 ) -> Result<(), String> {
@@ -180,13 +180,20 @@ fn run_relay_worker_inner(
     let mut capture_buffer = vec![0_u8; capture_buffer_bytes];
     let initial_level = VocalLevel::new(initial_vocal_level.min(100) as f32 / 100.0)
         .map_err(str::to_string)?;
+    let mut applied_profile = crate::profile::classic_suppression_profile();
     let mut processor = SpectralCenterSuppressor::new(
         source_format.get_samplespersec(),
         initial_level,
-        initial_profile,
+        applied_profile,
     );
 
     let loop_result: Result<(), String> = 'relay: loop {
+        let requested_profile = crate::profile::classic_suppression_profile();
+        if requested_profile != applied_profile {
+            processor.set_profile(requested_profile);
+            applied_profile = requested_profile;
+        }
+
         loop {
             match control_rx.try_recv() {
                 Ok(RelayCommand::SetVocalLevel(value)) => {
@@ -195,7 +202,9 @@ fn run_relay_worker_inner(
                     processor.set_vocal_level(level);
                 }
                 Ok(RelayCommand::SetSuppressionProfile(profile)) => {
+                    crate::profile::set_classic_suppression_profile(profile);
                     processor.set_profile(profile);
+                    applied_profile = profile;
                 }
                 Ok(RelayCommand::Stop) => break 'relay Ok(()),
                 Err(TryRecvError::Empty) => break,

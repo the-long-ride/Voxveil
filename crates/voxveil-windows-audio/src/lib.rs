@@ -5,6 +5,7 @@ mod binding;
 mod device;
 mod device_interfaces;
 mod discovery;
+mod profile;
 mod relay_engine;
 mod route;
 mod sample;
@@ -18,6 +19,8 @@ mod wasapi_relay;
 #[allow(unsafe_code)]
 mod topology;
 
+use voxveil_types::ClassicSuppressionProfile;
+
 pub use device::{
     BackendProbe, EndpointDescriptor, RelayReadiness, WindowsAudioRoute, WindowsInterceptionKind,
 };
@@ -26,6 +29,17 @@ pub use sample::process_f32le_stereo;
 
 #[cfg(windows)]
 pub use relay::WindowsAudioBackend;
+
+#[cfg(windows)]
+impl WindowsAudioBackend {
+    pub fn set_classic_suppression_profile(
+        &mut self,
+        profile: ClassicSuppressionProfile,
+    ) -> Result<(), String> {
+        profile::set_classic_suppression_profile(profile);
+        Ok(())
+    }
+}
 
 #[cfg(not(windows))]
 pub struct WindowsAudioBackend;
@@ -46,6 +60,12 @@ impl WindowsAudioBackend {
         Err("Windows audio relay is unavailable on this platform".into())
     }
     pub fn set_vocal_level(&self, _value: u8) {}
+    pub fn set_classic_suppression_profile(
+        &mut self,
+        _profile: ClassicSuppressionProfile,
+    ) -> Result<(), String> {
+        Ok(())
+    }
     pub fn physical_outputs(&self) -> Vec<String> {
         Vec::new()
     }
