@@ -34,6 +34,27 @@ test('Classic DSP fixture manifests have a committed machine-readable contract',
   );
 });
 
+test('controlled fixture recipes require enough metadata to reproduce the mix', () => {
+  const schema = JSON.parse(read(schemaPath));
+  const recipeVariants = schema.properties?.mixRecipe?.oneOf ?? [];
+  const controlledRecipe = recipeVariants.find((variant) => variant?.type === 'object');
+  assert.ok(controlledRecipe, 'mixRecipe must define an object variant for controlled fixtures');
+
+  const required = new Set(controlledRecipe.required ?? []);
+  for (const field of [
+    'vocalStartSeconds',
+    'accompanimentStartSeconds',
+    'vocalGainDb',
+    'accompanimentGainDb',
+    'vocalPan',
+    'normalization',
+    'preparationCommand',
+    'preparationToolVersion',
+  ]) {
+    assert.ok(required.has(field), `controlled mixRecipe must require ${field}`);
+  }
+});
+
 test('fixture-corpus policy points local manifests at the schema', () => {
   const corpus = read('docs/testing/classic-dsp-fixture-corpus.md');
   assert.match(corpus, /classic-dsp-fixture-manifest\.schema\.json/);
