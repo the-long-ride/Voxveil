@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::time::{Duration, Instant};
 
+use voxveil_types::ClassicSuppressionProfile;
 use wasapi::{DeviceEnumerator, Direction};
 
 use crate::apo_route::{apo_covers_default_endpoint, load_installed_apo_endpoint};
@@ -19,6 +20,7 @@ use crate::virtual_endpoint::{
 pub struct WindowsAudioBackend {
     enabled: bool,
     vocal_level: u8,
+    classic_suppression_profile: ClassicSuppressionProfile,
     relay: Option<RelayHandle>,
     preferred_physical_output_id: Option<String>,
 }
@@ -28,6 +30,7 @@ impl WindowsAudioBackend {
         Self {
             enabled: false,
             vocal_level: 100,
+            classic_suppression_profile: ClassicSuppressionProfile::default(),
             relay: None,
             preferred_physical_output_id: None,
         }
@@ -73,7 +76,11 @@ impl WindowsAudioBackend {
                 }
             }
             if should_sync_apo_after_relay(apo_covers_default, relay_was_active, self.enabled) {
-                if let Err(error) = sync_apo_control(self.vocal_level, true) {
+                if let Err(error) = sync_apo_control(
+                    self.vocal_level,
+                    self.classic_suppression_profile,
+                    true,
+                ) {
                     self.disable_processing_best_effort();
                     return fault_probe(
                         physical.map(|endpoint| endpoint.name.clone()),
@@ -128,7 +135,11 @@ impl WindowsAudioBackend {
             if let Some(mut relay) = self.relay.take() {
                 relay.stop()?;
             }
-            sync_apo_control(self.vocal_level, true)?;
+            sync_apo_control(
+                self.vocal_level,
+                self.classic_suppression_profile,
+                true,
+            )?;
             self.enabled = true;
             return Ok(self.probe());
         }
@@ -167,7 +178,11 @@ impl WindowsAudioBackend {
             source_endpoint_id: source.id.clone(),
             physical_output_endpoint_id: physical.id.clone(),
         };
-        let relay = RelayHandle::start_wasapi(spec, self.vocal_level)?;
+        let relay = RelayHandle::start_wasapi_with_profile(
+            spec,
+            self.vocal_level,
+            self.classic_suppression_profile,
+        )?;
         self.relay = Some(relay);
 
         let deadline = Instant::now() + Duration::from_secs(2);
@@ -215,6 +230,19 @@ impl WindowsAudioBackend {
             let percent = self.vocal_level.to_string();
             let _ = run_control(&control, &["vocal", percent.as_str()]);
         }
+    }
+
+    pub fn set_classic_suppression_profile(
+        &mut self,
+        profile: ClassicSuppressionProfile,
+    ) -> Result<(), String> {
+        if let Some(relay) = &self.relay {
+            relay.set_suppression_profile(profile)?;
+        } else if let Some(control) = control_executable() {
+            run_control(&control, &["profile", profile_control_value(profile)])?;
+        }
+        self.classic_suppression_profile = profile;
+        Ok(())
     }
 
     pub fn set_physical_output(
@@ -404,16 +432,23 @@ fn set_apo_enabled(enabled: bool) -> Result<(), String> {
     Ok(())
 }
 
-fn sync_apo_control(vocal_level: u8, enabled: bool) -> Result<(), String> {
+fn profile_control_value(profile: ClassicSuppressionProfile) -> &'static str {
+    match profile {
+        ClassicSuppressionProfile::MusicPreservation => "music-preservation",
+        ClassicSuppressionProfile::Balanced => "balanced",
+    }
+}
+
+fn sync_apo_control(
+    vocal_level: u8,
+    profile: ClassicSuppressionProfile,
+    enabled: bool,
+) -> Result<(), String> {
     let control = control_executable().ok_or_else(|| {
         "Voxveil APO reports a loaded instance but its control component is unavailable".to_string()
     })?;
     let percent = vocal_level.min(100).to_string();
-    let profile = match crate::profile::classic_suppression_profile() {
-        voxveil_types::ClassicSuppressionProfile::MusicPreservation => "music-preservation",
-        voxveil_types::ClassicSuppressionProfile::Balanced => "balanced",
-    };
-    run_control(&control, &["profile", profile])?;
+    run_control(&control, &["profile", profile_control_value(profile)])?;
     run_control(&control, &["vocal", percent.as_str()])?;
     run_control(&control, &["enabled", if enabled { "1" } else { "0" }])?;
     Ok(())
@@ -574,6 +609,27 @@ mod tests {
             description: Some("Voxveil Input".into()),
             is_default,
         }
+    }
+
+    #[test]
+    fn backend_defaults_to_music_preservation() {
+        let backend = WindowsAudioBackend::new();
+        assert_eq!(
+            backend.classic_suppression_profile,
+            ClassicSuppressionProfile::MusicPreservation
+        );
+    }
+
+    #[test]
+    fn profile_control_values_match_the_shared_wire_contract() {
+        assert_eq!(
+            profile_control_value(ClassicSuppressionProfile::MusicPreservation),
+            "music-preservation"
+        );
+        assert_eq!(
+            profile_control_value(ClassicSuppressionProfile::Balanced),
+            "balanced"
+        );
     }
 
     #[test]
