@@ -65,3 +65,11 @@ test('attestation CAB helper safely resolves makecab and quotes DDF output paths
   assert.match(text, /CabinetNameTemplate=`"\$cabName`"/i);
   assert.match(text, /DiskDirectoryTemplate=`"\$outputDir`"/i);
 });
+
+test('driver build keeps attestation CAB creation explicit at the release boundary', () => {
+  const build = readFileSync('scripts/windows/build-virtual-driver.ps1', 'utf8');
+  const release = readFileSync('docs/release/windows-driver-signing.md', 'utf8');
+  assert.doesNotMatch(build, /new-driver-attestation-cab\.ps1/i);
+  assert.match(release, /new-driver-attestation-cab\.ps1/i);
+  assert.match(release, /native\\windows\\driver\\out\\x64\\submission/i);
+});
