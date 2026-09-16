@@ -106,7 +106,7 @@ HKR,,Security,,"D:P(A;;GA;;;SY)(A;;GRGWGX;;;BA)(A;;GRGWGX;;;WD)(A;;GRGWGX;;;RC)"
 KmdfService=VoxveilVirtualAudio,Voxveil_WdfSect
 
 [Voxveil_WdfSect]
-KmdfLibraryVersion=$KMDFVERSION$
+KmdfLibraryVersion=1.15
 
 [Strings]
 ProviderName="Voxveil"
