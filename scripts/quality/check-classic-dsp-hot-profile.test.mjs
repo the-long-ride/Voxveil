@@ -13,3 +13,10 @@ test('switching to Music preservation clears stronger retained attenuation', () 
   assert.match(setter, /smoothed_gain\.fill\(1\.0\)/);
   assert.doesNotMatch(setter, /input_[lr]\.fill|ola_[lr]\.fill|previous_mid_magnitude\.fill/);
 });
+
+test('Classic DSP spec forbids inheriting stronger Balanced attenuation in Music preservation', () => {
+  const spec = readFileSync('docs/specs/audio/classic-dsp.md', 'utf8');
+  assert.match(spec, /Balanced\s*(?:→|->|to)\s*Music preservation/i);
+  assert.match(spec, /retained smoothed spectral gains[\s\S]{0,220}unity/i);
+  assert.match(spec, /without restarting the stream|without rebuilding the processor/i);
+});
