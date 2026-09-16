@@ -11,6 +11,7 @@
     <ProjectGuid>{61A55DE9-80D6-45F7-A7C5-5C83B4E3D629}</ProjectGuid>
     <RootNamespace>VoxveilVirtualAudio</RootNamespace>
     <KMDF_VERSION_MAJOR>1</KMDF_VERSION_MAJOR>
+    <KMDF_VERSION_MINOR>15</KMDF_VERSION_MINOR>
     <Configuration Condition="'$(Configuration)'==''">Debug</Configuration>
     <Platform Condition="'$(Platform)'==''">x64</Platform>
     <SupportsPackaging>false</SupportsPackaging>
