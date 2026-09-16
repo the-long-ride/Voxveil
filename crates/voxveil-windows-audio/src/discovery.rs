@@ -98,6 +98,7 @@ pub(crate) fn capx_extension_inf_matches(
     has_add_interface && has_context_association && !has_legacy_root_association
 }
 
+#[cfg(test)]
 pub(crate) fn extension_inf_matches(
     text: &str,
     hardware_ids: &[String],
