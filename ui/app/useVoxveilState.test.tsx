@@ -83,6 +83,18 @@ describe('useVoxveilState', () => {
     expect(client.setAppOverride).toHaveBeenCalledWith('browser', false);
   });
 
+  it('rolls back the classic profile when the native backend rejects it', async () => {
+    (window as Window & { __TAURI_INTERNALS__?: object }).__TAURI_INTERNALS__ = {};
+    client.setClassicSuppressionProfile.mockRejectedValueOnce(new Error('profile update failed'));
+    const { result } = renderHook(() => useVoxveilState());
+    await waitFor(() => expect(result.current.state.classicSuppressionProfile).toBe('music-preservation'));
+
+    act(() => result.current.setClassicSuppressionProfile('balanced'));
+
+    expect(client.setClassicSuppressionProfile).toHaveBeenCalledWith('balanced');
+    await waitFor(() => expect(result.current.state.classicSuppressionProfile).toBe('music-preservation'));
+  });
+
   it('hydrates discovered playback endpoints and installs by opaque endpoint id', async () => {
     (window as Window & { __TAURI_INTERNALS__?: object }).__TAURI_INTERNALS__ = {};
     const { result } = renderHook(() => useVoxveilState());
