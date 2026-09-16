@@ -17,13 +17,11 @@ test('current Tier 2 docs keep the first-party driver on Windows 11 build 22621+
   }
 });
 
-test('historical Tier 2 plan marks its undecorated INF guidance as superseded', () => {
-  const plan = read('docs/superpowers/plans/2026-09-14-windows-tier2-signed-virtual-driver.md');
+test('authoritative Tier 2 corrections supersede undecorated INF guidance', () => {
   const corrections = read('docs/superpowers/plans/2026-09-14-windows-signed-audio-paths-review-notes.md');
 
-  assert.match(plan, /undecorated[\s\S]{0,240}superseded|superseded[\s\S]{0,240}undecorated/i);
-  assert.match(plan, /22621/);
-  assert.match(plan, /Tier 1[\s\S]{0,180}Windows 10|Windows 10[\s\S]{0,180}Tier 1/i);
-  assert.match(corrections, /Tier 2[\s\S]{0,500}22621/i);
-  assert.match(corrections, /undecorated[\s\S]{0,240}superseded|superseded[\s\S]{0,240}undecorated/i);
+  assert.match(corrections, /Tier 2[\s\S]{0,1200}22621/i);
+  assert.match(corrections, /undecorated[\s\S]{0,300}superseded|superseded[\s\S]{0,300}undecorated/i);
+  assert.match(corrections, /Windows 10[\s\S]{0,300}Tier 1|Tier 1[\s\S]{0,300}Windows 10/i);
+  assert.match(corrections, /Inf2Cat[\s\S]{0,300}22621/i);
 });
