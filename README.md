@@ -9,7 +9,7 @@ This source tree contains:
 - responsive Editorial Monochrome UI with light/dark/system themes;
 - English, Vietnamese, Chinese, Korean, Japanese, Spanish, and French bundles;
 - local-only state and a narrow typed Tauri command bridge;
-- Classic DSP mid/side vocal suppression with no AI dependency;
+- Classic DSP adaptive stereo-center suppression with user-selectable **Music preservation** and **Balanced** profiles and no AI dependency;
 - stem-agnostic optional AI interface with no model bundled;
 - global/per-app routing policy and communication-audio bypass rules;
 - fixed-capacity audio buffering and runtime degradation primitives;
@@ -38,6 +38,8 @@ Windows applications
   -> Voxveil Rust DSP / optional AI
   -> selected physical output
 ```
+
+The Classic DSP relay retains a persistent 512-frame / 128-hop spectral-center processor. It estimates center likelihood from stereo magnitude balance and phase coherence, protects bass/high-frequency detail and transients, and uses non-zero suppression floors so maximum vocal reduction does not hard-delete the center. **Music preservation** is the default; **Balanced** trades more centered-instrument attenuation for stronger vocal reduction. See `docs/specs/audio/classic-dsp.md`.
 
 The selected physical output is stored by endpoint ID, virtual endpoints are excluded from the physical-output list, and Voxveil rejects a route that would render back into the interception endpoint. `ready` is reported only while the selected interception strategy is actually active. A missing supported virtual endpoint is `component-required`; installed-but-not-default routing or a missing safe sink is `routing-required`; relay startup/runtime failures are `faulted`.
 
