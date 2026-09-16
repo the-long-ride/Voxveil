@@ -14,10 +14,10 @@ This source tree contains:
 - global/per-app routing policy and communication-audio bypass rules;
 - fixed-capacity audio buffering and runtime degradation primitives;
 - Standard/Pro System edition metadata and platform capability contracts;
-- dependency, LOC, i18n, network-surface, coverage, license, repository-hygiene, and workflow-free policy gates;
+- dependency, LOC, i18n, network-surface, coverage, license, repository-hygiene, and automatic-workflow-free policy gates;
 - a Windows x64 componentized Audio Processing Object implementation under `native/windows/apo`;
-- a render-only first-party Windows virtual-driver source/package boundary derived from pinned Microsoft SysVAD source;
-- workflow-free local/manual Windows application + native component staging via `npm run build:windows`.
+- a render-only first-party Windows virtual-driver source/package boundary derived from a pinned and cryptographically identified Microsoft SysVAD subtree;
+- local/manual-only Windows application + native component staging via `npm run build:windows`.
 
 ### Windows system audio
 
@@ -45,7 +45,7 @@ The selected physical output is stored by endpoint ID, virtual endpoints are exc
 
 Voxveil does **not** bundle, redistribute, silently download, or silently install VB-CABLE. When it is needed, the UI can open the official VB-Audio page and Windows Sound settings. The relay intentionally does not mutate Windows defaults through undocumented `PolicyConfig` interfaces.
 
-The first-party virtual driver exposes one render endpoint (`Voxveil Input`), no capture/microphone endpoint, and a stereo 48 kHz float32 path compatible with the same user-mode relay. The local WDK project does not test-sign itself. Repository tooling prepares x64/Arm64 packages and submission CABs, verifies returned Microsoft-signed packages, and keeps pilot versus retail staging separate. Microsoft attestation signing is treated as a pilot/direct-validation path, not as Windows Certified retail qualification.
+The first-party virtual driver exposes one render endpoint (`Voxveil Input`), no capture/microphone endpoint, and a stereo 48 kHz float32 path compatible with the same user-mode relay. The local WDK project does not test-sign itself. Its Microsoft SysVAD dependency is materialized only at build time after verifying both the pinned upstream commit and exact `audio/sysvad` tree SHA; the materialized source tree is ignored and is not vendored into this repository. Driver build tooling prepares and validates x64/Arm64 unsigned submission directories. Attestation CAB creation is an explicit release-boundary operation through `scripts/windows/new-driver-attestation-cab.ps1`, after which returned Microsoft-signed packages are independently verified and pilot versus retail staging remains separate. Microsoft attestation signing is treated as a pilot/direct-validation path, not as Windows Certified retail qualification.
 
 The componentized APO uses the Windows 11 CAPX model while retaining older initialization compatibility:
 
@@ -69,6 +69,8 @@ npm run build:windows
 ```
 
 The staged output is written to `dist/windows-x64/Voxveil` by default. The `npm run build:windows` entrypoint performs a clean dependency install, runs `cargo test --workspace`, the UI/Node test suite, TypeScript typechecking, and the full repository quality gate, then invokes the Windows packager with only dependency installation skipped. The packager reruns its focused Windows-audio and quality checks and builds/executes the native APO policy tests before compiling the control/APO projects, virtual-device helper, and Tauri executable and writing SHA-256 checksums.
+
+Build the unsigned first-party virtual-driver submission separately with `npm run build:windows-driver:x64` (or the Arm64 variant). That command materializes the exact pinned SysVAD source after commit/tree verification, compiles the driver, and validates the submission directory; it does not perform certificate, Partner Center, or automatic attestation-CAB operations. See `docs/release/windows-driver-signing.md` for the explicit submission workflow.
 
 For release-candidate staging, signed native packages are opt-in inputs and are verified before they replace development artifacts in the staged desktop package. Set only the inputs that are available for the release being assembled:
 

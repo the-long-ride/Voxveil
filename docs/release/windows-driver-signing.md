@@ -25,13 +25,12 @@ Re-check those pages before every release because Microsoft submission rules can
 
 The repository may:
 
-1. pin/import the approved SysVAD source revision;
-2. build the Voxveil render-only derivative;
-3. generate INF/CAT/PDB submission material;
-4. create the attestation CAB;
-5. validate package structure and INF rules;
-6. verify the returned Microsoft-signed INF/CAT/SYS package;
-7. stage a verified package only when explicitly supplied to the release build.
+1. pin the approved Windows Driver Samples commit and exact SysVAD subtree identity;
+2. materialize that verified upstream SysVAD source at build time into the ignored working tree;
+3. build the Voxveil render-only derivative and validate its unsigned INF/CAT/PDB submission material;
+4. create an attestation CAB explicitly at the release/submission boundary;
+5. verify the returned Microsoft-signed INF/CAT/SYS package;
+6. stage a verified package only when explicitly supplied to the release build.
 
 The repository must not contain or automate access to:
 
@@ -46,7 +45,7 @@ The repository must not contain or automate access to:
 
 1. Enroll the organization in Microsoft Hardware Dev Center / Partner Center.
 2. Associate the required valid EV certificate with the Hardware Dev Center account.
-3. Build a submission package locally:
+3. Build the unsigned submission package locally:
 
    ```powershell
    npm run build:windows-driver:x64
@@ -54,7 +53,23 @@ The repository must not contain or automate access to:
    npm run build:windows-driver:arm64
    ```
 
-4. Confirm the CAB contains a driver-package subfolder, not root-level driver files:
+   The driver build intentionally stops at the verified unsigned submission directory. For x64 that directory is `native\windows\driver\out\x64\submission`.
+
+4. Create the attestation CAB explicitly when preparing a Hardware Dev Center submission:
+
+   ```powershell
+   $submission = 'native\windows\driver\out\x64\submission'
+   $cab = 'native\windows\driver\out\x64\VoxveilVirtualAudio-attestation-x64.cab'
+
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/windows/new-driver-attestation-cab.ps1 `
+     -Architecture x64 `
+     -PackageDir $submission `
+     -Output $cab
+   ```
+
+   This separation keeps ordinary driver compilation/package validation independent from signing-account and submission operations.
+
+5. Confirm the CAB contains a driver-package subfolder, not root-level driver files:
 
    ```text
    VoxveilVirtualAudio/
@@ -64,10 +79,10 @@ The repository must not contain or automate access to:
      VoxveilVirtualAudio.pdb
    ```
 
-5. Use the EV certificate provider's approved process outside the repository to Authenticode-sign the generated CAB with SHA-256 and a trusted timestamp.
-6. Submit the EV-signed CAB through Hardware Dev Center.
-7. Download the Microsoft-signed returned package.
-8. Verify the returned package:
+6. Use the EV certificate provider's approved process outside the repository to Authenticode-sign the generated CAB with SHA-256 and a trusted timestamp.
+7. Submit the EV-signed CAB through Hardware Dev Center.
+8. Download the Microsoft-signed returned package.
+9. Verify the returned package:
 
    ```powershell
    powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/windows/verify-signed-virtual-driver.ps1 `
@@ -75,7 +90,7 @@ The repository must not contain or automate access to:
      -Architecture x64
    ```
 
-9. For direct pilot/testing distribution only, stage with an explicit pilot channel:
+10. For direct pilot/testing distribution only, stage with an explicit pilot channel:
 
    ```powershell
    $env:VOXVEIL_SIGNED_DRIVER_DIR = '<returned-package>'
