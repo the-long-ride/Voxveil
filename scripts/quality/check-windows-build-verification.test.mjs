@@ -3,14 +3,17 @@ import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
 
 test('manual Windows build runs the full repository verification gate', async () => {
-  const source = await readFile('scripts/windows/build-windows.ps1', 'utf8');
+  const packageJson = JSON.parse(await readFile('package.json', 'utf8'));
+  const command = packageJson.scripts?.['build:windows'] ?? '';
 
-  for (const command of [
+  for (const expected of [
+    'npm ci --ignore-scripts --no-fund --no-audit',
     'cargo test --workspace',
     'npm test',
     'npm run typecheck',
     'npm run quality',
+    '-SkipNpmInstall -SkipTests',
   ]) {
-    assert.match(source, new RegExp(command.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    assert.match(command, new RegExp(expected.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
 });
