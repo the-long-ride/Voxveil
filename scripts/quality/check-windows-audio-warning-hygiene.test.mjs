@@ -8,6 +8,8 @@ test('Windows audio test helpers are not compiled into production builds', () =>
   const device = read('crates/voxveil-windows-audio/src/device.rs');
   const discovery = read('crates/voxveil-windows-audio/src/discovery.rs');
   const relayEngine = read('crates/voxveil-windows-audio/src/relay_engine.rs');
+  const wasapiRelay = read('crates/voxveil-windows-audio/src/wasapi_relay.rs');
+  const lib = read('crates/voxveil-windows-audio/src/lib.rs');
 
   assert.match(device, /#\[cfg\(test\)\]\s*pub\(crate\) fn component_probe/i);
   assert.match(discovery, /#\[cfg\(test\)\]\s*pub\(crate\) fn extension_inf_matches/i);
@@ -15,8 +17,16 @@ test('Windows audio test helpers are not compiled into production builds', () =>
     relayEngine,
     /impl RelayRuntimeState\s*\{\s*#\[cfg\(test\)\]\s*pub\(crate\) fn is_running/i,
   );
+  assert.match(relayEngine, /#\[cfg\(test\)\]\s*pub\(crate\) fn spawn_with_worker/i);
+  assert.doesNotMatch(relayEngine, /pub\(crate\) fn start_wasapi\s*\(/i);
+  assert.doesNotMatch(wasapiRelay, /pub\(crate\) fn run_relay_worker\s*\(/i);
+  assert.match(
+    lib,
+    /#\[cfg\(not\(windows\)\)\]\s*use voxveil_types::ClassicSuppressionProfile;/i,
+  );
 
   assert.doesNotMatch(device, /#\[allow\(dead_code\)\]/i);
   assert.doesNotMatch(discovery, /#\[allow\(dead_code\)\]/i);
   assert.doesNotMatch(relayEngine, /#\[allow\(dead_code\)\]/i);
+  assert.doesNotMatch(wasapiRelay, /#\[allow\(dead_code\)\]/i);
 });
