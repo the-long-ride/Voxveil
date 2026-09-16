@@ -130,6 +130,9 @@ impl SpectralCenterSuppressor {
     }
 
     pub fn set_vocal_level(&mut self, vocal_level: VocalLevel) {
+        if vocal_level.get() >= 1.0 {
+            self.smoothed_gain.fill(1.0);
+        }
         self.vocal_level = vocal_level;
     }
 
@@ -313,8 +316,16 @@ impl SpectralCenterSuppressor {
         self.output_queue_len = HOP_SIZE;
         for index in 0..HOP_SIZE {
             let norm = self.ola_norm[index];
-            let left = if norm > 1.0e-6 { self.ola_l[index] / norm } else { 0.0 };
-            let right = if norm > 1.0e-6 { self.ola_r[index] / norm } else { 0.0 };
+            let left = if norm > 1.0e-6 {
+                self.ola_l[index] / norm
+            } else {
+                0.0
+            };
+            let right = if norm > 1.0e-6 {
+                self.ola_r[index] / norm
+            } else {
+                0.0
+            };
             self.output_queue[index] = [
                 if left.is_finite() { left } else { 0.0 },
                 if right.is_finite() { right } else { 0.0 },
@@ -414,7 +425,10 @@ mod tests {
     fn settled_left_channel(stream: &[f32], latency: usize) -> Vec<f32> {
         let start = (latency + SETTLE_FRAMES) * 2;
         let end = (latency + FRAMES - SETTLE_FRAMES) * 2;
-        stream[start..end].chunks_exact(2).map(|frame| frame[0]).collect()
+        stream[start..end]
+            .chunks_exact(2)
+            .map(|frame| frame[0])
+            .collect()
     }
 
     #[test]
@@ -423,26 +437,46 @@ mod tests {
         let input_rms = rms(&input[SETTLE_FRAMES * 2..(FRAMES - SETTLE_FRAMES) * 2]);
         let (output, latency) = render(&input, 0.0, ClassicSuppressionProfile::Balanced);
         let output_rms = rms(&settled_left_channel(&output, latency));
-        assert!(output_rms / input_rms <= 0.40, "ratio={}", output_rms / input_rms);
+        assert!(
+            output_rms / input_rms <= 0.40,
+            "ratio={}",
+            output_rms / input_rms
+        );
     }
 
     #[test]
     fn music_preservation_keeps_centered_low_bass_within_three_db() {
         let input = tone(90.0, false);
         let input_rms = rms(&input[SETTLE_FRAMES * 2..(FRAMES - SETTLE_FRAMES) * 2]);
-        let (output, latency) = render(&input, 0.0, ClassicSuppressionProfile::MusicPreservation);
+        let (output, latency) = render(
+            &input,
+            0.0,
+            ClassicSuppressionProfile::MusicPreservation,
+        );
         let output_rms = rms(&settled_left_channel(&output, latency));
-        assert!(output_rms / input_rms >= 0.70, "ratio={}", output_rms / input_rms);
+        assert!(
+            output_rms / input_rms >= 0.70,
+            "ratio={}",
+            output_rms / input_rms
+        );
     }
 
     #[test]
     fn balanced_is_stronger_than_music_preservation_in_vocal_band() {
         let input = tone(1_000.0, false);
-        let (music, music_latency) = render(&input, 0.0, ClassicSuppressionProfile::MusicPreservation);
-        let (balanced, balanced_latency) = render(&input, 0.0, ClassicSuppressionProfile::Balanced);
+        let (music, music_latency) = render(
+            &input,
+            0.0,
+            ClassicSuppressionProfile::MusicPreservation,
+        );
+        let (balanced, balanced_latency) =
+            render(&input, 0.0, ClassicSuppressionProfile::Balanced);
         let music_rms = rms(&settled_left_channel(&music, music_latency));
         let balanced_rms = rms(&settled_left_channel(&balanced, balanced_latency));
-        assert!(balanced_rms < music_rms * 0.8, "balanced={balanced_rms}, music={music_rms}");
+        assert!(
+            balanced_rms < music_rms * 0.8,
+            "balanced={balanced_rms}, music={music_rms}"
+        );
     }
 
     #[test]
@@ -458,7 +492,10 @@ mod tests {
     #[test]
     fn full_vocal_level_is_transparent_after_latency() {
         let input = tone(777.0, false);
-        let input_left: Vec<f32> = input.chunks_exact(2).map(|frame| frame[0]).collect();
+        let input_left: Vec<f32> = input
+            .chunks_exact(2)
+            .map(|frame| frame[0])
+            .collect();
         let (output, latency) = render(&input, 1.0, ClassicSuppressionProfile::Balanced);
         let output_left = settled_left_channel(&output, latency);
         let reference = &input_left[SETTLE_FRAMES..FRAMES - SETTLE_FRAMES];
