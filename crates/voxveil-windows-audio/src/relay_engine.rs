@@ -24,6 +24,7 @@ pub(crate) enum RelayRuntimeState {
 }
 
 impl RelayRuntimeState {
+    #[cfg(test)]
     pub(crate) fn is_running(&self) -> bool {
         matches!(self, Self::Running)
     }
