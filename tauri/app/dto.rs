@@ -142,3 +142,29 @@ fn default_sources() -> Vec<AppSourceDto> {
         },
     ]
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::platform::BackendSnapshot;
+
+    #[test]
+    fn missing_physical_output_clears_stale_display_name_and_active_state() {
+        let mut state = AppViewState::default();
+        state.physical_output = "Removed Speakers".into();
+        state.physical_output_endpoint_id = Some("removed-speakers".into());
+        state.master_enabled = true;
+
+        state.apply_backend(&BackendSnapshot {
+            status: ProcessingBackendStatus::RoutingRequired,
+            backend_kind: Some("vb-cable-relay".into()),
+            physical_output: None,
+            physical_output_endpoint_id: None,
+            per_app_available: false,
+        });
+
+        assert_eq!(state.physical_output, "System Default");
+        assert_eq!(state.physical_output_endpoint_id, None);
+        assert!(!state.master_enabled);
+    }
+}
