@@ -28,6 +28,32 @@ function Assert-SupportedWindowsBuild {
   }
 }
 
+function Assert-StagedArchitecture {
+  param(
+    [Parameter(Mandatory = $true)]
+    [ValidateSet('x64', 'ARM64')]
+    [string]$PackageArchitecture
+  )
+
+  $architectures = @(
+    Get-CimInstance Win32_Processor -ErrorAction Stop |
+      Select-Object -ExpandProperty Architecture -Unique
+  )
+  if ($architectures.Count -ne 1) {
+    throw "Unable to determine one native processor architecture from Win32_Processor (found $($architectures.Count))."
+  }
+
+  $nativeArchitecture = switch ([int]$architectures[0]) {
+    9 { 'x64'; break }
+    12 { 'ARM64'; break }
+    default { throw "Voxveil Virtual Audio does not support native processor architecture value $($architectures[0])." }
+  }
+
+  if ($PackageArchitecture -ine $nativeArchitecture) {
+    throw "Verified virtual-driver architecture '$PackageArchitecture' does not match native Windows architecture '$nativeArchitecture'."
+  }
+}
+
 function Assert-StagedFileHash(
   [Parameter(Mandatory = $true)][string]$Path,
   [Parameter(Mandatory = $true)][string]$ExpectedSha256,
@@ -74,6 +100,7 @@ if ([string]$verification.releaseChannel -notin @('pilot', 'retail')) {
 if ([string]$verification.architecture -notin @('x64', 'ARM64')) {
   throw 'verification.json has an invalid virtual-driver architecture.'
 }
+Assert-StagedArchitecture -PackageArchitecture ([string]$verification.architecture)
 
 $inf = Join-Path $package 'VoxveilVirtualAudio.inf'
 $cat = Join-Path $package 'VoxveilVirtualAudio.cat'
