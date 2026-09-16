@@ -3,6 +3,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
+use voxveil_types::ClassicSuppressionProfile;
 
 const FILE_NAME: &str = "windows-audio.json";
 
@@ -11,6 +12,8 @@ const FILE_NAME: &str = "windows-audio.json";
 pub struct WindowsAudioPreferences {
     pub physical_output_endpoint_id: Option<String>,
     pub preferred_interception: Option<String>,
+    #[serde(default)]
+    pub classic_suppression_profile: ClassicSuppressionProfile,
 }
 
 fn preferences_path(app: &AppHandle) -> Result<PathBuf, String> {
@@ -61,6 +64,7 @@ mod tests {
         let prefs = WindowsAudioPreferences {
             physical_output_endpoint_id: Some("speakers-id".into()),
             preferred_interception: None,
+            classic_suppression_profile: ClassicSuppressionProfile::Balanced,
         };
         let json = serde_json::to_string(&prefs).unwrap();
         assert_eq!(
@@ -70,11 +74,27 @@ mod tests {
     }
 
     #[test]
+    fn legacy_preferences_default_to_music_preservation() {
+        let prefs = serde_json::from_str::<WindowsAudioPreferences>(
+            r#"{"physicalOutputEndpointId":"speakers-id","preferredInterception":null}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            prefs.classic_suppression_profile,
+            ClassicSuppressionProfile::MusicPreservation
+        );
+    }
+
+    #[test]
     fn preferences_do_not_define_audio_payload_fields() {
         let json = serde_json::to_value(WindowsAudioPreferences::default()).unwrap();
         let object = json.as_object().unwrap();
-        assert_eq!(object.len(), 2);
+        assert_eq!(object.len(), 3);
         assert!(object.contains_key("physicalOutputEndpointId"));
         assert!(object.contains_key("preferredInterception"));
+        assert_eq!(
+            object.get("classicSuppressionProfile").and_then(|value| value.as_str()),
+            Some("music-preservation")
+        );
     }
 }
