@@ -2,7 +2,7 @@ use std::time::{Duration, Instant};
 
 use voxveil_types::ClassicSuppressionProfile;
 
-use crate::device::{BackendProbe, EndpointDescriptor, RelayReadiness, WindowsInterceptionKind};
+use crate::device::{BackendProbe, EndpointDescriptor};
 use crate::discovery::{SystemAudioEndpoint, SystemAudioEndpointStatus, enrich_endpoints};
 use crate::relay_engine::{RelayHandle, RelayRuntimeState, RelaySpec};
 use crate::route::select_physical_output;
