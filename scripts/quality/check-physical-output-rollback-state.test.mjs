@@ -6,7 +6,7 @@ const read = (path) => readFileSync(path, 'utf8');
 
 test('physical-output persistence failure applies authoritative rollback backend state', () => {
   const actions = read('tauri/app/system_audio_actions.rs');
-  const saveFailure = actions.match(/if let Err\(error\) = crate::config::windows_audio::save[\s\S]*?return Err\([^;]+\);\n    \}/)?.[0] ?? '';
+  const saveFailure = actions.match(/if let Err\(error\) = crate::config::windows_audio::save[\s\S]*?\n    \}\n\n/)?.[0] ?? '';
 
   assert.match(saveFailure, /controller\.set_physical_output\(previous_endpoint_id\)/);
   assert.match(saveFailure, /rollback_snapshot/);
