@@ -54,6 +54,14 @@ test('virtual driver validator finds WDK tools from both bin and Tools trees', (
   assert.match(text, /InfVerif\.exe/i);
 });
 
+test('signed and unsigned package validation preserves the 22621 applicability floor', () => {
+  const text = readFileSync('scripts/windows/validate-virtual-driver-package.ps1', 'utf8');
+  assert.match(text, /22621/);
+  assert.match(text, /driver applicability/i);
+  assert.match(text, /NTamd64/i);
+  assert.match(text, /NTarm64/i);
+});
+
 test('returned Microsoft package verification trusts the catalog and verifies its members', () => {
   const text = readFileSync('scripts/windows/validate-virtual-driver-package.ps1', 'utf8');
   assert.match(text, /verify\s+\/kp\s+\/v\s+\$cat\[0\]\.FullName/i);
