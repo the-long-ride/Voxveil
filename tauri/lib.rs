@@ -10,6 +10,11 @@ pub mod routing;
 pub mod security;
 pub mod separation;
 
+#[cfg(any(target_os = "windows", test))]
+fn saved_physical_output_is_stale_error(error: &str) -> bool {
+    error == "The selected physical playback endpoint is no longer available"
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let controller = platform::ProcessingController::default();
@@ -42,15 +47,17 @@ pub fn run() {
                     }
                 }
 
-                // Devices can be unplugged or removed between runs. If the saved
-                // endpoint is stale, clear only that preference and keep the rest.
+                // Devices can be unplugged or removed between runs. Clear the saved
+                // endpoint only when it is actually gone; transient enumeration or
+                // teardown faults must not destroy a still-valid preference.
                 if let Some(endpoint_id) = prefs.physical_output_endpoint_id.clone() {
-                    if controller
-                        .set_physical_output(Some(endpoint_id))
-                        .is_err()
-                    {
-                        prefs.physical_output_endpoint_id = None;
-                        let _ = config::windows_audio::save(app.handle(), &prefs);
+                    match controller.set_physical_output(Some(endpoint_id)) {
+                        Ok(_) => {}
+                        Err(error) if saved_physical_output_is_stale_error(&error) => {
+                            prefs.physical_output_endpoint_id = None;
+                            let _ = config::windows_audio::save(app.handle(), &prefs);
+                        }
+                        Err(_) => {}
                     }
                 }
             }
@@ -79,4 +86,22 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("Voxveil failed to start");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::saved_physical_output_is_stale_error;
+
+    #[test]
+    fn only_missing_saved_endpoint_is_treated_as_stale() {
+        assert!(saved_physical_output_is_stale_error(
+            "The selected physical playback endpoint is no longer available"
+        ));
+        assert!(!saved_physical_output_is_stale_error(
+            "Windows endpoint enumeration panicked"
+        ));
+        assert!(!saved_physical_output_is_stale_error(
+            "failed to stop Windows audio relay"
+        ));
+    }
 }
