@@ -5,15 +5,18 @@
 
 namespace voxveil {
 
-constexpr wchar_t kSharedStateName[] = L"Local\\VoxveilApoControl-v2";
-constexpr LONG kSharedStateAbi = 2;
+constexpr wchar_t kSharedStateName[] = L"Local\\VoxveilApoControl-v3";
+constexpr LONG kSharedStateAbi = 3;
 constexpr LONG kSharedStateInitializing = -1;
+constexpr LONG kMusicPreservationProfile = 0;
+constexpr LONG kBalancedProfile = 1;
 
 struct SharedState {
     volatile LONG abi;
     volatile LONG enabled;
     volatile LONG systemEffectEnabled;
     volatile LONG vocalPercent;
+    volatile LONG suppressionProfile;
     volatile LONG heartbeat;
     volatile LONG loadedInstances;
     volatile LONG capxInstances;
@@ -68,6 +71,7 @@ inline SharedState* OpenOrCreateSharedState(HANDLE* mappingOut) noexcept {
         InterlockedExchange(&state->enabled, 0);
         InterlockedExchange(&state->systemEffectEnabled, 1);
         InterlockedExchange(&state->vocalPercent, 100);
+        InterlockedExchange(&state->suppressionProfile, kMusicPreservationProfile);
         InterlockedExchange(&state->heartbeat, 0);
         InterlockedExchange(&state->loadedInstances, 0);
         InterlockedExchange(&state->capxInstances, 0);

@@ -69,6 +69,9 @@ private:
     bool countedLoadedInstance_ = false;
     bool countedCapxInstance_ = false;
     bool initializeForDiscoveryOnly_ = false;
+    bool midFilterPrimed_ = false;
+    FLOAT32 midLowState_ = 0.0f;
+    FLOAT32 midHighState_ = 0.0f;
     GUID audioProcessingMode_ = AUDIO_SIGNALPROCESSINGMODE_DEFAULT;
 
     SRWLOCK effectsLock_ = SRWLOCK_INIT;

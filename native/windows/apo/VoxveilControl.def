@@ -2,5 +2,6 @@ LIBRARY "VoxveilControl"
 EXPORTS
     VoxveilSetEnabled
     VoxveilSetVocalLevel
+    VoxveilSetSuppressionProfile
     VoxveilGetState
     VoxveilGetCapxState

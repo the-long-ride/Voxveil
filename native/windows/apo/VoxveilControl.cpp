@@ -43,6 +43,21 @@ extern "C" __declspec(dllexport) int __stdcall VoxveilSetVocalLevel(unsigned int
     return ERROR_SUCCESS;
 }
 
+extern "C" __declspec(dllexport) int __stdcall VoxveilSetSuppressionProfile(unsigned int profile) noexcept {
+    if (profile > static_cast<unsigned int>(voxveil::kBalancedProfile)) {
+        return ERROR_INVALID_PARAMETER;
+    }
+    HANDLE mapping = nullptr;
+    voxveil::SharedState* state = nullptr;
+    const int error = OpenState(&mapping, &state);
+    if (error != ERROR_SUCCESS) {
+        return error;
+    }
+    InterlockedExchange(&state->suppressionProfile, static_cast<LONG>(profile));
+    voxveil::CloseSharedState(mapping, state);
+    return ERROR_SUCCESS;
+}
+
 extern "C" __declspec(dllexport) int __stdcall VoxveilGetState(
     int* enabled,
     unsigned int* vocalPercent,

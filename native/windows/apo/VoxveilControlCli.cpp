@@ -12,6 +12,7 @@ namespace {
 
 using SetEnabledFn = int(__stdcall*)(int);
 using SetVocalFn = int(__stdcall*)(unsigned int);
+using SetProfileFn = int(__stdcall*)(unsigned int);
 using GetStateFn = int(__stdcall*)(int*, unsigned int*, unsigned int*, unsigned int*);
 using GetCapxStateFn = int(__stdcall*)(int*, unsigned int*);
 
@@ -336,6 +337,7 @@ int MutateRuntimeInterfaces(
 void PrintUsage() {
     std::wcerr
         << L"usage: voxveil-control status | enabled <0|1> | vocal <0..100> | "
+        << L"profile <music-preservation|balanced> | "
         << L"attach-effects <binding-instance-id> <topology-interface-path> <audio-interface-path> | "
         << L"detach-effects <binding-instance-id> <topology-interface-path> <audio-interface-path>\n"
         << L"attach-effects/detach-effects are legacy development operations; they are not the Windows 11 CAPX production path.\n";
@@ -368,9 +370,10 @@ int wmain(int argc, wchar_t** argv) {
 
     auto setEnabled = reinterpret_cast<SetEnabledFn>(GetProcAddress(module, "VoxveilSetEnabled"));
     auto setVocal = reinterpret_cast<SetVocalFn>(GetProcAddress(module, "VoxveilSetVocalLevel"));
+    auto setProfile = reinterpret_cast<SetProfileFn>(GetProcAddress(module, "VoxveilSetSuppressionProfile"));
     auto getState = reinterpret_cast<GetStateFn>(GetProcAddress(module, "VoxveilGetState"));
     auto getCapxState = reinterpret_cast<GetCapxStateFn>(GetProcAddress(module, "VoxveilGetCapxState"));
-    if (setEnabled == nullptr || setVocal == nullptr || getState == nullptr) {
+    if (setEnabled == nullptr || setVocal == nullptr || setProfile == nullptr || getState == nullptr) {
         std::wcerr << L"VoxveilControl.dll is missing required exports\n";
         FreeLibrary(module);
         return 3;
@@ -410,6 +413,13 @@ int wmain(int argc, wchar_t** argv) {
         result = ParsePercent(argv[2], &percent);
         if (result == ERROR_SUCCESS) {
             result = setVocal(percent);
+        }
+    } else if (argc == 3 && std::wstring(argv[1]) == L"profile") {
+        const std::wstring value(argv[2]);
+        if (value == L"music-preservation") {
+            result = setProfile(0);
+        } else if (value == L"balanced") {
+            result = setProfile(1);
         }
     } else {
         PrintUsage();

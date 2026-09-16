@@ -21,5 +21,18 @@ int wmain() {
     assert(!ShouldProcess(true, false, 50));
     assert(!ShouldProcess(true, true, 100));
 
+    const auto music = ClassicSuppressionProfile::MusicPreservation;
+    const auto balanced = ClassicSuppressionProfile::Balanced;
+    assert(NormalizeProfile(999) == music);
+    assert(NormalizeProfile(static_cast<LONG>(balanced)) == balanced);
+    assert(MinimumCenterGain(music) > MinimumCenterGain(balanced));
+    assert(MinimumCenterGain(balanced) > 0.0f);
+    assert(CenterBandGain(0, music) == MinimumCenterGain(music));
+    assert(CenterBandGain(0, balanced) == MinimumCenterGain(balanced));
+    assert(CenterBandGain(100, music) == 1.0f);
+    assert(CenterBandGain(100, balanced) == 1.0f);
+    assert(LowBandAlpha(music) > LowBandAlpha(balanced));
+    assert(HighBandAlpha(music) < HighBandAlpha(balanced));
+
     return 0;
 }

@@ -409,6 +409,11 @@ fn sync_apo_control(vocal_level: u8, enabled: bool) -> Result<(), String> {
         "Voxveil APO reports a loaded instance but its control component is unavailable".to_string()
     })?;
     let percent = vocal_level.min(100).to_string();
+    let profile = match crate::profile::classic_suppression_profile() {
+        voxveil_types::ClassicSuppressionProfile::MusicPreservation => "music-preservation",
+        voxveil_types::ClassicSuppressionProfile::Balanced => "balanced",
+    };
+    run_control(&control, &["profile", profile])?;
     run_control(&control, &["vocal", percent.as_str()])?;
     run_control(&control, &["enabled", if enabled { "1" } else { "0" }])?;
     Ok(())

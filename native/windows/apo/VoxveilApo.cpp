@@ -181,6 +181,9 @@ STDMETHODIMP CVoxveilApo::Initialize(UINT32 cbDataSize, BYTE* data) {
 
     audioProcessingMode_ = AUDIO_SIGNALPROCESSINGMODE_DEFAULT;
     initializeForDiscoveryOnly_ = false;
+    midFilterPrimed_ = false;
+    midLowState_ = 0.0f;
+    midHighState_ = 0.0f;
 
     if (flavor == voxveil::ApoInitFlavor::V3) {
         const auto* init3 = reinterpret_cast<const APOInitSystemEffects3*>(data);
@@ -332,6 +335,7 @@ STDMETHODIMP_(void) CVoxveilApo::APOProcess(
         ZeroMemory(outputSamples, sampleCount * sizeof(FLOAT32));
         output->u32BufferFlags = BUFFER_SILENT;
         output->u32ValidFrameCount = frames;
+        midFilterPrimed_ = false;
         if (state_ != nullptr && !initializeForDiscoveryOnly_) {
             InterlockedIncrement(&state_->heartbeat);
         }
@@ -349,20 +353,39 @@ STDMETHODIMP_(void) CVoxveilApo::APOProcess(
             InterlockedCompareExchange(&state_->systemEffectEnabled, 0, 0) != 0;
         const LONG vocal = std::clamp<LONG>(
             InterlockedCompareExchange(&state_->vocalPercent, 0, 0), 0, 100);
+        const auto profile = voxveil::NormalizeProfile(
+            InterlockedCompareExchange(&state_->suppressionProfile, 0, 0));
 
         if (voxveil::ShouldProcess(appEnabled, systemEffectEnabled, vocal) && channels >= 2) {
-            const FLOAT32 centerGain = static_cast<FLOAT32>(vocal) / 100.0f;
+            const FLOAT32 bandGain = voxveil::CenterBandGain(vocal, profile);
+            const FLOAT32 lowAlpha = voxveil::LowBandAlpha(profile);
+            const FLOAT32 highAlpha = voxveil::HighBandAlpha(profile);
             for (UINT32 frame = 0; frame < frames; ++frame) {
                 FLOAT32* samples = outputSamples + (static_cast<size_t>(frame) * channels);
                 const FLOAT32 left = samples[0];
                 const FLOAT32 right = samples[1];
                 const FLOAT32 mid = (left + right) * 0.5f;
                 const FLOAT32 side = (left - right) * 0.5f;
-                const FLOAT32 scaledMid = mid * centerGain;
-                samples[0] = scaledMid + side;
-                samples[1] = scaledMid - side;
+
+                if (!midFilterPrimed_) {
+                    midLowState_ = mid;
+                    midHighState_ = mid;
+                    midFilterPrimed_ = true;
+                } else {
+                    midLowState_ += lowAlpha * (mid - midLowState_);
+                    midHighState_ += highAlpha * (mid - midHighState_);
+                }
+
+                const FLOAT32 centerBand = midHighState_ - midLowState_;
+                const FLOAT32 processedMid = mid + ((bandGain - 1.0f) * centerBand);
+                samples[0] = processedMid + side;
+                samples[1] = processedMid - side;
             }
+        } else {
+            midFilterPrimed_ = false;
         }
+    } else {
+        midFilterPrimed_ = false;
     }
 
     output->u32BufferFlags = input->u32BufferFlags;
