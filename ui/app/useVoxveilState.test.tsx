@@ -95,6 +95,18 @@ describe('useVoxveilState', () => {
     await waitFor(() => expect(result.current.state.classicSuppressionProfile).toBe('music-preservation'));
   });
 
+  it('rolls back the vocal level when the native backend rejects it', async () => {
+    (window as Window & { __TAURI_INTERNALS__?: object }).__TAURI_INTERNALS__ = {};
+    client.setVocalLevel.mockRejectedValueOnce(new Error('vocal update failed'));
+    const { result } = renderHook(() => useVoxveilState());
+    await waitFor(() => expect(result.current.state.vocalLevel).toBe(12));
+
+    act(() => result.current.setVocalLevel(30));
+
+    expect(client.setVocalLevel).toHaveBeenCalledWith(30);
+    await waitFor(() => expect(result.current.state.vocalLevel).toBe(12));
+  });
+
   it('hydrates discovered playback endpoints and installs by opaque endpoint id', async () => {
     (window as Window & { __TAURI_INTERNALS__?: object }).__TAURI_INTERNALS__ = {};
     const { result } = renderHook(() => useVoxveilState());
