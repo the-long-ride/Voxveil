@@ -129,7 +129,7 @@ impl RelayHandle {
         Self::start_wasapi_with_profile(
             spec,
             vocal_level,
-            crate::profile::classic_suppression_profile(),
+            ClassicSuppressionProfile::default(),
         )
     }
 
