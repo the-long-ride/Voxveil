@@ -429,7 +429,7 @@ fn set_apo_enabled(enabled: bool) -> Result<(), String> {
     let control = control_executable().ok_or_else(|| {
         "Voxveil APO reports a loaded instance but its control component is unavailable".to_string()
     })?;
-    run_control(&control, &["enabled", if enabled { "1" } else { "0"])?;
+    run_control(&control, &["enabled", if enabled { "1" } else { "0" }])?;
     Ok(())
 }
 
