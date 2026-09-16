@@ -21,6 +21,17 @@ test('system audio locale namespace participates in key parity', () => {
   );
 });
 
-test('all repository locales have common and system audio key parity', () => {
+test('classic DSP locale namespace participates in engine key parity', () => {
+  assert.deepEqual(
+    flattenKeys(combineLocale(
+      { engine: { title: 'Engine' } },
+      { title: 'Windows System Audio' },
+      { classicPriority: 'Classic DSP priority', balanced: 'Balanced' },
+    )),
+    ['engine.balanced', 'engine.classicPriority', 'engine.title', 'systemAudio.title'],
+  );
+});
+
+test('all repository locales have common, system audio, and classic DSP key parity', () => {
   assert.deepEqual(validateLocales('.'), []);
 });
