@@ -23,11 +23,11 @@ The production acceptance pass should include at least:
 - mono or near-mono material;
 - male and female lead vocals;
 - harmony/double-tracked vocals;
-- 44.1 kHz and 48 kHz source material.
+- native 44.1 kHz and 48 kHz processing paths.
 
 ## Prepare deterministic input
 
-The current tuning reference rate is 48 kHz stereo float32. Convert a fixture without loudness normalization or other processing:
+The primary tuning reference is 48 kHz stereo float32. Convert a fixture without loudness normalization or other processing:
 
 ```powershell
 ffmpeg -v error -i .\fixture.wav -map_metadata -1 -ac 2 -ar 48000 -f f32le -y .\fixture-48k.f32
@@ -39,20 +39,36 @@ Record the SHA-256 of the raw evaluation input so repeated runs use identical by
 Get-FileHash .\fixture-48k.f32 -Algorithm SHA256
 ```
 
+Do not use only 48 kHz-resampled material for release acceptance. The Windows relay constructs the processor from the endpoint's actual shared sample rate, so at least one 44.1 kHz fixture must also be rendered at native rate:
+
+```powershell
+ffmpeg -v error -i .\fixture-44k1.wav -map_metadata -1 -ac 2 -ar 44100 -f f32le -y .\fixture-44k1.f32
+Get-FileHash .\fixture-44k1.f32 -Algorithm SHA256
+```
+
 ## Render both profiles
 
-Maximum safe suppression (`Vocal = 0`):
+Maximum safe suppression (`Vocal = 0`) at 48 kHz:
 
 ```powershell
 cargo run --quiet -p voxveil-dsp --example classic_dsp_raw -- --input .\fixture-48k.f32 --output .\fixture-music.f32 --sample-rate 48000 --vocal 0 --profile music-preservation
 cargo run --quiet -p voxveil-dsp --example classic_dsp_raw -- --input .\fixture-48k.f32 --output .\fixture-balanced.f32 --sample-rate 48000 --vocal 0 --profile balanced
 ```
 
-Convert the latency-compensated raw outputs back to WAV for listening or analysis:
+For the native 44.1 kHz acceptance fixture, keep the renderer sample-rate argument matched to the raw input rather than resampling it to 48 kHz:
+
+```powershell
+cargo run --quiet -p voxveil-dsp --example classic_dsp_raw -- --input .\fixture-44k1.f32 --output .\fixture-44k1-music.f32 --sample-rate 44100 --vocal 0 --profile music-preservation
+cargo run --quiet -p voxveil-dsp --example classic_dsp_raw -- --input .\fixture-44k1.f32 --output .\fixture-44k1-balanced.f32 --sample-rate 44100 --vocal 0 --profile balanced
+```
+
+Convert the latency-compensated raw outputs back to WAV for listening or analysis. Use the same sample rate that was passed to the renderer:
 
 ```powershell
 ffmpeg -v error -f f32le -ac 2 -ar 48000 -i .\fixture-music.f32 -c:a pcm_f32le -y .\fixture-music.wav
 ffmpeg -v error -f f32le -ac 2 -ar 48000 -i .\fixture-balanced.f32 -c:a pcm_f32le -y .\fixture-balanced.wav
+ffmpeg -v error -f f32le -ac 2 -ar 44100 -i .\fixture-44k1-music.f32 -c:a pcm_f32le -y .\fixture-44k1-music.wav
+ffmpeg -v error -f f32le -ac 2 -ar 44100 -i .\fixture-44k1-balanced.f32 -c:a pcm_f32le -y .\fixture-44k1-balanced.wav
 ```
 
 The raw renderer removes the processor's fixed startup latency and flushes its tail, so the output frame count should equal the input frame count. Verify byte counts match before comparing aligned samples:
@@ -61,6 +77,9 @@ The raw renderer removes the processor's fixed startup latency and flushes its t
 (Get-Item .\fixture-48k.f32).Length
 (Get-Item .\fixture-music.f32).Length
 (Get-Item .\fixture-balanced.f32).Length
+(Get-Item .\fixture-44k1.f32).Length
+(Get-Item .\fixture-44k1-music.f32).Length
+(Get-Item .\fixture-44k1-balanced.f32).Length
 ```
 
 ## Listening protocol
@@ -89,6 +108,7 @@ For fixtures with clean stems, render the exact original mix and keep stems time
 3. **Stereo preservation** — left/right correlation and side-energy change before/after processing.
 4. **Peak safety** — confirm finite output and note any unexpected clipping/overs.
 5. **Latency alignment** — raw input/output byte counts match and impulse/transient positions remain aligned after renderer compensation.
+6. **Sample-rate consistency** — compare the native 44.1 kHz and 48 kHz acceptance runs for unexpected profile or artifact changes caused only by sample rate.
 
 Do not report a single separation score as proof of quality. Classic DSP is a bounded stereo-center suppressor, not semantic source separation.
 
@@ -105,14 +125,16 @@ On representative Windows hardware, record:
 - observed glitch/dropout count;
 - end-to-end latency measurement method and result.
 
-Measure both profiles with the same fixture and routing path. Profile switching should not restart the stream.
+Measure both profiles with the same fixture and routing path. Profile switching should not restart the stream. Repeat at both 44.1 kHz and 48 kHz when the target endpoint exposes both shared formats.
 
 ## Result template
 
-| Fixture | Profile | Vocal | Vocal reduction | Center-instrument damage | Artifacts | Stereo change | CPU | E2E latency | Decision/notes |
-| --- | --- | ---: | --- | --- | --- | --- | ---: | ---: | --- |
-| fixture-id | Music preservation | 0 |  |  |  |  |  |  |  |
-| fixture-id | Balanced | 0 |  |  |  |  |  |  |  |
+| Fixture | Rate | Profile | Vocal | Vocal reduction | Center-instrument damage | Artifacts | Stereo change | CPU | E2E latency | Decision/notes |
+| --- | ---: | --- | ---: | --- | --- | --- | --- | ---: | ---: | --- |
+| fixture-id | 48000 | Music preservation | 0 |  |  |  |  |  |  |  |
+| fixture-id | 48000 | Balanced | 0 |  |  |  |  |  |  |  |
+| fixture-id-44k1 | 44100 | Music preservation | 0 |  |  |  |  |  |  |  |
+| fixture-id-44k1 | 44100 | Balanced | 0 |  |  |  |  |  |  |  |
 
 ## Tuning rules
 
@@ -120,4 +142,5 @@ Measure both profiles with the same fixture and routing path. Profile switching 
 - Balanced may suppress vocals more strongly but must retain a non-zero center floor.
 - Neither profile may hard-delete the stereo center or collapse mono/near-mono material.
 - Keep the common 512/128 STFT geometry unless a separately reviewed latency/architecture change is approved.
+- Do not tune only against 48 kHz-resampled fixtures; retain native 44.1 kHz acceptance coverage.
 - Change tuning constants only from repeatable fixture evidence; record the before/after values and affected fixtures in the PR or Wayfinder issue.
