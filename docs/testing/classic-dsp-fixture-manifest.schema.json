@@ -101,7 +101,14 @@
           "type": "object",
           "additionalProperties": false,
           "required": [
-            "normalization"
+            "vocalStartSeconds",
+            "accompanimentStartSeconds",
+            "vocalGainDb",
+            "accompanimentGainDb",
+            "vocalPan",
+            "normalization",
+            "preparationCommand",
+            "preparationToolVersion"
           ],
           "properties": {
             "vocalStartSeconds": {
