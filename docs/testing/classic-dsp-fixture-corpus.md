@@ -90,7 +90,9 @@ A permissive license label on a third-party mirror never overrides the original 
 
 Keep a local manifest entry under `.local-evaluation/classic-dsp/manifests/` for every evaluated item. A manifest may be copied into tracked evidence only when it contains metadata and hashes, not audio, private paths that expose credentials, or private download credentials.
 
-Required fields:
+Every local manifest must conform to [`classic-dsp-fixture-manifest.schema.json`](classic-dsp-fixture-manifest.schema.json). The schema is the machine-readable core shape; this policy remains authoritative for licensing, acquisition, status, and release-acceptance rules. Use `tier: "controlled"` for Tier A fixtures and `tier: "natural-mix"` for Tier B fixtures.
+
+The core required fields are:
 
 ```json
 {
@@ -107,7 +109,7 @@ Required fields:
       "sourceFile": "local-relative-or-dataset-file-id.wav",
       "license": "CC-BY-4.0",
       "licenseCheckedOn": "YYYY-MM-DD",
-      "sourceSha256": "<sha256>"
+      "sourceSha256": "<64-hex-sha256>"
     },
     {
       "role": "accompaniment",
@@ -116,7 +118,7 @@ Required fields:
       "sourceFile": "AuMix_...wav",
       "license": "CC0-1.0",
       "licenseCheckedOn": "YYYY-MM-DD",
-      "sourceSha256": "<sha256>"
+      "sourceSha256": "<64-hex-sha256>"
     }
   ],
   "mixRecipe": {
@@ -125,12 +127,16 @@ Required fields:
     "vocalGainDb": -6.0,
     "accompanimentGainDb": 0.0,
     "vocalPan": "center",
-    "normalization": "none"
+    "normalization": "none",
+    "preparationCommand": "ffmpeg ...",
+    "preparationToolVersion": "ffmpeg <version>"
   },
-  "fixtureSha256": "<sha256>",
+  "fixtureSha256": "<64-hex-sha256>",
   "notes": "purpose and audible characteristics"
 }
 ```
+
+The angle-bracket hash/date/version values above are documentation placeholders and must be replaced with real values before schema validation. For a `natural-mix` fixture, set `mixRecipe` to `null` because the fixture is the licensed source mix rather than a locally constructed vocal/accompaniment mixture. Do not use `null` to skip documenting preparation of a controlled fixture.
 
 Do not reuse a result after any source hash, target rate, trim, gain, pan, or mix recipe changes. Treat that as a new fixture/version.
 
