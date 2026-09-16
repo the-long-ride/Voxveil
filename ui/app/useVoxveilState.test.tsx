@@ -10,6 +10,7 @@ const nativeState: VoxveilState = {
   processingMode: 'all',
   perAppProcessingAvailable: false,
   engine: 'auto',
+  classicSuppressionProfile: 'music-preservation',
   vocalLevel: 12,
   quality: 50,
   outputMode: 'both',
@@ -41,6 +42,7 @@ const client = vi.hoisted(() => ({
   setMasterEnabled: vi.fn(async () => undefined),
   setProcessingMode: vi.fn(async () => undefined),
   setEngine: vi.fn(async () => undefined),
+  setClassicSuppressionProfile: vi.fn(async () => undefined),
   setVocalLevel: vi.fn(async () => undefined),
   setQuality: vi.fn(async () => undefined),
   setAppOverride: vi.fn(async () => undefined),
@@ -65,6 +67,7 @@ describe('useVoxveilState', () => {
     act(() => result.current.setMasterEnabled(false));
     act(() => result.current.setProcessingMode('per-app'));
     act(() => result.current.setEngine('dsp'));
+    act(() => result.current.setClassicSuppressionProfile('balanced'));
     act(() => result.current.setVocalLevel(30));
     act(() => result.current.setQuality(10));
     act(() => result.current.setOutputMode('physical'));
@@ -73,6 +76,7 @@ describe('useVoxveilState', () => {
     expect(client.setMasterEnabled).toHaveBeenCalledWith(false);
     expect(client.setProcessingMode).toHaveBeenCalledWith('per-app');
     expect(client.setEngine).toHaveBeenCalledWith('dsp');
+    expect(client.setClassicSuppressionProfile).toHaveBeenCalledWith('balanced');
     expect(client.setVocalLevel).toHaveBeenCalledWith(30);
     expect(client.setQuality).toHaveBeenCalledWith(10);
     expect(client.setOutputRoute).toHaveBeenCalledWith('physical');

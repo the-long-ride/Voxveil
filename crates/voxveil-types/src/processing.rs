@@ -43,6 +43,14 @@ impl QualityPreference {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ClassicSuppressionProfile {
+    #[default]
+    MusicPreservation,
+    Balanced,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ProcessingMode {
@@ -94,5 +102,17 @@ mod tests {
     fn quality_uses_the_same_unit_interval() {
         assert!(QualityPreference::new(0.5).is_ok());
         assert!(QualityPreference::new(2.0).is_err());
+    }
+
+    #[test]
+    fn classic_suppression_defaults_to_music_preservation() {
+        assert_eq!(
+            ClassicSuppressionProfile::default(),
+            ClassicSuppressionProfile::MusicPreservation
+        );
+        assert_ne!(
+            ClassicSuppressionProfile::MusicPreservation,
+            ClassicSuppressionProfile::Balanced
+        );
     }
 }

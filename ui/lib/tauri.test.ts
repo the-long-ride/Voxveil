@@ -8,6 +8,7 @@ describe('tauri client', () => {
     await client.setMasterEnabled(false);
     await client.setProcessingMode('per-app');
     await client.setEngine('dsp');
+    await client.setClassicSuppressionProfile('balanced');
     await client.setVocalLevel(25);
     await client.setQuality(70);
     await client.setAppOverride('browser', true);
@@ -16,6 +17,7 @@ describe('tauri client', () => {
       ['set_master_enabled', { enabled: false }],
       ['set_processing_mode', { mode: 'per-app' }],
       ['set_engine', { engine: 'dsp' }],
+      ['set_classic_suppression_profile', { profile: 'balanced' }],
       ['set_vocal_level', { value: 25 }],
       ['set_quality_preference', { value: 70 }],
       ['set_app_override', { id: 'browser', enabled: true }],
