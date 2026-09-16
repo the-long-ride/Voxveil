@@ -24,12 +24,12 @@ VoxveilVirtualAudio.sys=SignatureAttributes.DRM
 DRMLevel=1300
 
 [Manufacturer]
-%MfgName%=Voxveil,NTamd64,NTarm64
+%MfgName%=Voxveil,NTamd64.10.0...22621,NTarm64.10.0...22621
 
-[Voxveil.NTamd64]
+[Voxveil.NTamd64.10.0...22621]
 %DeviceName%=Voxveil_Install,Root\VoxveilVirtualAudio
 
-[Voxveil.NTarm64]
+[Voxveil.NTarm64.10.0...22621]
 %DeviceName%=Voxveil_Install,Root\VoxveilVirtualAudio
 
 [DestinationDirs]
