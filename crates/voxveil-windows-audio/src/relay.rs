@@ -221,15 +221,16 @@ impl WindowsAudioBackend {
         }
     }
 
-    pub fn set_vocal_level(&mut self, value: u8) {
-        self.vocal_level = value.min(100);
+    pub fn set_vocal_level(&mut self, value: u8) -> Result<(), String> {
+        let vocal_level = value.min(100);
         if let Some(relay) = &self.relay {
-            let _ = relay.set_vocal_level(self.vocal_level);
+            relay.set_vocal_level(vocal_level)?;
+        } else if let Some(control) = control_executable() {
+            let percent = vocal_level.to_string();
+            run_control(&control, &["vocal", percent.as_str()])?;
         }
-        if let Some(control) = control_executable() {
-            let percent = self.vocal_level.to_string();
-            let _ = run_control(&control, &["vocal", percent.as_str()]);
-        }
+        self.vocal_level = vocal_level;
+        Ok(())
     }
 
     pub fn set_classic_suppression_profile(
