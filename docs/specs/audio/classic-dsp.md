@@ -63,3 +63,9 @@ The APO fallback must never return to full-band hard center cancellation.
 ## Quality boundary
 
 Classic DSP is stereo-position/spectral suppression, not semantic source separation. It cannot perfectly distinguish a centered singer from centered instruments in all mixes. The two profiles expose that tradeoff explicitly instead of silently destroying all centered content.
+
+## Validation protocol
+
+Use `docs/testing/classic-dsp-evaluation.md` for repeatable real-audio A/B evaluation. The repository includes the dependency-free `voxveil-dsp` example `classic_dsp_raw`, which renders raw stereo f32 input with fixed-latency compensation so Music preservation and Balanced outputs stay sample-aligned with the source fixture.
+
+Do not commit copyrighted evaluation fixtures. Record fixture provenance/license, raw-input SHA-256, profile/Vocal settings, accompaniment damage, residual vocal, artifacts, CPU, and end-to-end latency before changing production tuning constants.
