@@ -24,6 +24,7 @@ $DriverOutput = Join-Path $BuildOutput 'VoxveilVirtualAudio.sys'
 $PdbOutput = Join-Path $BuildOutput 'VoxveilVirtualAudio.pdb'
 $OutRoot = Join-Path $DriverRoot "out\$Architecture"
 $Submission = Join-Path $OutRoot 'submission'
+$SysvadImporter = Join-Path $PSScriptRoot 'import-sysvad-source.ps1'
 
 function Find-MSBuild {
   $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
@@ -50,7 +51,7 @@ function Find-WdkTool {
   throw "$Name was not found in PATH or the installed Windows Kits."
 }
 
-foreach ($required in @($Project, $InfSource, $PinnedRevisionFile, $PinnedTreeFile)) {
+foreach ($required in @($Project, $InfSource, $PinnedRevisionFile, $PinnedTreeFile, $SysvadImporter)) {
   if (-not (Test-Path $required -PathType Leaf)) {
     throw "Required driver source/package file is missing: $required"
   }
@@ -64,8 +65,15 @@ $sysvadTree = (Get-Content $PinnedTreeFile -Raw).Trim()
 if ($sysvadTree -ne $PinnedSysvadTree) {
   throw "SysVAD tree identity drifted: expected $PinnedSysvadTree, found '$sysvadTree'."
 }
+
+Write-Host 'Materializing verified pinned SysVAD source...'
+& $SysvadImporter -Force
+if ($LASTEXITCODE -ne 0) {
+  throw "SysVAD importer failed with exit code $LASTEXITCODE."
+}
+
 if (-not (Test-Path $SysvadRoot -PathType Container)) {
-  throw "Pinned SysVAD source is not materialized at $SysvadRoot. Run scripts/windows/import-sysvad-source.ps1 first."
+  throw "Verified SysVAD source was not materialized at $SysvadRoot."
 }
 foreach ($requiredSource in @(
   'adapter.cpp',
@@ -75,7 +83,7 @@ foreach ($requiredSource in @(
   'EndpointsCommon\mintopo.cpp'
 )) {
   if (-not (Test-Path (Join-Path $SysvadRoot $requiredSource) -PathType Leaf)) {
-    throw "Pinned SysVAD snapshot is incomplete: missing $requiredSource. Re-run scripts/windows/import-sysvad-source.ps1 -Force."
+    throw "Verified SysVAD snapshot is incomplete: missing $requiredSource."
   }
 }
 
@@ -119,17 +127,7 @@ if ($LASTEXITCODE -ne 0) {
 $validator = Join-Path $PSScriptRoot 'validate-virtual-driver-package.ps1'
 & $validator -PackageDir $Submission -Architecture $Architecture -SubmissionPackage
 if ($LASTEXITCODE -ne 0) {
-  throw 'Virtual driver package validation failed.'
+  throw "Virtual driver package validation failed with exit code $LASTEXITCODE."
 }
 
-$cab = Join-Path $OutRoot "VoxveilVirtualAudio-attestation-$Architecture.cab"
-& (Join-Path $PSScriptRoot 'new-driver-attestation-cab.ps1') `
-  -Architecture $Architecture `
-  -PackageDir $Submission `
-  -Output $cab
-if ($LASTEXITCODE -ne 0) {
-  throw 'Attestation CAB generation failed.'
-}
-
-Write-Host "Unsigned submission package: $Submission"
-Write-Host "Attestation CAB (must be EV-signed externally before submission): $cab"
+Write-Host "Unsigned virtual-driver submission package staged at $Submission"
