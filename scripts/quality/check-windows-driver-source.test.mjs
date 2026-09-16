@@ -102,6 +102,16 @@ test('SysVAD importer verifies the exact fetched commit and subtree before mater
   assert.doesNotMatch(text, /Invoke-WebRequest/i);
 });
 
+test('materialized SysVAD source stays generated-only and provenance documents the build-time contract', () => {
+  const gitignore = read('.gitignore');
+  const provenance = read('third_party/microsoft/windows-driver-samples/README.voxveil.md');
+  assert.match(gitignore, /^third_party\/microsoft\/windows-driver-samples\/audio\/sysvad\/$/m);
+  assert.match(provenance, /materialized at build time/i);
+  assert.match(provenance, /SOURCE_REVISION/i);
+  assert.match(provenance, /SYSVAD_TREE_SHA/i);
+  assert.doesNotMatch(provenance, /checked-in snapshot/i);
+});
+
 test('virtual driver build materializes the verified pinned SysVAD source before compiling', () => {
   const text = read('scripts/windows/build-virtual-driver.ps1');
   assert.match(text, /import-sysvad-source\.ps1/i);
