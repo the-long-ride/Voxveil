@@ -60,6 +60,17 @@ mod tests {
     }
 
     #[test]
+    fn silent_capture_packet_still_advances_processor_state() {
+        let mut processor = StatefulGain { calls: 0, gain: 0.5 };
+        let mut packet = stereo_bytes(0.8, -0.4);
+
+        process_capture_f32le_stereo(&mut packet, true, &mut processor).unwrap();
+
+        assert_eq!(processor.calls, 1);
+        assert!(packet.iter().all(|byte| *byte == 0));
+    }
+
+    #[test]
     fn rejects_partial_frames() {
         let mut processor = StatefulGain { calls: 0, gain: 1.0 };
         assert!(process_f32le_stereo(&mut [0; 7], &mut processor).is_err());
