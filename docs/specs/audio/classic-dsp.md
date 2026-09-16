@@ -18,7 +18,7 @@ Processing geometry is fixed at a 512-frame transform with a 128-frame hop. For 
 
 WASAPI packets flagged `BUFFER_SILENT` are zero-filled and still passed through the retained processor. Silent source periods therefore advance the STFT timeline, overlap-add state, and fixed latency instead of pausing processor state until the next audible packet.
 
-`vocalLevel = 1` preserves the signal. Lower values increase center suppression inside the profile's protected frequency range.
+`vocalLevel = 1` preserves the signal. A live transition to `vocalLevel = 1` resets the retained smoothed spectral gains to unity without rebuilding the processor; audio after the existing fixed latency therefore does not inherit suppression release from the previous setting. Lower values increase center suppression inside the profile's protected frequency range.
 
 ## User-selectable profiles
 
