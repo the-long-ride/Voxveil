@@ -72,9 +72,10 @@ impl AppViewState {
         self.backend_status = snapshot.status;
         self.backend_kind = snapshot.backend_kind.clone();
         self.physical_output_endpoint_id = snapshot.physical_output_endpoint_id.clone();
-        if let Some(output) = &snapshot.physical_output {
-            self.physical_output = output.clone();
-        }
+        self.physical_output = snapshot
+            .physical_output
+            .clone()
+            .unwrap_or_else(|| "System Default".into());
         self.per_app_processing_available = snapshot.per_app_available;
         if snapshot.status != ProcessingBackendStatus::Ready {
             self.master_enabled = false;
