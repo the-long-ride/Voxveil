@@ -86,10 +86,7 @@ fn same_optional_value(left: Option<&str>, right: Option<&str>) -> bool {
 
 #[cfg(target_os = "windows")]
 fn normalized_hardware_ids(values: &[String]) -> Vec<String> {
-    let mut values: Vec<_> = values
-        .iter()
-        .map(|value| value.to_ascii_lowercase())
-        .collect();
+    let mut values: Vec<_> = values.iter().map(|value| value.to_ascii_lowercase()).collect();
     values.sort_unstable();
     values.dedup();
     values
@@ -195,9 +192,7 @@ fn system_audio_installer_path(executable: &Path) -> Result<PathBuf, String> {
     let directory = executable
         .parent()
         .ok_or_else(|| "Voxveil executable has no parent directory".to_string())?;
-    Ok(directory
-        .join("system-audio")
-        .join("install-system-audio-component.ps1"))
+    Ok(directory.join("system-audio").join("install-system-audio-component.ps1"))
 }
 
 #[cfg(target_os = "windows")]
@@ -226,14 +221,7 @@ fn launch_system_audio_installer(script: &Path, descriptor: &Path) -> Result<(),
         r#"$ErrorActionPreference='Stop'; $script='{script}'; $descriptor='{descriptor}'; $scriptArg='"' + $script + '"'; $descriptorArg='"' + $descriptor + '"'; try {{ $process=Start-Process -FilePath 'powershell.exe' -Verb RunAs -Wait -PassThru -ArgumentList @('-NoLogo','-NoProfile','-ExecutionPolicy','Bypass','-File',$scriptArg,'-EndpointDescriptor',$descriptorArg); exit $process.ExitCode }} catch {{ Write-Error $_; exit 1 }}"#,
     );
     let status = std::process::Command::new("powershell.exe")
-        .args([
-            "-NoLogo",
-            "-NoProfile",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-Command",
-            &launch,
-        ])
+        .args(["-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &launch])
         .creation_flags(CREATE_NO_WINDOW)
         .status()
         .map_err(|error| format!("failed to open the system-audio installer: {error}"))?;
@@ -251,8 +239,7 @@ pub fn install_system_audio_component(
 ) -> Result<InstallResultDto, String> {
     #[cfg(target_os = "windows")]
     {
-        let selected =
-            select_installable_endpoint(controller.system_audio_endpoints()?, &endpoint_id)?;
+        let selected = select_installable_endpoint(controller.system_audio_endpoints()?, &endpoint_id)?;
         let current = select_installable_endpoint(controller.system_audio_endpoints()?, &endpoint_id)
             .map_err(|_| {
                 "The playback endpoint binding changed during installation setup. Refresh and try again."
@@ -274,11 +261,7 @@ pub fn install_system_audio_component(
         let result = launch_system_audio_installer(&script, &descriptor_path);
         let _ = std::fs::remove_file(&descriptor_path);
         result?;
-        return Ok(InstallResultDto {
-            endpoint_id,
-            outcome: "launched".into(),
-            detail: None,
-        });
+        return Ok(InstallResultDto { endpoint_id, outcome: "launched".into(), detail: None });
     }
     #[cfg(not(target_os = "windows"))]
     {
@@ -288,81 +271,5 @@ pub fn install_system_audio_component(
 }
 
 #[cfg(all(test, target_os = "windows"))]
-mod tests {
-    use super::*;
-
-    fn endpoint(id: &str, status: SystemAudioEndpointStatus) -> SystemAudioEndpoint {
-        SystemAudioEndpoint {
-            endpoint_id: id.into(),
-            display_name: "Speakers".into(),
-            adapter_name: Some("Example Audio".into()),
-            is_default: true,
-            binding_pnp_instance_id: Some("HDAUDIO\\EXAMPLE".into()),
-            pnp_instance_id: Some("HDAUDIO\\EXAMPLE".into()),
-            hardware_ids: vec!["HDAUDIO\\EXAMPLE".into()],
-            driver_inf: Some("oem42.inf".into()),
-            topology_interface_path: Some("\\\\?\\topology-example".into()),
-            audio_interface_path: Some("\\\\?\\audio-example".into()),
-            topology_reference: None,
-            status,
-            detail: None,
-        }
-    }
-
-    #[test]
-    fn install_lookup_uses_only_endpoint_id() {
-        let selected = select_installable_endpoint(
-            vec![endpoint("endpoint-a", SystemAudioEndpointStatus::Installable)],
-            "endpoint-a",
-        )
-        .unwrap();
-        assert_eq!(selected.endpoint_id, "endpoint-a");
-        assert_eq!(selected.hardware_ids[0], "HDAUDIO\\EXAMPLE");
-    }
-
-    #[test]
-    fn runtime_binding_does_not_require_topology_reference() {
-        let selected = select_installable_endpoint(
-            vec![endpoint("endpoint-a", SystemAudioEndpointStatus::Installable)],
-            "endpoint-a",
-        )
-        .unwrap();
-        assert!(selected.topology_reference.is_none());
-        assert!(has_runtime_interface_binding(&selected));
-    }
-
-    #[test]
-    fn ambiguous_endpoint_cannot_be_installed() {
-        let error = select_installable_endpoint(
-            vec![endpoint("endpoint-a", SystemAudioEndpointStatus::Ambiguous)],
-            "endpoint-a",
-        )
-        .unwrap_err();
-        assert!(error.contains("not installable"));
-    }
-
-    #[test]
-    fn unknown_endpoint_is_rejected() {
-        let error = select_installable_endpoint(Vec::new(), "missing").unwrap_err();
-        assert!(error.contains("no longer available"));
-    }
-
-    #[test]
-    fn resolves_installer_beside_packaged_executable() {
-        let executable = PathBuf::from("bundle").join("voxveil.exe");
-        assert_eq!(
-            system_audio_installer_path(&executable),
-            Ok(PathBuf::from("bundle")
-                .join("system-audio")
-                .join("install-system-audio-component.ps1"))
-        );
-    }
-
-    #[test]
-    fn escapes_apostrophes_for_powershell_single_quoted_strings() {
-        assert_eq!(
-            powershell_single_quoted("C:\\User's Files\\setup.ps1"),
-            "C:\\User''s Files\\setup.ps1"
-        );
-    }
-}
+#[path = "system_audio_tests.rs"]
+mod tests;
