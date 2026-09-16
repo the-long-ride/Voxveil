@@ -469,8 +469,26 @@ fn query_apo_coverage(endpoints: &[EndpointDescriptor]) -> Result<(u32, bool), S
     Ok((loaded_instances, apo_covers_default))
 }
 
+fn apo_install_state_exists() -> Result<bool, String> {
+    let path = system_audio_directory().join("install-state.json");
+    match std::fs::metadata(&path) {
+        Ok(metadata) => Ok(metadata.is_file()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(format!(
+            "failed to inspect Voxveil APO install state at {}: {error}",
+            path.display()
+        )),
+    }
+}
+
 fn loaded_apo_instances() -> Result<u32, String> {
     let Some(control) = control_executable() else {
+        if apo_install_state_exists()? {
+            return Err(
+                "Voxveil APO install state exists but its control component is unavailable; load state cannot be verified"
+                    .to_string(),
+            );
+        }
         return Ok(0);
     };
     let status = run_control(&control, &["status"])?;
