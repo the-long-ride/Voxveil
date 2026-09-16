@@ -113,13 +113,13 @@ impl WindowsAudioBackend {
         self.vocal_level = vocal_level.min(100);
 
         if !enabled {
+            self.enabled = false;
             if let Some(mut relay) = self.relay.take() {
                 relay.stop()?;
             }
             if let Some(control) = control_executable_for_installed_apo()? {
                 run_control(&control, &["enabled", "0"])?;
             }
-            self.enabled = false;
             return Ok(self.probe());
         }
 
@@ -429,7 +429,7 @@ fn set_apo_enabled(enabled: bool) -> Result<(), String> {
     let control = control_executable().ok_or_else(|| {
         "Voxveil APO reports a loaded instance but its control component is unavailable".to_string()
     })?;
-    run_control(&control, &["enabled", if enabled { "1" } else { "0" }])?;
+    run_control(&control, &["enabled", if enabled { "1" } else { "0"])?;
     Ok(())
 }
 
