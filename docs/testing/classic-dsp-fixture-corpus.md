@@ -2,7 +2,20 @@
 
 This document defines the license/provenance boundary for real-audio evaluation of the **Music preservation** and **Balanced** Classic DSP profiles.
 
-The repository does **not** store downloaded evaluation audio. Keep audio outside Git and commit only metadata, deterministic recipes, aggregate measurements, and source/license references.
+The repository does **not** store downloaded evaluation audio. Keep every downloaded source, derived WAV/raw render, private manifest, and temporary analysis file under `.local-evaluation/classic-dsp/`. The repository ignores `.local-evaluation/`; do not commit any audio from that workspace. Commit only metadata that is intentionally safe to publish, deterministic recipes, aggregate measurements, and source/license references.
+
+A suggested local layout is:
+
+```text
+.local-evaluation/classic-dsp/
+  sources/
+  fixtures/
+  renders/
+  manifests/
+  measurements/
+```
+
+Do not place secrets, private download credentials, or license-restricted source audio in tracked documentation as a substitute for the ignored workspace.
 
 ## Corpus tiers
 
@@ -51,7 +64,7 @@ A permissive license label on a third-party mirror never overrides the original 
 
 ## Fixture manifest
 
-Keep a local manifest entry for every evaluated item. The manifest may be committed only when it contains metadata and hashes, not audio or private download credentials.
+Keep a local manifest entry under `.local-evaluation/classic-dsp/manifests/` for every evaluated item. A manifest may be copied into tracked evidence only when it contains metadata and hashes, not audio, private paths that expose credentials, or private download credentials.
 
 Required fields:
 
@@ -103,14 +116,14 @@ Use FFmpeg only as an offline fixture-preparation tool. Do not loudness-normaliz
 
 For a 44.1 kHz fixture, preserve VocalSet at 44.1 kHz and deterministically convert the URMP accompaniment to 44.1 kHz. For a 48 kHz fixture, preserve URMP at 48 kHz and deterministically convert the VocalSet excerpt to 48 kHz.
 
-Example 44.1 kHz construction, with a centered mono vocal and explicit gains:
+Example 44.1 kHz construction, with a centered mono vocal and explicit gains. Run it from `.local-evaluation/classic-dsp/` or adjust paths while keeping all generated audio inside that ignored workspace:
 
 ```powershell
 ffmpeg -v error `
-  -ss <vocal-start> -t <seconds> -i .\vocal.wav `
-  -ss <music-start> -t <seconds> -i .\accompaniment.wav `
+  -ss <vocal-start> -t <seconds> -i .\sources\vocal.wav `
+  -ss <music-start> -t <seconds> -i .\sources\accompaniment.wav `
   -filter_complex "[0:a]aresample=44100,pan=stereo|c0=c0|c1=c0,volume=-6dB[v];[1:a]aresample=44100,volume=0dB[m];[m][v]amix=inputs=2:duration=shortest:normalize=0[out]" `
-  -map "[out]" -ar 44100 -ac 2 -c:a pcm_f32le -map_metadata -1 -y .\fixture-44k1.wav
+  -map "[out]" -ar 44100 -ac 2 -c:a pcm_f32le -map_metadata -1 -y .\fixtures\fixture-44k1.wav
 ```
 
 Use the equivalent explicit `aresample=48000` / `-ar 48000` recipe for the 48 kHz counterpart. Record the exact command, FFmpeg version, source hashes, and resulting fixture hash in the local manifest.
