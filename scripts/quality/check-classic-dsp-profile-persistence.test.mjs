@@ -16,7 +16,7 @@ test('Classic DSP profile is a backward-compatible Windows audio preference', ()
   assert.match(config, /legacy_preferences_default_to_music_preservation/);
 });
 
-test('profile updates persist and roll back the live backend when saving fails', () => {
+test('Windows profile updates persist and roll back the live backend when saving fails', () => {
   const commands = read('tauri/app/commands.rs');
   const start = commands.indexOf('pub fn set_classic_suppression_profile(');
   const end = commands.indexOf('\n#[tauri::command]', start + 1);
@@ -24,6 +24,7 @@ test('profile updates persist and roll back the live backend when saving fails',
 
   assert.ok(start >= 0, 'profile setter command must exist');
   assert.match(setter, /app:\s*AppHandle/);
+  assert.match(setter, /#\[cfg\(target_os\s*=\s*"windows"\)\]/);
   assert.match(setter, /previous_profile/);
   assert.match(setter, /windows_audio::load\(&app\)/);
   assert.match(setter, /controller\.set_classic_suppression_profile\(profile\)/);
@@ -33,8 +34,22 @@ test('profile updates persist and roll back the live backend when saving fails',
 
   const backendUpdate = setter.indexOf('controller.set_classic_suppression_profile(profile)');
   const save = setter.indexOf('windows_audio::save(&app, &preferences)');
-  const stateUpdate = setter.lastIndexOf('classic_suppression_profile = profile');
+  const stateUpdate = setter.indexOf('classic_suppression_profile = profile', save);
   assert.ok(backendUpdate >= 0 && save > backendUpdate && stateUpdate > save);
+});
+
+test('non-Windows profile updates do not depend on Windows audio preferences', () => {
+  const commands = read('tauri/app/commands.rs');
+  const start = commands.indexOf('pub fn set_classic_suppression_profile(');
+  const end = commands.indexOf('\n#[tauri::command]', start + 1);
+  const setter = commands.slice(start, end === -1 ? undefined : end);
+
+  assert.match(setter, /#\[cfg\(not\(target_os\s*=\s*"windows"\)\)\]/);
+  const nonWindowsStart = setter.indexOf('#[cfg(not(target_os = "windows"))]');
+  const nonWindows = nonWindowsStart >= 0 ? setter.slice(nonWindowsStart) : '';
+  assert.match(nonWindows, /controller\.set_classic_suppression_profile\(profile\)\?/);
+  assert.match(nonWindows, /classic_suppression_profile\s*=\s*profile/);
+  assert.doesNotMatch(nonWindows, /windows_audio::(?:load|save)/);
 });
 
 test('startup reapplies the saved profile to backend and AppState', () => {
