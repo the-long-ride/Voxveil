@@ -4,7 +4,7 @@ Use this protocol to tune **Music preservation** and **Balanced** without changi
 
 ## Fixture requirements
 
-Use `docs/testing/classic-dsp-fixture-corpus.md` as the source/license policy for every real-audio evaluation fixture. Downloaded evaluation audio stays outside Git; only metadata, deterministic recipes, hashes, aggregate measurements, and source/license references may be committed.
+Use `docs/testing/classic-dsp-fixture-corpus.md` as the source/license policy for every real-audio evaluation fixture. Keep downloaded sources, derived fixtures, raw renders, listening WAVs, local manifests, and measurements under `.local-evaluation/classic-dsp/`. That workspace is ignored by Git. Do not commit its audio; only intentionally publishable metadata, deterministic recipes, hashes, aggregate measurements, and source/license references may move into tracked evidence.
 
 Keep the two corpus roles separate:
 
@@ -13,7 +13,7 @@ Keep the two corpus roles separate:
 
 Do not use a candidate natural mix for release acceptance until its exact per-track rights are recorded. Do not use MUSDB18/MUSDB18-HQ or MedleyDB-derived non-commercial material as Voxveil's redistributable/commercial baseline unless separate permission for the exact recording is documented.
 
-Keep a local fixture manifest matching the corpus policy. At minimum record fixture/version ID, tier/status, source records/files/licenses and license-check dates, source SHA-256 values, target sample rate, deterministic trim/gain/pan/mix recipe, resulting fixture SHA-256, and audible characteristics. Changing a source hash, target rate, trim, gain, pan, or recipe creates a new fixture/version.
+Keep each local manifest under `.local-evaluation/classic-dsp/manifests/` and match the corpus policy. At minimum record fixture/version ID, tier/status, source records/files/licenses and license-check dates, source SHA-256 values, target sample rate, deterministic trim/gain/pan/mix recipe, resulting fixture SHA-256, and audible characteristics. Changing a source hash, target rate, trim, gain, pan, or recipe creates a new fixture/version.
 
 The quantitative acceptance set must include at least two independent native 44.1 kHz fixtures and two independent native 48 kHz fixtures, both profiles at `Vocal = 0`, and an unprocessed reference for every fixture. Across the full controlled + natural-mix acceptance set, cover at least:
 
@@ -30,23 +30,25 @@ Controlled mixtures support quantitative tuning but do not replace natural produ
 
 ## Prepare deterministic input
 
-The primary tuning reference is 48 kHz stereo float32. Convert a fixture without loudness normalization or other processing:
+Run the preparation and render commands from `.local-evaluation/classic-dsp/` unless explicitly noted otherwise. A suggested layout is `sources/`, `fixtures/`, `renders/`, `manifests/`, and `measurements/`.
+
+The primary tuning reference is 48 kHz stereo float32. Convert a prepared fixture without loudness normalization or other processing:
 
 ```powershell
-ffmpeg -v error -i .\fixture.wav -map_metadata -1 -ac 2 -ar 48000 -f f32le -y .\fixture-48k.f32
+ffmpeg -v error -i .\fixtures\fixture.wav -map_metadata -1 -ac 2 -ar 48000 -f f32le -y .\fixtures\fixture-48k.f32
 ```
 
 Record the SHA-256 of the raw evaluation input so repeated runs use identical bytes:
 
 ```powershell
-Get-FileHash .\fixture-48k.f32 -Algorithm SHA256
+Get-FileHash .\fixtures\fixture-48k.f32 -Algorithm SHA256
 ```
 
 Do not use only 48 kHz-resampled material for release acceptance. The Windows relay constructs the processor from the endpoint's actual shared sample rate, so the controlled matrix must also include native 44.1 kHz fixtures:
 
 ```powershell
-ffmpeg -v error -i .\fixture-44k1.wav -map_metadata -1 -ac 2 -ar 44100 -f f32le -y .\fixture-44k1.f32
-Get-FileHash .\fixture-44k1.f32 -Algorithm SHA256
+ffmpeg -v error -i .\fixtures\fixture-44k1.wav -map_metadata -1 -ac 2 -ar 44100 -f f32le -y .\fixtures\fixture-44k1.f32
+Get-FileHash .\fixtures\fixture-44k1.f32 -Algorithm SHA256
 ```
 
 When constructing a controlled fixture from separately licensed sources, use the frozen mix recipe from `classic-dsp-fixture-corpus.md` rather than ad-hoc gain or normalization changes made after hearing a profile result.
@@ -56,35 +58,35 @@ When constructing a controlled fixture from separately licensed sources, use the
 Maximum safe suppression (`Vocal = 0`) at 48 kHz:
 
 ```powershell
-cargo run --quiet -p voxveil-dsp --example classic_dsp_raw -- --input .\fixture-48k.f32 --output .\fixture-music.f32 --sample-rate 48000 --vocal 0 --profile music-preservation
-cargo run --quiet -p voxveil-dsp --example classic_dsp_raw -- --input .\fixture-48k.f32 --output .\fixture-balanced.f32 --sample-rate 48000 --vocal 0 --profile balanced
+cargo run --quiet -p voxveil-dsp --example classic_dsp_raw -- --input .\fixtures\fixture-48k.f32 --output .\renders\fixture-music.f32 --sample-rate 48000 --vocal 0 --profile music-preservation
+cargo run --quiet -p voxveil-dsp --example classic_dsp_raw -- --input .\fixtures\fixture-48k.f32 --output .\renders\fixture-balanced.f32 --sample-rate 48000 --vocal 0 --profile balanced
 ```
 
 For native 44.1 kHz acceptance fixtures, keep the renderer sample-rate argument matched to the raw input rather than resampling them to 48 kHz:
 
 ```powershell
-cargo run --quiet -p voxveil-dsp --example classic_dsp_raw -- --input .\fixture-44k1.f32 --output .\fixture-44k1-music.f32 --sample-rate 44100 --vocal 0 --profile music-preservation
-cargo run --quiet -p voxveil-dsp --example classic_dsp_raw -- --input .\fixture-44k1.f32 --output .\fixture-44k1-balanced.f32 --sample-rate 44100 --vocal 0 --profile balanced
+cargo run --quiet -p voxveil-dsp --example classic_dsp_raw -- --input .\fixtures\fixture-44k1.f32 --output .\renders\fixture-44k1-music.f32 --sample-rate 44100 --vocal 0 --profile music-preservation
+cargo run --quiet -p voxveil-dsp --example classic_dsp_raw -- --input .\fixtures\fixture-44k1.f32 --output .\renders\fixture-44k1-balanced.f32 --sample-rate 44100 --vocal 0 --profile balanced
 ```
 
-Convert the latency-compensated raw outputs back to WAV for local listening or analysis. These derived audio files remain local evaluation artifacts and are not committed:
+Convert the latency-compensated raw outputs back to WAV for local listening or analysis. These derived audio files remain inside the ignored workspace and are not committed:
 
 ```powershell
-ffmpeg -v error -f f32le -ac 2 -ar 48000 -i .\fixture-music.f32 -c:a pcm_f32le -y .\fixture-music.wav
-ffmpeg -v error -f f32le -ac 2 -ar 48000 -i .\fixture-balanced.f32 -c:a pcm_f32le -y .\fixture-balanced.wav
-ffmpeg -v error -f f32le -ac 2 -ar 44100 -i .\fixture-44k1-music.f32 -c:a pcm_f32le -y .\fixture-44k1-music.wav
-ffmpeg -v error -f f32le -ac 2 -ar 44100 -i .\fixture-44k1-balanced.f32 -c:a pcm_f32le -y .\fixture-44k1-balanced.wav
+ffmpeg -v error -f f32le -ac 2 -ar 48000 -i .\renders\fixture-music.f32 -c:a pcm_f32le -y .\renders\fixture-music.wav
+ffmpeg -v error -f f32le -ac 2 -ar 48000 -i .\renders\fixture-balanced.f32 -c:a pcm_f32le -y .\renders\fixture-balanced.wav
+ffmpeg -v error -f f32le -ac 2 -ar 44100 -i .\renders\fixture-44k1-music.f32 -c:a pcm_f32le -y .\renders\fixture-44k1-music.wav
+ffmpeg -v error -f f32le -ac 2 -ar 44100 -i .\renders\fixture-44k1-balanced.f32 -c:a pcm_f32le -y .\renders\fixture-44k1-balanced.wav
 ```
 
 The raw renderer removes the processor's fixed startup latency and flushes its tail, so the output frame count should equal the input frame count. Verify byte counts match before comparing aligned samples:
 
 ```powershell
-(Get-Item .\fixture-48k.f32).Length
-(Get-Item .\fixture-music.f32).Length
-(Get-Item .\fixture-balanced.f32).Length
-(Get-Item .\fixture-44k1.f32).Length
-(Get-Item .\fixture-44k1-music.f32).Length
-(Get-Item .\fixture-44k1-balanced.f32).Length
+(Get-Item .\fixtures\fixture-48k.f32).Length
+(Get-Item .\renders\fixture-music.f32).Length
+(Get-Item .\renders\fixture-balanced.f32).Length
+(Get-Item .\fixtures\fixture-44k1.f32).Length
+(Get-Item .\renders\fixture-44k1-music.f32).Length
+(Get-Item .\renders\fixture-44k1-balanced.f32).Length
 ```
 
 Record SHA-256 values for the rendered profile outputs in the same evaluation evidence as the input fixture hash.
