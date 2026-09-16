@@ -44,6 +44,8 @@ This profile trades more center-instrument attenuation for stronger vocal reduct
 
 The profile can be changed while processing is active; the retained processor updates its mask parameters without restarting the stream. A live **Balanced → Music preservation** transition resets retained smoothed spectral gains to unity without restarting the stream or rebuilding the processor, so the more protective profile does not temporarily inherit stronger Balanced attenuation. A Music preservation → Balanced transition keeps the normal attack smoothing.
 
+On Windows, the selected Classic DSP profile is persisted in the nonessential `windows-audio.json` preferences and restored on the next application start. Existing preference files that predate the profile field default to Music preservation. A live profile change updates the backend first, then persists the selection, then commits AppState; if persistence fails, Voxveil attempts to restore the previous live profile instead of reporting a saved selection that is not actually durable.
+
 ## Native APO fallback
 
 The Windows APO callback cannot run the relay STFT implementation directly without violating its real-time constraints. It therefore uses a bounded, allocation-free band-limited mid suppressor with the same two profiles and -12/-18 dB center floors. The APO profile is carried through the shared control state and is re-synchronized during relay-to-APO handoff.
