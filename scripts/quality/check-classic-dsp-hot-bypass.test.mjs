@@ -12,3 +12,12 @@ test('setting Vocal to full transparency clears retained spectral attenuation', 
   assert.match(setter, /smoothed_gain\.fill\(1\.0\)/);
   assert.doesNotMatch(setter, /allow\(dead_code\)/i);
 });
+
+test('Classic DSP spec defines live full-vocal transparency', () => {
+  const spec = readFileSync('docs/specs/audio/classic-dsp.md', 'utf8');
+  assert.match(
+    spec,
+    /live transition to `vocalLevel = 1`[\s\S]*retained smoothed spectral gains to unity/i,
+  );
+  assert.match(spec, /without rebuilding the processor/i);
+});
