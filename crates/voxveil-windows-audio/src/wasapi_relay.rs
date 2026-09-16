@@ -9,8 +9,8 @@ use voxveil_dsp::SpectralCenterSuppressor;
 use voxveil_types::{ClassicSuppressionProfile, VocalLevel};
 use wasapi::{Device, DeviceEnumerator, Direction, SampleType, StreamMode};
 
-use crate::process_f32le_stereo;
 use crate::relay_engine::{RelayCommand, RelayRuntimeState, RelaySpec};
+use crate::sample::process_capture_f32le_stereo;
 
 const MAX_CAPTURE_FRAMES: usize = 4096;
 const MAX_QUEUE_FRAMES: usize = 8192;
@@ -229,11 +229,11 @@ fn run_relay_worker_inner(
                 if read_bytes > bytes {
                     break Err("WASAPI capture returned more frames than the announced packet".into());
                 }
-                if info.flags.silent {
-                    capture_buffer[..read_bytes].fill(0);
-                } else if let Err(error) =
-                    process_f32le_stereo(&mut capture_buffer[..read_bytes], &mut processor)
-                {
+                if let Err(error) = process_capture_f32le_stereo(
+                    &mut capture_buffer[..read_bytes],
+                    info.flags.silent,
+                    &mut processor,
+                ) {
                     break Err(error.to_string());
                 }
                 if !queue_append_within_bound(queue.len(), read_bytes, max_queue_bytes) {
