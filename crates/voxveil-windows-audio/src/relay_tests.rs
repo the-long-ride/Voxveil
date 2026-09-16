@@ -3,6 +3,7 @@ use super::support::{
     decide_backend, parse_loaded_instances, parse_loaded_instances_required, profile_control_value,
     should_fail_closed_after_probe, should_sync_apo_after_relay,
 };
+use crate::device::{RelayReadiness, WindowsInterceptionKind};
 
 fn physical(id: &str, is_default: bool) -> EndpointDescriptor {
     EndpointDescriptor {
