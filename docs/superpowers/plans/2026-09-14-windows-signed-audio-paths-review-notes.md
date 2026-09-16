@@ -159,6 +159,27 @@ For `-ReleaseChannel Retail`, the staging script must require the release metada
 
 This does **not** remove the requested attestation tooling; it prevents the repository from misrepresenting its current Microsoft status.
 
+### 5. Preserve the pinned SysVAD Windows 11 build-22621 applicability floor
+
+The original Tier 2 Task 4 example used undecorated `NTamd64` / `NTarm64` model sections, and Task 5 described the `Inf2Cat` OS list as release-selected. Those instructions are superseded by the implemented pinned-SysVAD applicability boundary.
+
+The first-party Tier 2 package must use only x64/Arm64 model decorations beginning at Windows 11 build 22621 (22H2), for example:
+
+```ini
+[Manufacturer]
+%MfgName%=Voxveil,NTamd64.10.0...22621,NTarm64.10.0...22621
+
+[Voxveil.NTamd64.10.0...22621]
+%DeviceName%=Voxveil_Install,Root\VoxveilVirtualAudio
+
+[Voxveil.NTarm64.10.0...22621]
+%DeviceName%=Voxveil_Install,Root\VoxveilVirtualAudio
+```
+
+Do not add undecorated x64/Arm64 model sections as a compatibility fallback. `Inf2Cat`, unsigned package validation, returned Microsoft-signed package validation, release staging, and installer preflight must all preserve the same build-22621+ contract.
+
+This is a **Tier 2 component floor**, not Voxveil's overall Windows support floor. Supported Windows 10 systems remain on the Tier 1 relay/fallback path and must not be instructed to install the first-party Tier 2 driver.
+
 ## Tier 3 corrections
 
 ### 1. Stable APO GUIDs are fixed now
