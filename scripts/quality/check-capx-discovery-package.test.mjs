@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-const discovery = readFileSync('crates/voxveil-windows-audio/src/discovery.rs', 'utf8');
+const discovery = [
+  'crates/voxveil-windows-audio/src/discovery.rs',
+  'crates/voxveil-windows-audio/src/discovery_windows.rs',
+].map((path) => readFileSync(path, 'utf8')).join('\n');
 const runtimeContract = readFileSync('scripts/quality/system-audio-runtime-interface-binding.test.mjs', 'utf8');
 
 test('production endpoint discovery recognizes signed CAPX AddInterface packages', () => {
