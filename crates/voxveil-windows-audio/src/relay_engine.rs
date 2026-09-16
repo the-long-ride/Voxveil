@@ -126,7 +126,11 @@ impl RelayHandle {
 
     #[cfg(windows)]
     pub(crate) fn start_wasapi(spec: RelaySpec, vocal_level: u8) -> Result<Self, String> {
-        Self::start_wasapi_with_profile(spec, vocal_level, ClassicSuppressionProfile::default())
+        Self::start_wasapi_with_profile(
+            spec,
+            vocal_level,
+            crate::profile::classic_suppression_profile(),
+        )
     }
 
     #[cfg(windows)]
