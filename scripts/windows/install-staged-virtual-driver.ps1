@@ -14,6 +14,20 @@ function Assert-Administrator {
   }
 }
 
+function Assert-SupportedWindowsBuild {
+  $version = Get-ItemProperty `
+    -Path 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' `
+    -Name CurrentBuildNumber `
+    -ErrorAction Stop
+  $build = 0
+  if (-not [int]::TryParse([string]$version.CurrentBuildNumber, [ref]$build)) {
+    throw "Unable to determine the current Windows build from CurrentBuildNumber='$($version.CurrentBuildNumber)'."
+  }
+  if ($build -lt 22621) {
+    throw "Voxveil Virtual Audio requires Windows build 22621 or later; current build is $build. Use the Tier 1 relay path on supported older Windows releases."
+  }
+}
+
 function Assert-StagedFileHash(
   [Parameter(Mandatory = $true)][string]$Path,
   [Parameter(Mandatory = $true)][string]$ExpectedSha256,
@@ -39,6 +53,7 @@ function Get-HelperValue([string[]]$Output, [string]$Name) {
 }
 
 Assert-Administrator
+Assert-SupportedWindowsBuild
 
 if (-not $PackageDir) {
   $PackageDir = Join-Path $PSScriptRoot 'virtual-driver'
