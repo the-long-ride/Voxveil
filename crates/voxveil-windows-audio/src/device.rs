@@ -49,6 +49,7 @@ impl BackendProbe {
     }
 }
 
+#[cfg(test)]
 pub(crate) fn component_probe(
     control_available: bool,
     loaded_instances: u32,
