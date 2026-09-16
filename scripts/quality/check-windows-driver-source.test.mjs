@@ -50,6 +50,12 @@ test('driver project references only pinned generic SysVAD source plus Voxveil-o
   assert.doesNotMatch(text, /A2dp|Bth|UsbHs|MicArray|KeywordDetector|SwapAPO|DelayAPO/i);
 });
 
+test('directly compiled pinned EndpointsCommon sources preserve upstream warning compatibility', () => {
+  const text = read('native/windows/driver/VoxveilVirtualAudio.vcxproj');
+  assert.match(text, /<TreatWarningAsError>true<\/TreatWarningAsError>/i);
+  assert.match(text, /<DisableSpecificWarnings>[^<]*\b4595\b[^<]*%\(DisableSpecificWarnings\)[^<]*<\/DisableSpecificWarnings>/i);
+});
+
 test('virtual driver project carries Voxveil sound-driver version resources and filters', () => {
   const project = read('native/windows/driver/VoxveilVirtualAudio.vcxproj');
   const resource = read('native/windows/driver/VoxveilVirtualAudio.rc');
