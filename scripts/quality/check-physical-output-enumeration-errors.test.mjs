@@ -13,6 +13,14 @@ test('Windows backend preserves physical-output enumeration errors', () => {
   assert.doesNotMatch(method, /unwrap_or_default\(\)/);
 });
 
+test('non-Windows backend keeps the same fallible physical-output contract', () => {
+  const fallback = read('crates/voxveil-windows-audio/src/lib.rs');
+  const method = fallback.match(/pub fn physical_outputs\([\s\S]*?\n    \}/)?.[0] ?? '';
+
+  assert.match(method, /->\s*Result<Vec<EndpointDescriptor>,\s*String>/);
+  assert.match(method, /Ok\(Vec::new\(\)\)/);
+});
+
 test('controller and Tauri command propagate physical-output enumeration failures', () => {
   const controller = read('tauri/platform/controller.rs');
   const commands = read('tauri/app/commands.rs');
