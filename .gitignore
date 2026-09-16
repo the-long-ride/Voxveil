@@ -15,6 +15,7 @@ release-metadata/
 *.tsbuildinfo
 
 # Local Classic DSP evaluation artifacts
+.local-evaluation/
 *.f32
 
 # Git
