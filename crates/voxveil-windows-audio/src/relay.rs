@@ -604,9 +604,9 @@ mod tests {
     fn physical(id: &str, is_default: bool) -> EndpointDescriptor {
         EndpointDescriptor {
             id: id.into(),
-            name: id.into(),
-            interface_name: None,
-            description: None,
+            name: "Speakers".into(),
+            interface_name: Some("Physical Audio".into()),
+            description: Some("Speakers".into()),
             is_default,
         }
     }
