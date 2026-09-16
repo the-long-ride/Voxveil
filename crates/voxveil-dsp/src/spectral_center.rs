@@ -137,6 +137,11 @@ impl SpectralCenterSuppressor {
     }
 
     pub fn set_profile(&mut self, profile: ClassicSuppressionProfile) {
+        if self.profile != ClassicSuppressionProfile::MusicPreservation
+            && profile == ClassicSuppressionProfile::MusicPreservation
+        {
+            self.smoothed_gain.fill(1.0);
+        }
         self.profile = profile;
     }
 
