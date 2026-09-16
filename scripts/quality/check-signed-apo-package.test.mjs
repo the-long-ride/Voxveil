@@ -42,10 +42,12 @@ test('signed APO stager copies only the verified production package', () => {
 });
 
 test('production endpoint discovery requires the verified APO staging marker', () => {
-  const text = read('crates/voxveil-windows-audio/src/discovery.rs');
-  assert.match(text, /apo-verification\.json/i);
-  assert.match(text, /1D81E93D-AB81-473B-9E5E-94FAE8D2377F/i);
-  assert.match(text, /63E268CE-4CBC-48E0-BEB6-55103316F477/i);
+  const module = read('crates/voxveil-windows-audio/src/discovery.rs');
+  const implementation = read('crates/voxveil-windows-audio/src/discovery_windows.rs');
+  assert.match(module, /discovery_windows\.rs/);
+  assert.match(implementation, /apo-verification\.json/i);
+  assert.match(implementation, /1D81E93D-AB81-473B-9E5E-94FAE8D2377F/i);
+  assert.match(implementation, /63E268CE-4CBC-48E0-BEB6-55103316F477/i);
 });
 
 test('production installer rehashes every signed APO artifact before installation', () => {
