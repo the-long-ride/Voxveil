@@ -50,7 +50,30 @@ Use naturally mixed songs only when the exact recording is independently verifie
 
 For every natural-mix fixture, record the exact per-track license and source. A collection-level marketing statement is insufficient when individual tracks have different rights.
 
+The rights review must cover both the sound recording and any underlying composition/lyrics that are not authored by the recording uploader. A CC-licensed cover recording is not sufficient by itself when the underlying song has separate rights. If composition/lyric rights cannot be established for the intended workflow, keep the track out of release acceptance even when the recording page shows a permissive CC license.
+
 Until a natural-mix track passes that per-file review, mark it `candidate` and do not use it for release acceptance.
+
+#### Approved metadata candidates
+
+These tracks passed the current metadata/source-chain review. `approved-metadata` means they may be acquired into the ignored evaluation workspace; it does **not** mean a local fixture has been created, hashed, rendered, listened to, or accepted for release. Re-check every page/license at acquisition time and record the downloaded file hash before changing the status to an evaluated fixture.
+
+| Track | Native rate | Vocal material | Recording/source-chain basis | Status |
+| --- | ---: | --- | --- | --- |
+| **Blackout Romeo** — Stefan Kartenberg feat. Thespinwires | 48 kHz | male | remix page is CC BY 3.0 and identifies one source, **Blackout Romeo Vocals** by Thespinwires; that source page is also CC BY 3.0 and is presented as the uploader's vocal line from The Spin Wires song | `approved-metadata` |
+| **Road Back To You** — Allerlei von Nicolai feat. Admiral Bob | 44.1 kHz | male | remix page is CC BY 3.0, explicitly says the track may be used for any purpose with attribution, and identifies the vocal source **Love is my Road Back to You** by Admiral Bob; that original-song source is CC BY 3.0 | `approved-metadata` |
+| **OUTCAST GROUNDED DREAMS - SKYE JORDAN FT. QUIANA NADINE** — QuianaNadine | 44.1 kHz | female | remix page is CC BY 4.0 and identifies one backing source, **Outcast (Grounded Dreams Edition)** by Skye Jordan; that instrumental source page is also CC BY 4.0 | `approved-metadata` |
+
+Canonical pages used for the current review:
+
+- https://ccmixter.org/files/JeffSpeed68/55797
+- https://ccmixter.org/files/Thespinwires/55741
+- https://ccmixter.org/files/Allerlei_von_Nicolai/61840
+- https://ccmixter.org/files/admiralbob77/61493
+- https://ccmixter.org/files/QuianaNadine/68995
+- https://ccmixter.org/files/SkyeJordan/68149
+
+Do not infer approval from another ccMixter upload merely because its final remix page says CC BY. Trace every listed source and reject unresolved license conflicts. For example, **Waking Me Softly Featuring SnowFlake** currently has conflicting license metadata between its ccMixter page and the ccMixter Bandcamp release, so it is not an approved Voxveil acceptance fixture until that conflict is resolved.
 
 ## Excluded baseline datasets
 
@@ -58,6 +81,7 @@ Do not use these as Voxveil's redistributable/commercial release baseline unless
 
 - **MUSDB18 / MUSDB18-HQ** — the official dataset records state educational use only / no commercial use without permission. The collection also includes CC BY-NC-SA material.
 - **MedleyDB-derived tracks** — many relevant tracks are CC BY-NC-SA 4.0, which is incompatible with a commercial-safe baseline.
+- CC-licensed cover recordings when the underlying composition/lyrics rights are not independently suitable for the intended workflow. **Sixteen Tons** is not approved from the ccMixter recording license alone because it is explicitly presented as a cover and the composition has separate rights records.
 - mirrors or repackaged downloads whose claimed license conflicts with the authoritative upstream dataset/track license.
 
 A permissive license label on a third-party mirror never overrides the original recording's rights.
@@ -169,5 +193,6 @@ Authoritative/current references used when defining this policy:
 - URMP Dryad record: https://doi.org/10.5061/dryad.ng3r749
 - Dryad CC0 data policy: https://datadryad.org/help/guides/best_practices
 - MUSDB18 official record/license statement: https://doi.org/10.5281/zenodo.1117372
+- ccMixter natural-mix/source pages listed in the Tier B candidate table above
 
 Re-check the exact source and license before acquiring new fixture versions. Dataset hosting and licensing metadata can change independently of Voxveil.
