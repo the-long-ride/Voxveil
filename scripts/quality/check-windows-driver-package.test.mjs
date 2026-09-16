@@ -73,3 +73,12 @@ test('driver build keeps attestation CAB creation explicit at the release bounda
   assert.match(release, /new-driver-attestation-cab\.ps1/i);
   assert.match(release, /native\\windows\\driver\\out\\x64\\submission/i);
 });
+
+test('driver build resolves the KMDF INF placeholder before Inf2Cat validation', () => {
+  const sourceInf = inf();
+  const build = readFileSync('scripts/windows/build-virtual-driver.ps1', 'utf8');
+  assert.match(sourceInf, /\$KMDFVERSION\$/i);
+  assert.match(build, /Find-WdkTool\s+'StampInf\.exe'/i);
+  assert.match(build, /-k\s+'1\.15'/i);
+  assert.match(build, /unresolved.*KMDFVERSION/i);
+});
