@@ -19,6 +19,19 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
+function Assert-StagedHash {
+  param(
+    [Parameter(Mandatory = $true)][string]$Path,
+    [Parameter(Mandatory = $true)][string]$Expected,
+    [Parameter(Mandatory = $true)][string]$Label
+  )
+
+  $actual = (Get-FileHash $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+  if ($actual -ne $Expected) {
+    throw "Staged $Label hash changed after verification."
+  }
+}
+
 $package = [IO.Path]::GetFullPath($PackageDir)
 $destination = [IO.Path]::GetFullPath($Destination)
 $repoRoot = [IO.Path]::GetFullPath((Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path)
@@ -70,6 +83,13 @@ New-Item -ItemType Directory -Force -Path $destination | Out-Null
 foreach ($file in @($inf, $cat, $sys)) {
   Copy-Item $file.FullName (Join-Path $destination $file.Name)
 }
+
+$stagedInf = Join-Path $destination $inf.Name
+$stagedCat = Join-Path $destination $cat.Name
+$stagedSys = Join-Path $destination $sys.Name
+Assert-StagedHash -Path $stagedInf -Expected $verification.infSha256 -Label 'INF'
+Assert-StagedHash -Path $stagedCat -Expected $verification.catalogSha256 -Label 'catalog'
+Assert-StagedHash -Path $stagedSys -Expected $verification.driverSha256 -Label 'driver'
 
 @{
   releaseChannel = $ReleaseChannel.ToLowerInvariant()
