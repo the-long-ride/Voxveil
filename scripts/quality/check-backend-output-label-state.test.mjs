@@ -10,7 +10,7 @@ test('backend snapshots clear a stale physical-output label when no output is re
 
   assert.match(
     applyBackend,
-    /self\.physical_output\s*=\s*snapshot\.physical_output\.clone\(\)\.unwrap_or_else\(\|\|\s*"System Default"\.into\(\)\)/,
+    /self\.physical_output\s*=\s*snapshot\s*\.physical_output\s*\.clone\(\)\s*\.unwrap_or_else\(\|\|\s*"System Default"\.into\(\)\)/,
   );
   assert.doesNotMatch(applyBackend, /if let Some\(output\) = &snapshot\.physical_output/);
 });
