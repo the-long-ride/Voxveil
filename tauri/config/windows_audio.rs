@@ -27,8 +27,9 @@ pub fn load(app: &AppHandle) -> Result<WindowsAudioPreferences, String> {
     }
     let bytes = fs::read(&path)
         .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
-    serde_json::from_slice(&bytes)
-        .map_err(|error| format!("failed to parse {}: {error}", path.display()))
+    // These preferences are nonessential. Invalid JSON must not permanently
+    // block route selection; the next successful save replaces it.
+    Ok(serde_json::from_slice(&bytes).unwrap_or_default())
 }
 
 pub fn save(app: &AppHandle, preferences: &WindowsAudioPreferences) -> Result<(), String> {
