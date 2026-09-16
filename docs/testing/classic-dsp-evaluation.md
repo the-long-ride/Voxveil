@@ -4,26 +4,29 @@ Use this protocol to tune **Music preservation** and **Balanced** without changi
 
 ## Fixture requirements
 
-Use only audio that may legally be stored or evaluated by the tester. Prefer tracks with separately available vocal and accompaniment stems, but do not commit copyrighted evaluation audio to the repository.
+Use `docs/testing/classic-dsp-fixture-corpus.md` as the source/license policy for every real-audio evaluation fixture. Downloaded evaluation audio stays outside Git; only metadata, deterministic recipes, hashes, aggregate measurements, and source/license references may be committed.
 
-Keep a local fixture manifest with:
+Keep the two corpus roles separate:
 
-- fixture ID and source/license;
-- genre and approximate arrangement;
-- original sample rate;
-- whether clean vocal/accompaniment stems exist;
-- notes about strongly centered instruments, bass, percussion, stereo ambience, and vocal placement.
+- **Tier A — controlled quantitative fixtures:** deterministic mixtures with known vocal/accompaniment sources for repeatable attenuation, accompaniment-damage, stereo, peak, alignment, and sample-rate measurements.
+- **Tier B — natural-mix subjective fixtures:** naturally produced music whose exact recording license has been reviewed for the intended Voxveil evaluation workflow; use these for artifacts, reverb, doubles, mastering, and musical-quality judgments.
 
-The production acceptance pass should include at least:
+Do not use a candidate natural mix for release acceptance until its exact per-track rights are recorded. Do not use MUSDB18/MUSDB18-HQ or MedleyDB-derived non-commercial material as Voxveil's redistributable/commercial baseline unless separate permission for the exact recording is documented.
+
+Keep a local fixture manifest matching the corpus policy. At minimum record fixture/version ID, tier/status, source records/files/licenses and license-check dates, source SHA-256 values, target sample rate, deterministic trim/gain/pan/mix recipe, resulting fixture SHA-256, and audible characteristics. Changing a source hash, target rate, trim, gain, pan, or recipe creates a new fixture/version.
+
+The quantitative acceptance set must include at least two independent native 44.1 kHz fixtures and two independent native 48 kHz fixtures, both profiles at `Vocal = 0`, and an unprocessed reference for every fixture. Across the full controlled + natural-mix acceptance set, cover at least:
 
 - sparse vocal + accompaniment;
 - dense full-band mix;
-- strong centered bass/kick/snare;
+- strong centered bass/kick/snare or other centered instruments;
 - wide stereo ambience/reverb;
 - mono or near-mono material;
 - male and female lead vocals;
-- harmony/double-tracked vocals;
+- harmony/double-tracked vocals where a licensed natural mix permits it;
 - native 44.1 kHz and 48 kHz processing paths.
+
+Controlled mixtures support quantitative tuning but do not replace natural production mixes for subjective release acceptance.
 
 ## Prepare deterministic input
 
@@ -39,12 +42,14 @@ Record the SHA-256 of the raw evaluation input so repeated runs use identical by
 Get-FileHash .\fixture-48k.f32 -Algorithm SHA256
 ```
 
-Do not use only 48 kHz-resampled material for release acceptance. The Windows relay constructs the processor from the endpoint's actual shared sample rate, so at least one 44.1 kHz fixture must also be rendered at native rate:
+Do not use only 48 kHz-resampled material for release acceptance. The Windows relay constructs the processor from the endpoint's actual shared sample rate, so the controlled matrix must also include native 44.1 kHz fixtures:
 
 ```powershell
 ffmpeg -v error -i .\fixture-44k1.wav -map_metadata -1 -ac 2 -ar 44100 -f f32le -y .\fixture-44k1.f32
 Get-FileHash .\fixture-44k1.f32 -Algorithm SHA256
 ```
+
+When constructing a controlled fixture from separately licensed sources, use the frozen mix recipe from `classic-dsp-fixture-corpus.md` rather than ad-hoc gain or normalization changes made after hearing a profile result.
 
 ## Render both profiles
 
@@ -55,14 +60,14 @@ cargo run --quiet -p voxveil-dsp --example classic_dsp_raw -- --input .\fixture-
 cargo run --quiet -p voxveil-dsp --example classic_dsp_raw -- --input .\fixture-48k.f32 --output .\fixture-balanced.f32 --sample-rate 48000 --vocal 0 --profile balanced
 ```
 
-For the native 44.1 kHz acceptance fixture, keep the renderer sample-rate argument matched to the raw input rather than resampling it to 48 kHz:
+For native 44.1 kHz acceptance fixtures, keep the renderer sample-rate argument matched to the raw input rather than resampling them to 48 kHz:
 
 ```powershell
 cargo run --quiet -p voxveil-dsp --example classic_dsp_raw -- --input .\fixture-44k1.f32 --output .\fixture-44k1-music.f32 --sample-rate 44100 --vocal 0 --profile music-preservation
 cargo run --quiet -p voxveil-dsp --example classic_dsp_raw -- --input .\fixture-44k1.f32 --output .\fixture-44k1-balanced.f32 --sample-rate 44100 --vocal 0 --profile balanced
 ```
 
-Convert the latency-compensated raw outputs back to WAV for listening or analysis. Use the same sample rate that was passed to the renderer:
+Convert the latency-compensated raw outputs back to WAV for local listening or analysis. These derived audio files remain local evaluation artifacts and are not committed:
 
 ```powershell
 ffmpeg -v error -f f32le -ac 2 -ar 48000 -i .\fixture-music.f32 -c:a pcm_f32le -y .\fixture-music.wav
@@ -82,6 +87,8 @@ The raw renderer removes the processor's fixed startup latency and flushes its t
 (Get-Item .\fixture-44k1-balanced.f32).Length
 ```
 
+Record SHA-256 values for the rendered profile outputs in the same evaluation evidence as the input fixture hash.
+
 ## Listening protocol
 
 Level-match before judging quality. Do not treat a quieter result as automatically better vocal reduction.
@@ -97,18 +104,20 @@ For each profile record:
 - reverb/chorus behavior;
 - mono-compatibility change.
 
-Use blind or randomized A/B order when practical.
+Use blind or randomized A/B order when practical. Controlled fixtures may be included in listening, but release-quality judgments about production artifacts must also include approved Tier B natural mixes.
 
 ## Measurement protocol
 
-For fixtures with clean stems, render the exact original mix and keep stems time-aligned. Measure at minimum:
+Use Tier A controlled fixtures for quantitative comparisons where the source components and mix recipe are known. Measure at minimum:
 
-1. **Vocal attenuation** — RMS or LUFS change of vocal-dominant regions between the original mix and processed output, supported by stem-assisted inspection where available.
-2. **Accompaniment damage** — difference energy and listening checks in accompaniment-dominant regions, especially centered bass/percussion/instruments.
+1. **Vocal attenuation** — RMS or LUFS change of vocal-dominant regions between the original fixture and processed output, supported by the known clean vocal source.
+2. **Accompaniment damage** — difference energy and listening checks against the known accompaniment source, especially centered bass/percussion/instruments.
 3. **Stereo preservation** — left/right correlation and side-energy change before/after processing.
 4. **Peak safety** — confirm finite output and note any unexpected clipping/overs.
 5. **Latency alignment** — raw input/output byte counts match and impulse/transient positions remain aligned after renderer compensation.
-6. **Sample-rate consistency** — compare the native 44.1 kHz and 48 kHz acceptance runs for unexpected profile or artifact changes caused only by sample rate.
+6. **Sample-rate consistency** — compare independent native 44.1 kHz and 48 kHz acceptance runs for unexpected profile or artifact changes caused only by sample rate.
+
+Use Tier B natural mixes to supplement those measurements with subjective behavior that deterministic stem combinations do not reproduce reliably.
 
 Do not report a single separation score as proof of quality. Classic DSP is a bounded stereo-center suppressor, not semantic source separation.
 
@@ -129,12 +138,14 @@ Measure both profiles with the same fixture and routing path. Profile switching 
 
 ## Result template
 
-| Fixture | Rate | Profile | Vocal | Vocal reduction | Center-instrument damage | Artifacts | Stereo change | CPU | E2E latency | Decision/notes |
-| --- | ---: | --- | ---: | --- | --- | --- | --- | ---: | ---: | --- |
-| fixture-id | 48000 | Music preservation | 0 |  |  |  |  |  |  |  |
-| fixture-id | 48000 | Balanced | 0 |  |  |  |  |  |  |  |
-| fixture-id-44k1 | 44100 | Music preservation | 0 |  |  |  |  |  |  |  |
-| fixture-id-44k1 | 44100 | Balanced | 0 |  |  |  |  |  |  |  |
+| Fixture | Tier | Rate | Profile | Vocal | Vocal reduction | Center-instrument damage | Artifacts | Stereo change | CPU | E2E latency | Decision/notes |
+| --- | --- | ---: | --- | ---: | --- | --- | --- | --- | ---: | ---: | --- |
+| controlled-48k-001 | A | 48000 | Music preservation | 0 |  |  |  |  |  |  |  |
+| controlled-48k-001 | A | 48000 | Balanced | 0 |  |  |  |  |  |  |  |
+| controlled-44k1-001 | A | 44100 | Music preservation | 0 |  |  |  |  |  |  |  |
+| controlled-44k1-001 | A | 44100 | Balanced | 0 |  |  |  |  |  |  |  |
+| natural-approved-001 | B | native | Music preservation | 0 | subjective | subjective |  |  |  |  |  |
+| natural-approved-001 | B | native | Balanced | 0 | subjective | subjective |  |  |  |  |  |
 
 ## Tuning rules
 
@@ -142,5 +153,7 @@ Measure both profiles with the same fixture and routing path. Profile switching 
 - Balanced may suppress vocals more strongly but must retain a non-zero center floor.
 - Neither profile may hard-delete the stereo center or collapse mono/near-mono material.
 - Keep the common 512/128 STFT geometry unless a separately reviewed latency/architecture change is approved.
-- Do not tune only against 48 kHz-resampled fixtures; retain native 44.1 kHz acceptance coverage.
-- Change tuning constants only from repeatable fixture evidence; record the before/after values and affected fixtures in the PR or Wayfinder issue.
+- Do not tune only against 48 kHz-resampled fixtures; retain independent native 44.1 kHz and 48 kHz acceptance coverage.
+- Do not tune from candidate/unreviewed natural mixes or from non-commercial baseline datasets without documented permission.
+- Do not tune from one fixture or one singer/arrangement; use the minimum controlled matrix plus approved natural mixes.
+- Change tuning constants only from repeatable fixture evidence; record the before/after values, affected fixture IDs/versions, and rendered hashes in the PR or Wayfinder issue.
