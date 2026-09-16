@@ -43,7 +43,7 @@ jobs:
         run: npm run build:windows
 
       - name: Upload Windows package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: Voxveil-windows-x64-${{ github.sha }}
           path: dist/windows-x64/Voxveil/
@@ -89,7 +89,7 @@ jobs:
         run: npm run build
 
       - name: Upload Linux bundles
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: Voxveil-linux-x64-${{ github.sha }}
           path: target/release/bundle/
@@ -118,7 +118,7 @@ jobs:
         run: npm run build
 
       - name: Upload macOS bundles
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: Voxveil-macos-${{ github.sha }}
           path: target/release/bundle/
