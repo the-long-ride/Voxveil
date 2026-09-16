@@ -47,7 +47,9 @@ impl WindowsAudioBackend {
     ) -> Result<BackendProbe, String> {
         Err("Windows audio relay is unavailable on this platform".into())
     }
-    pub fn set_vocal_level(&self, _value: u8) {}
+    pub fn set_vocal_level(&self, _value: u8) -> Result<(), String> {
+        Ok(())
+    }
     pub fn set_classic_suppression_profile(
         &mut self,
         _profile: ClassicSuppressionProfile,
