@@ -27,14 +27,19 @@ export function compareLocaleKeys(expected, actual) {
   };
 }
 
-export function combineLocale(common, systemAudio) {
-  return { ...common, systemAudio };
+export function combineLocale(common, systemAudio, classicDsp = {}) {
+  return {
+    ...common,
+    engine: { ...(common.engine ?? {}), ...classicDsp },
+    systemAudio,
+  };
 }
 
 function readLocale(localeRoot, language) {
   const common = JSON.parse(fs.readFileSync(path.join(localeRoot, language, 'common.json'), 'utf8'));
   const systemAudio = JSON.parse(fs.readFileSync(path.join(localeRoot, language, 'system-audio.json'), 'utf8'));
-  return combineLocale(common, systemAudio);
+  const classicDsp = JSON.parse(fs.readFileSync(path.join(localeRoot, language, 'classic-dsp.json'), 'utf8'));
+  return combineLocale(common, systemAudio, classicDsp);
 }
 
 export function validateLocales(root) {
