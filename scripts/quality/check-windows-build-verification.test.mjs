@@ -12,6 +12,7 @@ test('manual Windows build runs the full repository verification gate', async ()
     'npm test',
     'npm run typecheck',
     'npm run quality',
+    'npm run build:windows-driver:x64',
     '-SkipNpmInstall',
   ]) {
     assert.match(command, new RegExp(expected.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
