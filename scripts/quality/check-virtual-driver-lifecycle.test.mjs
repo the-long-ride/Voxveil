@@ -24,14 +24,14 @@ test('virtual driver installer requires the staged verification manifest and reh
 test('signed virtual driver stager rehashes copied files before writing verification manifest', () => {
   const text = read('scripts/windows/stage-signed-virtual-driver.ps1');
   const copy = text.search(/Copy-Item/i);
-  const hash = text.search(/Get-FileHash/i);
+  const stagedHash = text.indexOf('Assert-StagedHash -Path $stagedInf', copy);
   const manifest = text.search(/verification\.json/i);
   assert.ok(copy >= 0, 'stager must copy verified package members');
-  assert.ok(hash > copy, 'stager must hash the destination after copying');
-  assert.ok(manifest > hash, 'verification manifest must be written only after destination hashes pass');
-  assert.match(text, /infSha256/i);
-  assert.match(text, /catalogSha256/i);
-  assert.match(text, /driverSha256/i);
+  assert.ok(stagedHash > copy, 'stager must validate destination hashes after copying');
+  assert.ok(manifest > stagedHash, 'verification manifest must be written only after destination hashes pass');
+  assert.match(text, /function\s+Assert-StagedHash[\s\S]*?Get-FileHash/i);
+  assert.match(text, /Assert-StagedHash -Path \$stagedCat -Expected \$verification\.catalogSha256/i);
+  assert.match(text, /Assert-StagedHash -Path \$stagedSys -Expected \$verification\.driverSha256/i);
   assert.match(text, /staged.*hash/i);
 });
 
