@@ -225,7 +225,7 @@ impl WindowsAudioBackend {
         let vocal_level = value.min(100);
         if let Some(relay) = &self.relay {
             relay.set_vocal_level(vocal_level)?;
-        } else if let Some(control) = control_executable() {
+        } else if let Some(control) = control_executable_for_installed_apo()? {
             let percent = vocal_level.to_string();
             run_control(&control, &["vocal", percent.as_str()])?;
         }
@@ -239,7 +239,7 @@ impl WindowsAudioBackend {
     ) -> Result<(), String> {
         if let Some(relay) = &self.relay {
             relay.set_suppression_profile(profile)?;
-        } else if let Some(control) = control_executable() {
+        } else if let Some(control) = control_executable_for_installed_apo()? {
             run_control(&control, &["profile", profile_control_value(profile)])?;
         }
         self.classic_suppression_profile = profile;
@@ -481,14 +481,19 @@ fn apo_install_state_exists() -> Result<bool, String> {
     }
 }
 
+fn control_executable_for_installed_apo() -> Result<Option<PathBuf>, String> {
+    let control = control_executable();
+    if control.is_none() && apo_install_state_exists()? {
+        return Err(
+            "Voxveil APO install state exists but its control component is unavailable; load state cannot be verified"
+                .to_string(),
+        );
+    }
+    Ok(control)
+}
+
 fn loaded_apo_instances() -> Result<u32, String> {
-    let Some(control) = control_executable() else {
-        if apo_install_state_exists()? {
-            return Err(
-                "Voxveil APO install state exists but its control component is unavailable; load state cannot be verified"
-                    .to_string(),
-            );
-        }
+    let Some(control) = control_executable_for_installed_apo()? else {
         return Ok(0);
     };
     let status = run_control(&control, &["status"])?;
