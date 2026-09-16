@@ -27,12 +27,23 @@ pub fn run() {
             {
                 use tauri::Manager;
 
-                // Audio endpoint IDs are intentionally persistent, but devices can be
-                // unplugged or removed between runs. A stale nonessential preference
-                // must never prevent the application from starting.
+                // Audio endpoint IDs and Classic DSP priority are intentionally
+                // persistent, but stale/nonessential preferences must never stop
+                // the application from starting.
                 let mut prefs = config::windows_audio::load(app.handle()).unwrap_or_default();
+                let controller = app.state::<platform::ProcessingController>();
+                if controller
+                    .set_classic_suppression_profile(prefs.classic_suppression_profile)
+                    .is_ok()
+                {
+                    if let Ok(mut current) = app.state::<app::state::AppState>().lock() {
+                        current.classic_suppression_profile = prefs.classic_suppression_profile;
+                    }
+                }
+
+                // Devices can be unplugged or removed between runs. If the saved
+                // endpoint is stale, clear only that preference and keep the rest.
                 if let Some(endpoint_id) = prefs.physical_output_endpoint_id.clone() {
-                    let controller = app.state::<platform::ProcessingController>();
                     if controller
                         .set_physical_output(Some(endpoint_id))
                         .is_err()
