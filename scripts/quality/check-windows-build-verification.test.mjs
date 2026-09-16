@@ -12,8 +12,9 @@ test('manual Windows build runs the full repository verification gate', async ()
     'npm test',
     'npm run typecheck',
     'npm run quality',
-    '-SkipNpmInstall -SkipTests',
+    '-SkipNpmInstall',
   ]) {
     assert.match(command, new RegExp(expected.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
+  assert.doesNotMatch(command, /-SkipTests\b/);
 });
