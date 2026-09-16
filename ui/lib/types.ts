@@ -1,5 +1,6 @@
 export type ProcessingMode = 'all' | 'per-app';
 export type EngineKind = 'auto' | 'dsp' | 'ai';
+export type ClassicSuppressionProfile = 'music-preservation' | 'balanced';
 export type OutputMode = 'physical' | 'virtual' | 'both';
 export type ThemeMode = 'system' | 'light' | 'dark';
 export type ProcessingLoad = 'idle' | 'low' | 'medium' | 'high';
@@ -44,6 +45,7 @@ export interface VoxveilState {
   processingMode: ProcessingMode;
   perAppProcessingAvailable: boolean;
   engine: EngineKind;
+  classicSuppressionProfile: ClassicSuppressionProfile;
   vocalLevel: number;
   quality: number;
   outputMode: OutputMode;

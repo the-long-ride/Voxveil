@@ -54,6 +54,7 @@ pub fn run() {
             app::commands::set_master_enabled,
             app::commands::set_processing_mode,
             app::commands::set_engine,
+            app::commands::set_classic_suppression_profile,
             app::commands::set_vocal_level,
             app::commands::set_quality_preference,
             app::commands::list_audio_sources,

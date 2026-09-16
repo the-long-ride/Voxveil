@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use voxveil_types::{
-    AudioBypassReason, AudioSourceCategory, OutputMode, ProcessingBackendStatus,
-    ProcessingEngineKind, ProcessingLoad, ProcessingMode,
+    AudioBypassReason, AudioSourceCategory, ClassicSuppressionProfile, OutputMode,
+    ProcessingBackendStatus, ProcessingEngineKind, ProcessingLoad, ProcessingMode,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -55,6 +55,7 @@ pub struct AppViewState {
     pub processing_mode: ProcessingMode,
     pub per_app_processing_available: bool,
     pub engine: ProcessingEngineKind,
+    pub classic_suppression_profile: ClassicSuppressionProfile,
     pub vocal_level: u8,
     pub quality: u8,
     pub output_mode: OutputMode,
@@ -94,6 +95,7 @@ impl Default for AppViewState {
             processing_mode: ProcessingMode::All,
             per_app_processing_available: false,
             engine: ProcessingEngineKind::Auto,
+            classic_suppression_profile: ClassicSuppressionProfile::default(),
             vocal_level: 100,
             quality: 50,
             output_mode: OutputMode::Physical,

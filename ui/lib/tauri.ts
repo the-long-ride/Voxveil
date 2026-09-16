@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import type {
   AiModelStatus,
   AudioOutput,
+  ClassicSuppressionProfile,
   EngineKind,
   OutputMode,
   ProcessingMode,
@@ -26,6 +27,8 @@ export function createVoxveilClient(call: InvokeFn = invoke) {
     setMasterEnabled: (enabled: boolean) => call<void>('set_master_enabled', { enabled }),
     setProcessingMode: (mode: ProcessingMode) => call<void>('set_processing_mode', { mode }),
     setEngine: (engine: EngineKind) => call<void>('set_engine', { engine }),
+    setClassicSuppressionProfile: (profile: ClassicSuppressionProfile) =>
+      call<void>('set_classic_suppression_profile', { profile }),
     setVocalLevel: (value: number) => call<void>('set_vocal_level', { value }),
     setQuality: (value: number) => call<void>('set_quality_preference', { value }),
     setAppOverride: (id: string, enabled: boolean) => call<void>('set_app_override', { id, enabled }),

@@ -1,6 +1,7 @@
 use tauri::{AppHandle, State};
 use voxveil_types::{
-    AudioBypassReason, OutputMode, ProcessingBackendStatus, ProcessingEngineKind, ProcessingMode,
+    AudioBypassReason, ClassicSuppressionProfile, OutputMode, ProcessingBackendStatus,
+    ProcessingEngineKind, ProcessingMode,
 };
 
 use super::{
@@ -96,6 +97,17 @@ pub fn set_engine(
         );
     }
     state.lock()?.engine = engine;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn set_classic_suppression_profile(
+    state: State<'_, AppState>,
+    controller: State<'_, ProcessingController>,
+    profile: ClassicSuppressionProfile,
+) -> Result<(), String> {
+    controller.set_classic_suppression_profile(profile)?;
+    state.lock()?.classic_suppression_profile = profile;
     Ok(())
 }
 

@@ -3,6 +3,7 @@ import { PREVIEW_STATE, SAFE_NATIVE_STATE } from '../lib/demo-state';
 import { createVoxveilClient } from '../lib/tauri';
 import type {
   AudioOutput,
+  ClassicSuppressionProfile,
   EngineKind,
   OutputMode,
   ProcessingMode,
@@ -164,6 +165,11 @@ export function useVoxveilState() {
       (current) => ({ ...current, engine, estimatedLatencyMs: estimatedLatency(engine, current.quality) }),
       () => client.setEngine(engine),
     );
+  const setClassicSuppressionProfile = (classicSuppressionProfile: ClassicSuppressionProfile) =>
+    commit(
+      { classicSuppressionProfile },
+      () => client.setClassicSuppressionProfile(classicSuppressionProfile),
+    );
   const setVocalLevel = (vocalLevel: number) =>
     commit({ vocalLevel }, () => client.setVocalLevel(vocalLevel));
   const setQuality = (quality: number) =>
@@ -202,6 +208,7 @@ export function useVoxveilState() {
     setMasterEnabled,
     setProcessingMode,
     setEngine,
+    setClassicSuppressionProfile,
     setVocalLevel,
     setQuality,
     setOutputMode,

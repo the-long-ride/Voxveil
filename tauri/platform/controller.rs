@@ -1,6 +1,6 @@
 use std::sync::Mutex;
 
-use voxveil_types::ProcessingBackendStatus;
+use voxveil_types::{ClassicSuppressionProfile, ProcessingBackendStatus};
 
 #[derive(Clone, Debug)]
 pub struct BackendSnapshot {
@@ -82,6 +82,25 @@ impl ProcessingController {
             backend.set_vocal_level(value);
         }
         Ok(())
+    }
+
+    pub fn set_classic_suppression_profile(
+        &self,
+        profile: ClassicSuppressionProfile,
+    ) -> Result<(), String> {
+        #[cfg(target_os = "windows")]
+        {
+            let mut backend = self
+                .backend
+                .lock()
+                .map_err(|_| "Windows audio backend lock is poisoned".to_string())?;
+            return backend.set_classic_suppression_profile(profile);
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            let _ = profile;
+            Ok(())
+        }
     }
 
     pub fn set_physical_output(
