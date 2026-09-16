@@ -472,7 +472,7 @@ fn query_apo_coverage(endpoints: &[EndpointDescriptor]) -> Result<(u32, bool), S
 fn apo_install_state_exists() -> Result<bool, String> {
     let path = system_audio_directory().join("install-state.json");
     match std::fs::metadata(&path) {
-        Ok(metadata) => Ok(metadata.is_file()),
+        Ok(_) => Ok(true),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
         Err(error) => Err(format!(
             "failed to inspect Voxveil APO install state at {}: {error}",
