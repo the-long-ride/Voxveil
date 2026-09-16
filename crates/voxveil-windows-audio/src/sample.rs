@@ -19,6 +19,17 @@ pub fn process_f32le_stereo(
     Ok(())
 }
 
+pub(crate) fn process_capture_f32le_stereo(
+    bytes: &mut [u8],
+    silent: bool,
+    processor: &mut dyn AudioProcessor,
+) -> Result<(), &'static str> {
+    if silent {
+        bytes.fill(0);
+    }
+    process_f32le_stereo(bytes, processor)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
