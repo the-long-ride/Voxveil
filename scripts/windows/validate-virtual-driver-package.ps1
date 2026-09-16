@@ -134,6 +134,22 @@ if ($infText -notmatch '(?im)^\s*CatalogFile\s*=\s*VoxveilVirtualAudio\.cat\s*$'
   throw 'INF must reference VoxveilVirtualAudio.cat.'
 }
 
+$expectedManufacturer = '(?im)^\s*%MfgName%\s*=\s*Voxveil,NTamd64\.10\.0\.\.\.22621,NTarm64\.10\.0\.\.\.22621\s*$'
+if ($infText -notmatch $expectedManufacturer) {
+  throw 'INF driver applicability must remain Windows build 22621+ for both x64 and Arm64.'
+}
+foreach ($modelSection in @(
+  'Voxveil\.NTamd64\.10\.0\.\.\.22621',
+  'Voxveil\.NTarm64\.10\.0\.\.\.22621'
+)) {
+  if ($infText -notmatch "(?im)^\s*\[$modelSection\]\s*$") {
+    throw "INF driver applicability is missing required model section [$modelSection]."
+  }
+}
+if ($infText -match '(?im)^\s*\[Voxveil\.NT(?:amd64|arm64)\]\s*$') {
+  throw 'INF driver applicability must not include undecorated x64/Arm64 model sections.'
+}
+
 $infVerif = Find-WdkTool 'InfVerif.exe'
 & $infVerif /v /w $inf[0].FullName | Out-Host
 if ($LASTEXITCODE -ne 0) {
