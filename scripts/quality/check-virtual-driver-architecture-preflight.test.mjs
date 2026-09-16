@@ -9,7 +9,9 @@ test('virtual driver installer rejects a staged package for the wrong native arc
 
   assert.match(text, /function\s+Assert-StagedArchitecture/i);
   assert.match(text, /Get-CimInstance\s+Win32_Processor/i);
-  assert.match(text, /Architecture\s*-eq\s*9|Architecture\s*-eq\s*12/i);
+  assert.match(text, /9\s*\{\s*'x64'/i);
+  assert.match(text, /12\s*\{\s*'ARM64'/i);
+  assert.match(text, /PackageArchitecture\s+-ine\s+\$nativeArchitecture/i);
   assert.match(
     text,
     /Assert-StagedArchitecture\s+-PackageArchitecture\s+\(\[string\]\$verification\.architecture\)/i,
