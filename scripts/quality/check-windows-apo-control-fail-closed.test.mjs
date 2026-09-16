@@ -26,3 +26,10 @@ test('APO install-state presence check distinguishes only NotFound from existing
   assert.match(helper, /Err\(error\)/);
   assert.doesNotMatch(helper, /is_file\(\)/);
 });
+
+test('Windows platform spec forbids relay fallback when installed APO control state cannot be verified', () => {
+  const spec = readFileSync('docs/specs/platform/windows.md', 'utf8');
+
+  assert.match(spec, /install-state\.json[\s\S]{0,260}control component/i);
+  assert.match(spec, /faulted[\s\S]{0,260}(?:must not|does not|cannot)[\s\S]{0,120}relay fallback|relay fallback[\s\S]{0,260}faulted/i);
+});
