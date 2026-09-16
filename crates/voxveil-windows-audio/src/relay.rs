@@ -714,7 +714,7 @@ mod tests {
         let physical = physical("speakers", false);
         let decision = decide_backend(
             false,
-            Some((VirtualEndpointKind::VbCableRelay, &cable)),
+            Some((VirtualEndpointKind::VbCable, &cable)),
             Some(&physical),
             Some(&RelayRuntimeState::Running),
         );
