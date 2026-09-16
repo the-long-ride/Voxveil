@@ -92,8 +92,20 @@ test('production INF exposes the fixed Voxveil interface and disables sample dia
   assert.match(text, /DisableToneGenerator,0x00010001,1/i);
 });
 
-test('virtual driver build preflight locks both commit and SysVAD subtree identity', () => {
+test('SysVAD importer verifies the exact fetched commit and subtree before materializing source', () => {
+  const text = read('scripts/windows/import-sysvad-source.ps1');
+  assert.match(text, /git(?:\.exe)?['"]?\s+fetch|&\s*\$git\s+.*fetch/is);
+  assert.match(text, /FETCH_HEAD:audio\/sysvad/i);
+  assert.match(text, /6fa502f5bfb3de1395a6c9ffe71e322fd9e28926/i);
+  assert.match(text, /67d81f217bc01edf7a4320e4911c11065635acfa/i);
+  assert.match(text, /git(?:\.exe)?['"]?\s+archive|&\s*\$git\s+.*archive/is);
+  assert.doesNotMatch(text, /Invoke-WebRequest/i);
+});
+
+test('virtual driver build materializes the verified pinned SysVAD source before compiling', () => {
   const text = read('scripts/windows/build-virtual-driver.ps1');
+  assert.match(text, /import-sysvad-source\.ps1/i);
+  assert.match(text, /-Force/i);
   assert.match(text, /SYSVAD_TREE_SHA/i);
   assert.match(text, /6fa502f5bfb3de1395a6c9ffe71e322fd9e28926/i);
   assert.match(text, /SysVAD tree.*drift/i);
