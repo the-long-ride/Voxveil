@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-const relay = () =>
-  readFileSync('crates/voxveil-windows-audio/src/relay.rs', 'utf8').replace(/\r\n?/g, '\n');
+const relay = () => [
+  'crates/voxveil-windows-audio/src/relay.rs',
+  'crates/voxveil-windows-audio/src/relay_support.rs',
+].map((path) => readFileSync(path, 'utf8').replace(/\r\n?/g, '\n')).join('\n');
 
 test('APO status command failures are not silently interpreted as zero loaded instances', () => {
   const text = relay();
