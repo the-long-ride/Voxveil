@@ -139,7 +139,7 @@ pub fn list_audio_outputs(
     controller: State<'_, ProcessingController>,
 ) -> Result<Vec<AudioOutputDto>, String> {
     Ok(controller
-        .physical_outputs()
+        .physical_outputs()?
         .into_iter()
         .map(audio_output_dto)
         .collect())
