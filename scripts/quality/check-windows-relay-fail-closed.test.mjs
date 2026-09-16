@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-const relay = () => readFileSync('crates/voxveil-windows-audio/src/relay.rs', 'utf8');
+const relay = () => [
+  'crates/voxveil-windows-audio/src/relay.rs',
+  'crates/voxveil-windows-audio/src/relay_support.rs',
+].map((path) => readFileSync(path, 'utf8')).join('\n');
 
 test('non-ready Windows audio probes shut down active processing', () => {
   const text = relay();
