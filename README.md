@@ -68,7 +68,7 @@ Build the Windows development package from an x64 Developer PowerShell with Visu
 npm run build:windows
 ```
 
-The staged output is written to `dist/windows-x64/Voxveil` by default. The `npm run build:windows` entrypoint performs a clean dependency install, runs `cargo test --workspace`, the UI/Node test suite, TypeScript typechecking, and the full repository quality gate, then invokes the Windows packager with duplicate dependency/test phases skipped. The packager still builds and executes the native APO policy tests before compiling the control/APO projects, virtual-device helper, and Tauri executable and writing SHA-256 checksums.
+The staged output is written to `dist/windows-x64/Voxveil` by default. The `npm run build:windows` entrypoint performs a clean dependency install, runs `cargo test --workspace`, the UI/Node test suite, TypeScript typechecking, and the full repository quality gate, then invokes the Windows packager with only dependency installation skipped. The packager reruns its focused Windows-audio and quality checks and builds/executes the native APO policy tests before compiling the control/APO projects, virtual-device helper, and Tauri executable and writing SHA-256 checksums.
 
 For release-candidate staging, signed native packages are opt-in inputs and are verified before they replace development artifacts in the staged desktop package. Set only the inputs that are available for the release being assembled:
 
