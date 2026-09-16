@@ -269,15 +269,11 @@ impl WindowsAudioBackend {
         Ok(self.probe())
     }
 
-    pub fn physical_outputs(&self) -> Vec<EndpointDescriptor> {
-        enumerate_render_blocking()
-            .map(|items| {
-                items
-                    .into_iter()
-                    .filter(|item| classify_virtual_endpoint(item).is_none())
-                    .collect()
-            })
-            .unwrap_or_default()
+    pub fn physical_outputs(&self) -> Result<Vec<EndpointDescriptor>, String> {
+        Ok(enumerate_render_blocking()?
+            .into_iter()
+            .filter(|item| classify_virtual_endpoint(item).is_none())
+            .collect())
     }
 
     pub fn system_audio_endpoints(&self) -> Result<Vec<SystemAudioEndpoint>, String> {
@@ -608,9 +604,9 @@ mod tests {
     fn physical(id: &str, is_default: bool) -> EndpointDescriptor {
         EndpointDescriptor {
             id: id.into(),
-            name: "Speakers".into(),
-            interface_name: Some("Physical Audio".into()),
-            description: Some("Speakers".into()),
+            name: id.into(),
+            interface_name: None,
+            description: None,
             is_default,
         }
     }
