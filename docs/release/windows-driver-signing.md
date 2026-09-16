@@ -2,6 +2,8 @@
 
 This document covers the Voxveil-owned `Root\VoxveilVirtualAudio` kernel driver. It deliberately separates repository automation from certificate/account operations that must occur outside the repository.
 
+The Tier 2 driver INF follows the exact pinned SysVAD applicability boundary and targets Windows build 22621 (Windows 11 22H2) or later on x64/Arm64. This is not the overall Voxveil Windows support floor; supported Windows 10 systems use the Tier 1 relay/fallback path instead of this first-party driver.
+
 ## Microsoft status model
 
 Current Microsoft driver-signing guidance distinguishes attestation signing from Windows Hardware Compatibility Program (WHCP/HLK) certification:
@@ -90,6 +92,8 @@ The repository must not contain or automate access to:
      -Architecture x64
    ```
 
+   Verification requires the returned INF to preserve the fixed Voxveil identity and build-22621+ applicability, verifies the catalog with the kernel-mode trust policy, and verifies the returned INF/SYS as members of that trusted catalog. The SYS is not required to carry a separate embedded signature when its digest is covered by the trusted Microsoft-signed catalog.
+
 10. For direct pilot/testing distribution only, stage with an explicit pilot channel:
 
    ```powershell
@@ -136,9 +140,11 @@ If `VOXVEIL_SIGNED_DRIVER_RELEASE_CHANNEL` is omitted while `VOXVEIL_SIGNED_DRIV
 ## Release-blocking validation checklist
 
 - [ ] The exact source revision and Voxveil commit are recorded.
+- [ ] The validation machine is Windows build 22621 or later for this Tier 2 driver.
 - [ ] Secure Boot remains enabled on the validation machine.
 - [ ] TESTSIGNING is off.
-- [ ] `signtool verify /kp /v` succeeds for the returned catalog/driver.
+- [ ] `signtool verify /kp /v` succeeds for the returned catalog.
+- [ ] `signtool verify /c <catalog> /v` confirms the returned INF and SYS are covered by that catalog.
 - [ ] `InfVerif` succeeds.
 - [ ] Package hashes match release evidence for retail builds.
 - [ ] Fresh-machine installation succeeds without importing a local test certificate.
