@@ -10,27 +10,27 @@
 - Bundled English, Vietnamese, Chinese, Korean, Japanese, Spanish, and French locales.
 - Local theme/language persistence and typed Tauri command client.
 - Shared Rust value types, audio processor contract, single-thread fixed-capacity processing queue, routing policy, and model abstraction.
-- Classic DSP mid/side vocal suppression v1.
+- Classic DSP adaptive STFT stereo-center suppression with user-selectable Music preservation and Balanced profiles.
+- Persistent Windows relay DSP state with hot vocal-level/profile updates.
+- Native Windows APO real-time-safe band-limited fallback with matching non-zero profile floors.
 - Calls/VoIP default bypass policy.
 - Auto engine selection and graceful degradation primitives.
 - Standard/Pro System edition and platform capability contracts.
-- CI, manual ten-variant build matrix, tagged release workflow, SHA-256 artifact metadata, and release SBOM generation.
+- Manual ten-variant build matrix, tagged release workflow, SHA-256 artifact metadata, and release SBOM generation.
 
 ## Deliberately not claimed complete
 
-- Windows signed virtual endpoint/APO interception component (plain WASAPI loopback is capture-only and is not treated as output replacement).
+- Production signing/HLK validation for Windows virtual endpoint/APO packages.
 - Linux PipeWire capture/routing.
 - macOS Core Audio taps/virtual driver.
-- Desktop virtual audio drivers.
 - Android MediaProjection/root routing implementations.
 - iOS supported/privileged routing implementations.
 - Tray/global-hotkey implementation.
-- Frequency-selective/STFT DSP v2.
 - Any AI inference backend or model checkpoint.
 - Installer signing/notarization credentials.
 
-Those are independent milestones in `implementation-plan.md`; their interfaces are already separated so they do not require redesigning the UI or shared domain model.
+Those are independent milestones in `implementation-plan.md`; their interfaces are separated so they do not require redesigning the UI or shared domain model.
 
-## Verification limitation of this source snapshot
+## Verification policy
 
-The assembly environment has Node.js/npm but cannot reach the npm registry, and it does not contain Rust/Cargo. Therefore JavaScript/Rust lockfiles, dependency installation, UI compilation/Vitest coverage, Rust compilation, and Rust coverage cannot be honestly produced here. Repository-owned static tests and gates are executable without external dependencies and are run before packaging. The second-pass findings and remaining risks are recorded in `code-review-2026-08-14.md`.
+The repository intentionally permits only its manual build workflow. Source changes must therefore be verified with repository-owned static/unit/build checks where the execution environment supports them, plus the manual Windows workflow for native Windows packaging. A source snapshot or environment that cannot execute a required toolchain must not be treated as evidence that the corresponding build or test passed.
