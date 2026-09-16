@@ -66,6 +66,8 @@ Classic DSP is stereo-position/spectral suppression, not semantic source separat
 
 ## Validation protocol
 
-Use `docs/testing/classic-dsp-evaluation.md` for repeatable real-audio A/B evaluation. The repository includes the dependency-free `voxveil-dsp` example `classic_dsp_raw`, which renders raw stereo f32 input with fixed-latency compensation so Music preservation and Balanced outputs stay sample-aligned with the source fixture.
+Use `docs/testing/classic-dsp-fixture-corpus.md` for the approved fixture provenance/license boundary and `docs/testing/classic-dsp-evaluation.md` for repeatable real-audio A/B evaluation. The repository includes the dependency-free `voxveil-dsp` example `classic_dsp_raw`, which renders raw stereo f32 input with fixed-latency compensation so Music preservation and Balanced outputs stay sample-aligned with the source fixture.
 
-Do not commit copyrighted evaluation fixtures. Record fixture provenance/license, raw-input SHA-256, profile/Vocal settings, accompaniment damage, residual vocal, artifacts, CPU, and end-to-end latency before changing production tuning constants.
+Quantitative tuning must use the controlled corpus matrix with independent native 44.1 kHz and 48 kHz fixtures. Subjective release acceptance must also include independently licensed natural production mixes; controlled mixtures alone are not sufficient evidence for reverb, mastering, doubles, or production-artifact behavior.
+
+Do not commit downloaded evaluation audio. Record fixture/version provenance and license checks, source and raw-input SHA-256 values, deterministic mix recipe, rendered-output hashes, profile/Vocal settings, accompaniment damage, residual vocal, artifacts, CPU, and end-to-end latency before changing production tuning constants. Restricted/non-commercial datasets are not a commercial release baseline without separate permission for the exact recording.
