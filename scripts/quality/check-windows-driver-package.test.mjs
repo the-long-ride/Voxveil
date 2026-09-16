@@ -41,8 +41,8 @@ test('virtual driver validator rejects a SYS for the wrong architecture', () => 
 
 test('virtual driver validator finds WDK tools from both bin and Tools trees', () => {
   const text = readFileSync('scripts/windows/validate-virtual-driver-package.ps1', 'utf8');
-  assert.match(text, /Windows Kits\\10['"]?\s*,?\s*['"]?bin/i);
-  assert.match(text, /Windows Kits\\10['"]?\s*,?\s*['"]?Tools/i);
+  assert.match(text, /Windows Kits\\10\\bin/i);
+  assert.match(text, /Windows Kits\\10\\Tools/i);
   assert.match(text, /InfVerif\.exe/i);
 });
 
