@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const read = (file) => readFile(new URL(`../../${file}`, import.meta.url), 'utf8');
+const readModule = async (...files) => (await Promise.all(files.map(read))).join('\n');
 
 test('workspace includes isolated Windows audio crate', async () => {
   const cargo = await read('Cargo.toml');
@@ -62,7 +63,10 @@ test('manual Windows build stages componentized APO and endpoint discovery', asy
 });
 
 test('system audio discovery fails closed instead of guessing topology', async () => {
-  const discovery = await read('crates/voxveil-windows-audio/src/discovery.rs');
+  const discovery = await readModule(
+    'crates/voxveil-windows-audio/src/discovery.rs',
+    'crates/voxveil-windows-audio/src/discovery_windows.rs',
+  );
   const helper = await read('scripts/windows/discover-system-audio-endpoints.ps1');
   const deviceInterfaces = await read('crates/voxveil-windows-audio/src/device_interfaces.rs');
   assert.match(discovery, /SystemAudioEndpointStatus::Ambiguous/);
@@ -78,7 +82,10 @@ test('system audio discovery fails closed instead of guessing topology', async (
 });
 
 test('runtime topology binding can source driver metadata from an anchored ancestor', async () => {
-  const discovery = await read('crates/voxveil-windows-audio/src/discovery.rs');
+  const discovery = await readModule(
+    'crates/voxveil-windows-audio/src/discovery.rs',
+    'crates/voxveil-windows-audio/src/discovery_windows.rs',
+  );
   const helper = await read('scripts/windows/discover-system-audio-endpoints.ps1');
   const installer = await read('scripts/windows/install-system-audio-component.ps1');
   const systemAudio = await read('tauri/app/system_audio.rs');
@@ -113,7 +120,10 @@ test('browser install flow uses opaque endpoint id and never raw driver identifi
 
 test('Windows readiness requires the APO to be loaded on the active render endpoint', async () => {
   const device = await read('crates/voxveil-windows-audio/src/device.rs');
-  const backend = await read('crates/voxveil-windows-audio/src/relay.rs');
+  const backend = await readModule(
+    'crates/voxveil-windows-audio/src/relay.rs',
+    'crates/voxveil-windows-audio/src/relay_support.rs',
+  );
 
   assert.match(device, /loaded_instances == 0/);
   assert.match(device, /AudioDG has not loaded/);
@@ -124,7 +134,10 @@ test('Windows readiness requires the APO to be loaded on the active render endpo
 });
 
 test('WASAPI COM initialization converts HRESULT before Rust error mapping', async () => {
-  const source = await read('crates/voxveil-windows-audio/src/relay.rs');
+  const source = await readModule(
+    'crates/voxveil-windows-audio/src/relay.rs',
+    'crates/voxveil-windows-audio/src/relay_enumeration.rs',
+  );
   const initializers = source.match(/wasapi::initialize_mta\(\)\s*\.ok\(\)\s*\.map_err/g) ?? [];
   assert.equal(initializers.length, 1);
   assert.doesNotMatch(source, /initialize_mta\(\)\.map_err/);
