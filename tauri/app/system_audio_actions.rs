@@ -19,10 +19,21 @@ pub fn set_physical_audio_output(
 
     preferences.physical_output_endpoint_id = Some(endpoint_id);
     if let Err(error) = crate::config::windows_audio::save(&app, &preferences) {
-        // Keep the live route and persisted preference consistent when storage
-        // fails. Best-effort rollback uses the exact previously persisted ID.
-        let _ = controller.set_physical_output(previous_endpoint_id);
-        return Err(error);
+        // Keep the live route, AppState and persisted preference consistent when
+        // storage fails. Restoring a route stops processing, so the rollback
+        // snapshot must be applied even though this command returns an error.
+        let (rollback_snapshot, rollback_error) =
+            match controller.set_physical_output(previous_endpoint_id) {
+                Ok(snapshot) => (snapshot, None),
+                Err(rollback_error) => (controller.snapshot(), Some(rollback_error)),
+            };
+        state.lock()?.apply_backend(&rollback_snapshot);
+        return Err(match rollback_error {
+            Some(rollback_error) => {
+                format!("{error}; failed to restore previous physical output: {rollback_error}")
+            }
+            None => error,
+        });
     }
 
     state.lock()?.apply_backend(&snapshot);
