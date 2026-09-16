@@ -22,19 +22,26 @@ function Find-WdkTool {
   $command = Get-Command $Name -ErrorAction SilentlyContinue
   if ($command) { return $command.Source }
 
-  $binRoot = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin'
-  if (-not (Test-Path $binRoot)) {
-    throw "Windows Kits tool directory was not found while locating $Name."
+  $searchRoots = @(
+    (Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin'),
+    (Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\Tools')
+  )
+
+  foreach ($root in $searchRoots) {
+    if (-not (Test-Path $root -PathType Container)) { continue }
+
+    $direct = Join-Path $root "x64\$Name"
+    if (Test-Path $direct -PathType Leaf) { return $direct }
+
+    $candidate = Get-ChildItem $root -Directory -ErrorAction SilentlyContinue |
+      Sort-Object Name -Descending |
+      ForEach-Object { Join-Path $_.FullName "x64\$Name" } |
+      Where-Object { Test-Path $_ -PathType Leaf } |
+      Select-Object -First 1
+    if ($candidate) { return $candidate }
   }
 
-  $candidate = Get-ChildItem $binRoot -Directory -ErrorAction SilentlyContinue |
-    Sort-Object Name -Descending |
-    ForEach-Object { Join-Path $_.FullName "x64\$Name" } |
-    Where-Object { Test-Path $_ } |
-    Select-Object -First 1
-  if ($candidate) { return $candidate }
-
-  throw "$Name was not found in PATH or the installed Windows Kits."
+  throw "$Name was not found in PATH or the installed Windows Kits bin/Tools directories."
 }
 
 function Get-PeMachine {
