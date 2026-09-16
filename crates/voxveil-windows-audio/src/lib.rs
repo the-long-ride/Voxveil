@@ -18,6 +18,7 @@ mod wasapi_relay;
 #[allow(unsafe_code)]
 mod topology;
 
+#[cfg(not(windows))]
 use voxveil_types::ClassicSuppressionProfile;
 
 pub use device::{
