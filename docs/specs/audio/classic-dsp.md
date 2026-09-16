@@ -16,6 +16,8 @@ Processing geometry is fixed at a 512-frame transform with a 128-frame hop. For 
 - attack/release gain smoothing;
 - a non-zero suppression floor so maximum reduction never deletes the center completely.
 
+WASAPI packets flagged `BUFFER_SILENT` are zero-filled and still passed through the retained processor. Silent source periods therefore advance the STFT timeline, overlap-add state, and fixed latency instead of pausing processor state until the next audible packet.
+
 `vocalLevel = 1` preserves the signal. Lower values increase center suppression inside the profile's protected frequency range.
 
 ## User-selectable profiles
@@ -55,6 +57,7 @@ The APO fallback must never return to full-band hard center cancellation.
 - finite input must remain finite;
 - malformed odd trailing samples must not panic;
 - profile/vocal-level updates must not reconstruct the processor per audio packet;
+- silent capture packets must advance the same retained processor state as audible packets;
 - engine switching occurs outside the callback and uses the realtime coordinator.
 
 ## Quality boundary
