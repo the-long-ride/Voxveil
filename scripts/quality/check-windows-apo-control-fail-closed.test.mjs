@@ -16,11 +16,13 @@ test('missing APO control fails closed when an APO install state exists', () => 
   );
 });
 
-test('APO install-state presence check distinguishes missing files from inspection failures', () => {
+test('APO install-state presence check distinguishes only NotFound from existing or unreadable state', () => {
   const text = relay();
   const helper = text.match(/fn apo_install_state_exists\([\s\S]*?\n\}/)?.[0] ?? '';
 
   assert.match(helper, /install-state\.json/);
+  assert.match(helper, /Ok\([^)]*\)\s*=>\s*Ok\(true\)/);
   assert.match(helper, /ErrorKind::NotFound/);
   assert.match(helper, /Err\(error\)/);
+  assert.doesNotMatch(helper, /is_file\(\)/);
 });
