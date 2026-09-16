@@ -38,6 +38,7 @@ bcdedit /enum | Select-String testsigning
 ```
 
 - [ ] Machine build is Windows 11 build 22621 or later.
+- [ ] Selected package architecture matches the machine's native Windows architecture (x64 or Arm64).
 - [ ] Signed-package verification succeeds.
 - [ ] Secure Boot is enabled.
 - [ ] TESTSIGNING is not enabled.
@@ -72,8 +73,9 @@ From an elevated PowerShell in the staged `system-audio` directory:
 .\install-staged-virtual-driver.ps1
 ```
 
-The installer re-hashes the INF/CAT/SYS against `virtual-driver/verification.json`, verifies the fixed Voxveil driver/interface identity and Microsoft catalog signer, ensures exactly one `Root\VoxveilVirtualAudio` devnode through `voxveil-virtual-device.exe`, then invokes `pnputil /add-driver ... /install`. It resolves the installed driver from the exact returned device instance and records both that instance ID and one published INF in `virtual-driver/virtual-driver-install-state.json`.
+The installer re-hashes the INF/CAT/SYS against `virtual-driver/verification.json`, verifies the fixed Voxveil driver/interface identity and Microsoft catalog signer, resolves native processor architecture through `Win32_Processor`, and rejects a package/OS architecture mismatch before creating or reusing the root devnode. Only then does it ensure exactly one `Root\VoxveilVirtualAudio` devnode through `voxveil-virtual-device.exe` and invoke `pnputil /add-driver ... /install`. It resolves the installed driver from the exact returned device instance and records both that instance ID and one published INF in `virtual-driver/virtual-driver-install-state.json`.
 
+- [ ] Wrong-architecture staged packages are rejected before any root-devnode mutation.
 - [ ] The helper reports exactly one Voxveil root devnode.
 - [ ] PnPUtil succeeds without enabling test mode.
 - [ ] `virtual-driver-install-state.json` contains one `deviceInstanceId` and one `oemN.inf` `publishedInf`.
