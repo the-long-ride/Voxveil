@@ -2,6 +2,8 @@
 
 Use this procedure only with the exact Microsoft-signed package intended for the selected Voxveil release channel. Do not substitute an unsigned or locally test-signed package.
 
+The first-party Tier 2 driver INF follows the pinned SysVAD applicability boundary and supports Windows build 22621 (Windows 11 22H2) or later. Windows 10 validation belongs to the Tier 1 relay/fallback path rather than this driver-install matrix.
+
 ## Package identity
 
 - Voxveil commit: ______________________________________
@@ -16,7 +18,7 @@ Use this procedure only with the exact Microsoft-signed package intended for the
 
 ## Machine identity
 
-- Windows edition/build: _______________________________
+- Windows edition/build (must be 22621+): ______________
 - Architecture: ________________________________________
 - Secure Boot state: ___________________________________
 - TESTSIGNING state: ___________________________________
@@ -35,6 +37,7 @@ Confirm-SecureBootUEFI
 bcdedit /enum | Select-String testsigning
 ```
 
+- [ ] Machine build is Windows 11 build 22621 or later.
 - [ ] Signed-package verification succeeds.
 - [ ] Secure Boot is enabled.
 - [ ] TESTSIGNING is not enabled.
