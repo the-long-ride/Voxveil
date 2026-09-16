@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-const read = (path) => readFileSync(path, 'utf8');
+const read = (path) => readFileSync(path, 'utf8').replace(/\r\n?/g, '\n');
 
 test('Windows vocal control propagates live relay and APO failures before committing state', () => {
   const relay = read('crates/voxveil-windows-audio/src/relay.rs');
@@ -10,7 +10,7 @@ test('Windows vocal control propagates live relay and APO failures before commit
 
   assert.match(setter, /->\s*Result<\(\),\s*String>/);
   assert.match(setter, /relay\.set_vocal_level\([^)]*\)\?/);
-  assert.match(setter, /else if let Some\(control\) = control_executable\(\)/);
+  assert.match(setter, /else if let Some\(control\) = control_executable_for_installed_apo\(\)\?/);
   assert.match(setter, /run_control\([^;]+\)\?/s);
   assert.doesNotMatch(setter, /let\s+_\s*=\s*(?:relay\.set_vocal_level|run_control)/);
   assert.ok(

@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-const relay = () => readFileSync('crates/voxveil-windows-audio/src/relay.rs', 'utf8');
+const relay = () =>
+  readFileSync('crates/voxveil-windows-audio/src/relay.rs', 'utf8').replace(/\r\n?/g, '\n');
 
 test('missing APO control fails closed when an APO install state exists', () => {
   const text = relay();

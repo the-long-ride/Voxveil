@@ -2,12 +2,16 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-const relay = () => readFileSync('crates/voxveil-windows-audio/src/relay.rs', 'utf8');
+const relay = () =>
+  readFileSync('crates/voxveil-windows-audio/src/relay.rs', 'utf8').replace(/\r\n?/g, '\n');
 
 test('APO status command failures are not silently interpreted as zero loaded instances', () => {
   const text = relay();
   assert.match(text, /fn\s+loaded_apo_instances\s*\(\)\s*->\s*Result<u32,\s*String>/);
-  assert.match(text, /let\s+Some\(control\)\s*=\s*control_executable\(\)\s+else\s*\{\s*return\s+Ok\(0\)/s);
+  assert.match(
+    text,
+    /let\s+Some\(control\)\s*=\s*control_executable_for_installed_apo\(\)\?\s+else\s*\{\s*return\s+Ok\(0\)/s,
+  );
   assert.match(text, /let\s+status\s*=\s*run_control\(&control,\s*&\["status"\]\)\?/);
   assert.match(text, /parse_loaded_instances_required\(&status\)/);
   assert.doesNotMatch(
