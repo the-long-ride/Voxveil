@@ -11,7 +11,7 @@
     "dev": "npm run dev --workspace @voxveil/tauri-shell",
     "dev:windows": "scripts\\dev-windows.cmd",
     "build": "npm run build --workspace @voxveil/tauri-shell",
-    "build:windows": "npm ci --ignore-scripts --no-fund --no-audit && cargo test --workspace && npm test && npm run typecheck && npm run quality && powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/windows/build-windows.ps1 -SkipNpmInstall",
+    "build:windows": "npm ci --ignore-scripts --no-fund --no-audit && cargo test --workspace && npm test && npm run typecheck && npm run quality && npm run build:windows-driver:x64 && powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/windows/build-windows.ps1 -SkipNpmInstall",
     "build:windows-driver:x64": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/windows/build-virtual-driver.ps1 -Architecture x64 -Configuration Release",
     "build:windows-driver:arm64": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/windows/build-virtual-driver.ps1 -Architecture ARM64 -Configuration Release",
     "build:ui": "npm run build --workspace @voxveil/ui",
