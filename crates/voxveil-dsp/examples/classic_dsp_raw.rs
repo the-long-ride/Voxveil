@@ -129,9 +129,19 @@ fn write_after_latency(
 fn run(config: Config) -> Result<(), String> {
     let mut input = File::open(&config.input)
         .map_err(|error| format!("failed to open {}: {error}", config.input.display()))?;
+    let input_bytes = input
+        .metadata()
+        .map_err(|error| format!("failed to inspect {}: {error}", config.input.display()))?
+        .len();
+    if input_bytes % FRAME_BYTES as u64 != 0 {
+        return Err(format!(
+            "{} has {input_bytes} bytes; stereo f32le requires a multiple of {FRAME_BYTES}",
+            config.input.display()
+        ));
+    }
+
     let mut output = File::create(&config.output)
         .map_err(|error| format!("failed to create {}: {error}", config.output.display()))?;
-
     let mut processor = SpectralCenterSuppressor::new(
         config.sample_rate,
         config.vocal_level,
@@ -177,6 +187,16 @@ fn run(config: Config) -> Result<(), String> {
     output
         .flush()
         .map_err(|error| format!("failed to flush {}: {error}", config.output.display()))?;
+
+    let output_bytes = output
+        .metadata()
+        .map_err(|error| format!("failed to inspect {}: {error}", config.output.display()))?
+        .len();
+    if output_bytes != input_bytes {
+        return Err(format!(
+            "latency compensation changed stream length: input={input_bytes} bytes output={output_bytes} bytes"
+        ));
+    }
     Ok(())
 }
 
