@@ -5,6 +5,8 @@ use std::sync::{
 };
 use std::time::Duration;
 
+use voxveil_dsp::SpectralCenterSuppressor;
+use voxveil_types::{ClassicSuppressionProfile, VocalLevel};
 use wasapi::{Device, DeviceEnumerator, Direction, SampleType, StreamMode};
 
 use crate::process_f32le_stereo;
@@ -66,7 +68,29 @@ pub(crate) fn run_relay_worker(
     control_rx: Receiver<RelayCommand>,
     state: Arc<Mutex<RelayRuntimeState>>,
 ) -> Result<(), String> {
-    let result = run_relay_worker_inner(spec, initial_vocal_level, control_rx, &state);
+    run_relay_worker_with_profile(
+        spec,
+        initial_vocal_level,
+        ClassicSuppressionProfile::default(),
+        control_rx,
+        state,
+    )
+}
+
+pub(crate) fn run_relay_worker_with_profile(
+    spec: RelaySpec,
+    initial_vocal_level: u8,
+    initial_profile: ClassicSuppressionProfile,
+    control_rx: Receiver<RelayCommand>,
+    state: Arc<Mutex<RelayRuntimeState>>,
+) -> Result<(), String> {
+    let result = run_relay_worker_inner(
+        spec,
+        initial_vocal_level,
+        initial_profile,
+        control_rx,
+        &state,
+    );
     match &result {
         Ok(()) => set_state(&state, RelayRuntimeState::Stopped),
         Err(error) => set_state(&state, RelayRuntimeState::Faulted(error.clone())),
@@ -77,6 +101,7 @@ pub(crate) fn run_relay_worker(
 fn run_relay_worker_inner(
     spec: RelaySpec,
     initial_vocal_level: u8,
+    initial_profile: ClassicSuppressionProfile,
     control_rx: Receiver<RelayCommand>,
     state: &Arc<Mutex<RelayRuntimeState>>,
 ) -> Result<(), String> {
@@ -153,12 +178,25 @@ fn run_relay_worker_inner(
         .ok_or_else(|| "relay capture buffer size overflow".to_string())?;
     let mut queue = VecDeque::<u8>::with_capacity(max_queue_bytes);
     let mut capture_buffer = vec![0_u8; capture_buffer_bytes];
-    let mut vocal_level = initial_vocal_level.min(100);
+    let initial_level = VocalLevel::new(initial_vocal_level.min(100) as f32 / 100.0)
+        .map_err(str::to_string)?;
+    let mut processor = SpectralCenterSuppressor::new(
+        source_format.get_samplespersec(),
+        initial_level,
+        initial_profile,
+    );
 
     let loop_result: Result<(), String> = 'relay: loop {
         loop {
             match control_rx.try_recv() {
-                Ok(RelayCommand::SetVocalLevel(value)) => vocal_level = value.min(100),
+                Ok(RelayCommand::SetVocalLevel(value)) => {
+                    let level = VocalLevel::new(value.min(100) as f32 / 100.0)
+                        .map_err(str::to_string)?;
+                    processor.set_vocal_level(level);
+                }
+                Ok(RelayCommand::SetSuppressionProfile(profile)) => {
+                    processor.set_profile(profile);
+                }
                 Ok(RelayCommand::Stop) => break 'relay Ok(()),
                 Err(TryRecvError::Empty) => break,
                 Err(TryRecvError::Disconnected) => break 'relay Ok(()),
@@ -194,7 +232,7 @@ fn run_relay_worker_inner(
                 if info.flags.silent {
                     capture_buffer[..read_bytes].fill(0);
                 } else if let Err(error) =
-                    process_f32le_stereo(&mut capture_buffer[..read_bytes], vocal_level)
+                    process_f32le_stereo(&mut capture_buffer[..read_bytes], &mut processor)
                 {
                     break Err(error.to_string());
                 }

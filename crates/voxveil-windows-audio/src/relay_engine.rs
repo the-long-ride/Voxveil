@@ -5,6 +5,8 @@ use std::sync::{
 };
 use std::thread::{self, JoinHandle};
 
+use voxveil_types::ClassicSuppressionProfile;
+
 use crate::route::validate_distinct_route;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -30,6 +32,7 @@ impl RelayRuntimeState {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum RelayCommand {
     SetVocalLevel(u8),
+    SetSuppressionProfile(ClassicSuppressionProfile),
     Stop,
 }
 
@@ -62,6 +65,32 @@ impl RelayHandle {
             ) + Send
             + 'static,
     {
+        Self::spawn_with_worker_profile(
+            spec,
+            vocal_level,
+            ClassicSuppressionProfile::default(),
+            move |spec, level, _profile, commands, state| {
+                worker(spec, level, commands, state);
+            },
+        )
+    }
+
+    pub(crate) fn spawn_with_worker_profile<F>(
+        spec: RelaySpec,
+        vocal_level: u8,
+        profile: ClassicSuppressionProfile,
+        worker: F,
+    ) -> Result<Self, String>
+    where
+        F: FnOnce(
+                RelaySpec,
+                u8,
+                ClassicSuppressionProfile,
+                Receiver<RelayCommand>,
+                Arc<Mutex<RelayRuntimeState>>,
+            ) + Send
+            + 'static,
+    {
         Self::validate_spec(&spec)?;
         let (command_tx, command_rx) = mpsc::channel();
         let state = Arc::new(Mutex::new(RelayRuntimeState::Starting));
@@ -69,7 +98,13 @@ impl RelayHandle {
         let exit_state = Arc::clone(&state);
         let worker = thread::spawn(move || {
             let outcome = catch_unwind(AssertUnwindSafe(|| {
-                worker(spec, vocal_level.min(100), command_rx, worker_state);
+                worker(
+                    spec,
+                    vocal_level.min(100),
+                    profile,
+                    command_rx,
+                    worker_state,
+                );
             }));
 
             let mut state = match exit_state.lock() {
@@ -91,9 +126,25 @@ impl RelayHandle {
 
     #[cfg(windows)]
     pub(crate) fn start_wasapi(spec: RelaySpec, vocal_level: u8) -> Result<Self, String> {
-        Self::spawn_with_worker(spec, vocal_level, |spec, level, commands, state| {
-            let _ = crate::wasapi_relay::run_relay_worker(spec, level, commands, state);
-        })
+        Self::start_wasapi_with_profile(spec, vocal_level, ClassicSuppressionProfile::default())
+    }
+
+    #[cfg(windows)]
+    pub(crate) fn start_wasapi_with_profile(
+        spec: RelaySpec,
+        vocal_level: u8,
+        profile: ClassicSuppressionProfile,
+    ) -> Result<Self, String> {
+        Self::spawn_with_worker_profile(
+            spec,
+            vocal_level,
+            profile,
+            |spec, level, profile, commands, state| {
+                let _ = crate::wasapi_relay::run_relay_worker_with_profile(
+                    spec, level, profile, commands, state,
+                );
+            },
+        )
     }
 
     pub(crate) fn state(&self) -> RelayRuntimeState {
@@ -106,6 +157,15 @@ impl RelayHandle {
     pub(crate) fn set_vocal_level(&self, value: u8) -> Result<(), String> {
         self.command_tx
             .send(RelayCommand::SetVocalLevel(value.min(100)))
+            .map_err(|_| "Windows audio relay worker is not running".to_string())
+    }
+
+    pub(crate) fn set_suppression_profile(
+        &self,
+        profile: ClassicSuppressionProfile,
+    ) -> Result<(), String> {
+        self.command_tx
+            .send(RelayCommand::SetSuppressionProfile(profile))
             .map_err(|_| "Windows audio relay worker is not running".to_string())
     }
 
@@ -179,6 +239,47 @@ mod tests {
 
         handle.stop().unwrap();
         assert_eq!(handle.state(), RelayRuntimeState::Stopped);
+    }
+
+    #[test]
+    fn profile_is_hot_switched_through_the_running_worker() {
+        let spec = RelaySpec {
+            source_endpoint_id: "cable".into(),
+            physical_output_endpoint_id: "speakers".into(),
+        };
+        let observed = Arc::new(Mutex::new(Vec::new()));
+        let worker_observed = Arc::clone(&observed);
+        let mut handle = RelayHandle::spawn_with_worker_profile(
+            spec,
+            50,
+            ClassicSuppressionProfile::MusicPreservation,
+            move |_spec, _level, initial_profile, commands, state| {
+                worker_observed.lock().unwrap().push(initial_profile);
+                *state.lock().unwrap() = RelayRuntimeState::Running;
+                loop {
+                    match commands.recv().unwrap() {
+                        RelayCommand::SetSuppressionProfile(profile) => {
+                            worker_observed.lock().unwrap().push(profile);
+                        }
+                        RelayCommand::Stop => break,
+                        RelayCommand::SetVocalLevel(_) => {}
+                    }
+                }
+            },
+        )
+        .unwrap();
+
+        handle
+            .set_suppression_profile(ClassicSuppressionProfile::Balanced)
+            .unwrap();
+        handle.stop().unwrap();
+        assert_eq!(
+            *observed.lock().unwrap(),
+            vec![
+                ClassicSuppressionProfile::MusicPreservation,
+                ClassicSuppressionProfile::Balanced,
+            ]
+        );
     }
 
     #[test]
