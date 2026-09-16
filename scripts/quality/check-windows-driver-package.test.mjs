@@ -19,9 +19,17 @@ test('virtual driver INF uses only Voxveil production identities', () => {
 
 test('virtual driver INF supports x64 and Arm64 without test-signing material', () => {
   const text = inf();
-  assert.match(text, /\[Voxveil\.NTamd64\]/i);
-  assert.match(text, /\[Voxveil\.NTarm64\]/i);
+  assert.match(text, /\[Voxveil\.NTamd64(?:\.10\.0\.\.\.22621)?\]/i);
+  assert.match(text, /\[Voxveil\.NTarm64(?:\.10\.0\.\.\.22621)?\]/i);
   assert.doesNotMatch(text, /\.cer\b|\.pfx\b|testsign|Test Certificate/i);
+});
+
+test('virtual driver INF preserves the pinned SysVAD Windows 11 22H2 applicability floor', () => {
+  const text = inf();
+  assert.match(text, /%MfgName%=Voxveil,NTamd64\.10\.0\.\.\.22621,NTarm64\.10\.0\.\.\.22621/i);
+  assert.match(text, /\[Voxveil\.NTamd64\.10\.0\.\.\.22621\]/i);
+  assert.match(text, /\[Voxveil\.NTarm64\.10\.0\.\.\.22621\]/i);
+  assert.doesNotMatch(text, /\[Voxveil\.NT(?:amd64|arm64)\]/i);
 });
 
 test('virtual driver INF installs only the Voxveil driver binary', () => {
