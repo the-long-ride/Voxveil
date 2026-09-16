@@ -114,6 +114,9 @@ if ($forbidden.Count -gt 0) {
 }
 
 $infText = Get-Content $inf[0].FullName -Raw
+if ($infText -match '\$[A-Z][A-Z0-9_]*\$') {
+  throw 'INF contains an unresolved WDK template token.'
+}
 if ($infText -notmatch '(?im)Root\\VoxveilVirtualAudio') {
   throw 'INF does not contain the production Root\VoxveilVirtualAudio hardware ID.'
 }
