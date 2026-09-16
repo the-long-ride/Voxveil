@@ -62,21 +62,6 @@ fn active_render_device_by_id(
     Err(format!("active render endpoint not found: {wanted_id}"))
 }
 
-pub(crate) fn run_relay_worker(
-    spec: RelaySpec,
-    initial_vocal_level: u8,
-    control_rx: Receiver<RelayCommand>,
-    state: Arc<Mutex<RelayRuntimeState>>,
-) -> Result<(), String> {
-    run_relay_worker_with_profile(
-        spec,
-        initial_vocal_level,
-        ClassicSuppressionProfile::default(),
-        control_rx,
-        state,
-    )
-}
-
 pub(crate) fn run_relay_worker_with_profile(
     spec: RelaySpec,
     initial_vocal_level: u8,
