@@ -75,6 +75,8 @@ Older Windows initialization remains source-compatible through `APOInitSystemEff
 
 The Voxveil-owned render-only driver is derived from the pinned Microsoft SysVAD sample boundary. It exposes one render endpoint and no microphone/capture, sideband, hardware-offload, or sample APO surface. Its advertised mix path is stereo 48 kHz float32 so it matches the user-mode relay contract.
 
+The Tier 2 driver INF intentionally follows the pinned SysVAD model applicability floor: x64 and Arm64 installation is restricted to Windows build 22621 (Windows 11 22H2) or later. This is a driver-component boundary, not an overall Voxveil Windows support floor; supported Windows 10 systems continue to use Tier 1 relay/fallback paths rather than installing this first-party driver.
+
 Unsigned or test-signed driver output is development-only and must never be staged into a retail release. The local WDK project has signing disabled; repository scripts prepare deterministic x64/Arm64 packages and attestation CABs, then verify returned Microsoft-signed packages before staging.
 
 Microsoft attestation signing is treated as a pilot/direct-validation path rather than Windows Certified retail qualification. Retail staging requires WHCP/HLK or another explicitly Microsoft-approved production signing/distribution path applicable to the exact package.
@@ -113,7 +115,7 @@ Real release verification additionally requires Windows hardware testing for:
 - APO uninstall while the first-party virtual driver remains installed;
 - CAPX discovery-only versus real-processing instance accounting;
 - effect-state/app-state independence;
-- supported Windows 10/11 release builds according to the product support policy;
+- supported Windows 10/11 release builds according to the product support policy, with first-party Tier 2 driver install tests beginning at build 22621;
 - Secure Boot and `TESTSIGNING=Off` for production-driver validation;
 - applicable HLK/WHCP qualification for retail claims.
 
