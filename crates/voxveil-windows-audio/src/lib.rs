@@ -56,8 +56,8 @@ impl WindowsAudioBackend {
     ) -> Result<(), String> {
         Ok(())
     }
-    pub fn physical_outputs(&self) -> Vec<String> {
-        Vec::new()
+    pub fn physical_outputs(&self) -> Result<Vec<EndpointDescriptor>, String> {
+        Ok(Vec::new())
     }
     pub fn system_audio_endpoints(&self) -> Result<Vec<SystemAudioEndpoint>, String> {
         Ok(Vec::new())
