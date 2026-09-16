@@ -1,0 +1,194 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/the-long-ride/Voxveil/blob/master/docs/testing/classic-dsp-fixture-manifest.schema.json",
+  "title": "Voxveil Classic DSP fixture manifest",
+  "description": "Core provenance and reproducibility metadata for one local Classic DSP evaluation fixture. Audio remains outside the repository under .local-evaluation/classic-dsp/.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "fixtureId",
+    "tier",
+    "status",
+    "targetSampleRate",
+    "durationSeconds",
+    "sources",
+    "mixRecipe",
+    "fixtureSha256",
+    "notes"
+  ],
+  "properties": {
+    "fixtureId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "tier": {
+      "type": "string",
+      "enum": [
+        "controlled",
+        "natural-mix"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Workflow status such as candidate, approved-metadata, evaluated, or approved. Policy in classic-dsp-fixture-corpus.md controls which statuses are acceptable for release evidence."
+    },
+    "targetSampleRate": {
+      "type": "integer",
+      "enum": [
+        44100,
+        48000
+      ]
+    },
+    "durationSeconds": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "role",
+          "sourceRecord",
+          "sourceFile",
+          "license",
+          "licenseCheckedOn",
+          "sourceSha256"
+        ],
+        "properties": {
+          "role": {
+            "type": "string",
+            "minLength": 1
+          },
+          "dataset": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sourceRecord": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sourceFile": {
+            "type": "string",
+            "minLength": 1
+          },
+          "license": {
+            "type": "string",
+            "minLength": 1
+          },
+          "licenseCheckedOn": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          },
+          "sourceSha256": {
+            "type": "string",
+            "pattern": "^[A-Fa-f0-9]{64}$"
+          }
+        }
+      }
+    },
+    "mixRecipe": {
+      "description": "Deterministic local construction metadata for controlled fixtures; null for an unchanged natural mix.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "normalization"
+          ],
+          "properties": {
+            "vocalStartSeconds": {
+              "type": "number",
+              "minimum": 0
+            },
+            "accompanimentStartSeconds": {
+              "type": "number",
+              "minimum": 0
+            },
+            "vocalGainDb": {
+              "type": "number"
+            },
+            "accompanimentGainDb": {
+              "type": "number"
+            },
+            "vocalPan": {
+              "type": "string",
+              "minLength": 1
+            },
+            "normalization": {
+              "type": "string",
+              "enum": [
+                "none"
+              ]
+            },
+            "preparationCommand": {
+              "type": "string",
+              "minLength": 1
+            },
+            "preparationToolVersion": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "fixtureSha256": {
+      "type": "string",
+      "pattern": "^[A-Fa-f0-9]{64}$"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "tier": {
+            "const": "controlled"
+          }
+        },
+        "required": [
+          "tier"
+        ]
+      },
+      "then": {
+        "properties": {
+          "mixRecipe": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "tier": {
+            "const": "natural-mix"
+          }
+        },
+        "required": [
+          "tier"
+        ]
+      },
+      "then": {
+        "properties": {
+          "mixRecipe": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ]
+}
