@@ -79,8 +79,9 @@ impl ProcessingController {
                 .backend
                 .lock()
                 .map_err(|_| "Windows audio backend lock is poisoned".to_string())?;
-            backend.set_vocal_level(value);
+            return backend.set_vocal_level(value);
         }
+        #[cfg(not(target_os = "windows"))]
         Ok(())
     }
 
