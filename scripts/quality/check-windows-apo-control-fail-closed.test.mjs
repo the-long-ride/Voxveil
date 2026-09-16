@@ -8,12 +8,8 @@ test('missing APO control fails closed when an APO install state exists', () => 
   const text = relay();
   const loaded = text.match(/fn loaded_apo_instances\([\s\S]*?\n\}/)?.[0] ?? '';
 
-  assert.match(loaded, /apo_install_state_exists\(\)\?/);
-  assert.match(loaded, /control component is unavailable|load state cannot be verified/i);
-  assert.ok(
-    loaded.indexOf('apo_install_state_exists()?') < loaded.lastIndexOf('Ok(0)'),
-    'installed-APO detection must run before treating a missing control helper as zero loaded instances',
-  );
+  assert.match(loaded, /control_executable_for_installed_apo\(\)\?/);
+  assert.match(loaded, /return Ok\(0\)/);
 });
 
 test('APO install-state presence check distinguishes only NotFound from existing or unreadable state', () => {
@@ -25,6 +21,24 @@ test('APO install-state presence check distinguishes only NotFound from existing
   assert.match(helper, /ErrorKind::NotFound/);
   assert.match(helper, /Err\(error\)/);
   assert.doesNotMatch(helper, /is_file\(\)/);
+});
+
+test('APO control resolver errors when installed state exists but the helper is missing', () => {
+  const text = relay();
+  const resolver = text.match(/fn control_executable_for_installed_apo\([\s\S]*?\n\}/)?.[0] ?? '';
+
+  assert.match(resolver, /control_executable\(\)/);
+  assert.match(resolver, /apo_install_state_exists\(\)\?/);
+  assert.match(resolver, /control component is unavailable|load state cannot be verified/i);
+});
+
+test('live vocal and profile setters use the fail-closed APO control resolver', () => {
+  const text = relay();
+  const vocal = text.match(/pub fn set_vocal_level\([\s\S]*?\n    \}/)?.[0] ?? '';
+  const profile = text.match(/pub fn set_classic_suppression_profile\([\s\S]*?\n    \}/)?.[0] ?? '';
+
+  assert.match(vocal, /control_executable_for_installed_apo\(\)\?/);
+  assert.match(profile, /control_executable_for_installed_apo\(\)\?/);
 });
 
 test('Windows platform spec forbids relay fallback when installed APO control state cannot be verified', () => {
