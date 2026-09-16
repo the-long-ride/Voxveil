@@ -49,9 +49,16 @@ impl RelayHandle {
             .map_err(str::to_string)
     }
 
-    pub(crate) fn spawn_with_worker<F>(spec: RelaySpec, vocal_level: u8, worker: F) -> Result<Self, String>
+    #[cfg(test)]
+    pub(crate) fn spawn_with_worker<F>(
+        spec: RelaySpec,
+        vocal_level: u8,
+        worker: F,
+    ) -> Result<Self, String>
     where
-        F: FnOnce(RelaySpec, u8, Receiver<RelayCommand>, Arc<Mutex<RelayRuntimeState>>) + Send + 'static,
+        F: FnOnce(RelaySpec, u8, Receiver<RelayCommand>, Arc<Mutex<RelayRuntimeState>>)
+            + Send
+            + 'static,
     {
         Self::spawn_with_worker_profile(
             spec,
@@ -96,12 +103,11 @@ impl RelayHandle {
                 *state = RelayRuntimeState::Stopped;
             }
         });
-        Ok(Self { command_tx, state, worker: Some(worker) })
-    }
-
-    #[cfg(windows)]
-    pub(crate) fn start_wasapi(spec: RelaySpec, vocal_level: u8) -> Result<Self, String> {
-        Self::start_wasapi_with_profile(spec, vocal_level, ClassicSuppressionProfile::default())
+        Ok(Self {
+            command_tx,
+            state,
+            worker: Some(worker),
+        })
     }
 
     #[cfg(windows)]
@@ -110,9 +116,16 @@ impl RelayHandle {
         vocal_level: u8,
         profile: ClassicSuppressionProfile,
     ) -> Result<Self, String> {
-        Self::spawn_with_worker_profile(spec, vocal_level, profile, |spec, level, profile, commands, state| {
-            let _ = crate::wasapi_relay::run_relay_worker_with_profile(spec, level, profile, commands, state);
-        })
+        Self::spawn_with_worker_profile(
+            spec,
+            vocal_level,
+            profile,
+            |spec, level, profile, commands, state| {
+                let _ = crate::wasapi_relay::run_relay_worker_with_profile(
+                    spec, level, profile, commands, state,
+                );
+            },
+        )
     }
 
     pub(crate) fn state(&self) -> RelayRuntimeState {
@@ -128,7 +141,10 @@ impl RelayHandle {
             .map_err(|_| "Windows audio relay worker is not running".to_string())
     }
 
-    pub(crate) fn set_suppression_profile(&self, profile: ClassicSuppressionProfile) -> Result<(), String> {
+    pub(crate) fn set_suppression_profile(
+        &self,
+        profile: ClassicSuppressionProfile,
+    ) -> Result<(), String> {
         self.command_tx
             .send(RelayCommand::SetSuppressionProfile(profile))
             .map_err(|_| "Windows audio relay worker is not running".to_string())
@@ -137,7 +153,9 @@ impl RelayHandle {
     pub(crate) fn stop(&mut self) -> Result<(), String> {
         let _ = self.command_tx.send(RelayCommand::Stop);
         if let Some(worker) = self.worker.take() {
-            worker.join().map_err(|_| "Windows audio relay worker wrapper panicked".to_string())?;
+            worker
+                .join()
+                .map_err(|_| "Windows audio relay worker wrapper panicked".to_string())?;
         }
         if let Ok(mut state) = self.state.lock() {
             *state = RelayRuntimeState::Stopped;
