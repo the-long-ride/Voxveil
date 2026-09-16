@@ -42,7 +42,7 @@ This profile trades more center-instrument attenuation for stronger vocal reduct
 - high protection: suppression starts tapering after 7 kHz and is fully protected by 12 kHz;
 - lighter transient protection.
 
-The profile can be changed while processing is active; the retained processor updates its mask parameters without restarting the stream.
+The profile can be changed while processing is active; the retained processor updates its mask parameters without restarting the stream. A live **Balanced → Music preservation** transition resets retained smoothed spectral gains to unity without restarting the stream or rebuilding the processor, so the more protective profile does not temporarily inherit stronger Balanced attenuation. A Music preservation → Balanced transition keeps the normal attack smoothing.
 
 ## Native APO fallback
 
