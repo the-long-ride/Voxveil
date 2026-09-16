@@ -8,4 +8,6 @@ Purpose: source basis for the Voxveil render-only virtual audio driver.
 
 Files derived into `native/windows/driver` retain the applicable upstream copyright and license notices.
 
-The checked-in snapshot must correspond to both `SOURCE_REVISION` and `SYSVAD_TREE_SHA`. The import helper may replace only the vendored `audio/sysvad` subtree and must not modify these provenance files.
+The upstream `audio/sysvad` source is materialized at build time and is not vendored in Git. `scripts/windows/import-sysvad-source.ps1` must fetch the exact commit recorded by `SOURCE_REVISION`, verify that `FETCH_HEAD:audio/sysvad` matches `SYSVAD_TREE_SHA`, and only then copy that verified subtree into the ignored `audio/sysvad` working directory.
+
+The materialized directory is disposable build input and may be deleted/recreated at any time. The importer may replace only that generated subtree and must not modify `SOURCE_REVISION`, `SYSVAD_TREE_SHA`, `LICENSE.txt`, or this provenance file.

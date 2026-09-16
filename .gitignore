@@ -21,6 +21,9 @@ release-metadata/
 *.patch
 *.diff
 
+# Build-time materialized pinned Microsoft SysVAD source
+third_party/microsoft/windows-driver-samples/audio/sysvad/
+
 # Windows virtual-audio driver generated output
 native/windows/driver/build/
 native/windows/driver/bin/
