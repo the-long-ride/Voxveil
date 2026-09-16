@@ -133,6 +133,7 @@ export function useVoxveilState() {
       await refreshNativeState();
     } catch (error) {
       setSystemAudioInstallError(errorMessage(error));
+      await refreshNativeState();
     }
   }, [client, native, refreshNativeState]);
 
