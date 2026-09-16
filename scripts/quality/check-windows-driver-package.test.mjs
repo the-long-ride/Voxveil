@@ -74,11 +74,14 @@ test('driver build keeps attestation CAB creation explicit at the release bounda
   assert.match(release, /native\\windows\\driver\\out\\x64\\submission/i);
 });
 
-test('driver build resolves the KMDF INF placeholder before Inf2Cat validation', () => {
+test('virtual driver pins a concrete KMDF version and rejects unresolved INF tokens', () => {
   const sourceInf = inf();
-  const build = readFileSync('scripts/windows/build-virtual-driver.ps1', 'utf8');
-  assert.match(sourceInf, /\$KMDFVERSION\$/i);
-  assert.match(build, /Find-WdkTool\s+'StampInf\.exe'/i);
-  assert.match(build, /-k\s+'1\.15'/i);
-  assert.match(build, /unresolved.*KMDFVERSION/i);
+  const project = readFileSync('native/windows/driver/VoxveilVirtualAudio.vcxproj', 'utf8');
+  const validator = readFileSync('scripts/windows/validate-virtual-driver-package.ps1', 'utf8');
+
+  assert.doesNotMatch(sourceInf, /\$KMDFVERSION\$/i);
+  assert.match(sourceInf, /KmdfLibraryVersion\s*=\s*1\.15/i);
+  assert.match(project, /<KMDF_VERSION_MAJOR>1<\/KMDF_VERSION_MAJOR>/i);
+  assert.match(project, /<KMDF_VERSION_MINOR>15<\/KMDF_VERSION_MINOR>/i);
+  assert.match(validator, /unresolved WDK template token/i);
 });
