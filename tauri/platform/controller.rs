@@ -125,27 +125,25 @@ impl ProcessingController {
         }
     }
 
-    pub fn physical_outputs(&self) -> Vec<PhysicalOutput> {
+    pub fn physical_outputs(&self) -> Result<Vec<PhysicalOutput>, String> {
         #[cfg(target_os = "windows")]
         {
-            return self
+            let backend = self
                 .backend
                 .lock()
-                .map(|backend| {
-                    backend
-                        .physical_outputs()
-                        .into_iter()
-                        .map(|output| PhysicalOutput {
-                            endpoint_id: output.id,
-                            display_name: output.name,
-                            is_default: output.is_default,
-                        })
-                        .collect()
+                .map_err(|_| "Windows audio backend lock is poisoned".to_string())?;
+            return Ok(backend
+                .physical_outputs()?
+                .into_iter()
+                .map(|output| PhysicalOutput {
+                    endpoint_id: output.id,
+                    display_name: output.name,
+                    is_default: output.is_default,
                 })
-                .unwrap_or_default();
+                .collect());
         }
         #[cfg(not(target_os = "windows"))]
-        Vec::new()
+        Ok(Vec::new())
     }
 
     #[cfg(target_os = "windows")]
