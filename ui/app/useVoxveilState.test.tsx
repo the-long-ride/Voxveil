@@ -129,7 +129,7 @@ describe('useVoxveilState', () => {
     const { result } = renderHook(() => useVoxveilState());
     await waitFor(() => expect(result.current.state.backendStatus).toBe('routing-required'));
 
-    expect(result.current.canStartProcessing).toBe(true;
+    expect(result.current.canStartProcessing).toBe(true);
     act(() => result.current.setMasterEnabled(true));
 
     expect(client.setMasterEnabled).toHaveBeenCalledWith(true);
