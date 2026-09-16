@@ -59,5 +59,5 @@ test('fixture-corpus policy points local manifests at the schema', () => {
   const corpus = read('docs/testing/classic-dsp-fixture-corpus.md');
   assert.match(corpus, /classic-dsp-fixture-manifest\.schema\.json/);
   assert.match(corpus, /conform|schema/i);
-  assert.match(corpus, /mixRecipe[\s\S]{0,300}natural-mix/i);
+  assert.match(corpus, /natural-mix[\s\S]{0,120}mixRecipe/i);
 });
