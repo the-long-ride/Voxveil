@@ -102,11 +102,25 @@ pub fn set_engine(
 
 #[tauri::command]
 pub fn set_classic_suppression_profile(
+    app: AppHandle,
     state: State<'_, AppState>,
     controller: State<'_, ProcessingController>,
     profile: ClassicSuppressionProfile,
 ) -> Result<(), String> {
+    let previous_profile = state.lock()?.classic_suppression_profile;
+    let mut preferences = crate::config::windows_audio::load(&app)?;
+
     controller.set_classic_suppression_profile(profile)?;
+    preferences.classic_suppression_profile = profile;
+    if let Err(error) = crate::config::windows_audio::save(&app, &preferences) {
+        return Err(match controller.set_classic_suppression_profile(previous_profile) {
+            Ok(()) => error,
+            Err(rollback_error) => format!(
+                "{error}; failed to restore previous Classic DSP profile: {rollback_error}"
+            ),
+        });
+    }
+
     state.lock()?.classic_suppression_profile = profile;
     Ok(())
 }
