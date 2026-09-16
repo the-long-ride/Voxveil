@@ -32,11 +32,12 @@ pub fn run() {
                 // the application from starting.
                 let mut prefs = config::windows_audio::load(app.handle()).unwrap_or_default();
                 let controller = app.state::<platform::ProcessingController>();
+                let state = app.state::<app::state::AppState>();
                 if controller
                     .set_classic_suppression_profile(prefs.classic_suppression_profile)
                     .is_ok()
                 {
-                    if let Ok(mut current) = app.state::<app::state::AppState>().lock() {
+                    if let Ok(mut current) = state.lock() {
                         current.classic_suppression_profile = prefs.classic_suppression_profile;
                     }
                 }
