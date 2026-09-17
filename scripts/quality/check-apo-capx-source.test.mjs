@@ -83,3 +83,14 @@ test('fixed C++ CAPX identities match the extension package identity', () => {
   assert.match(ids, /63e268ce.*4cbc.*48e0.*be.*b6.*55.*10.*33.*16.*f4.*77/is);
   assert.match(inf, /\{63E268CE-4CBC-48E0-BEB6-55103316F477\}/i);
 });
+
+test('native APO policy assertions remain active in Release', () => {
+  const project = read('native/windows/apo/tests/VoxveilApoPolicyTests.vcxproj');
+  const source = read('native/windows/apo/tests/VoxveilApoPolicyTests.cpp');
+  assert.match(source, /\bassert\s*\(/, 'policy test must contain runtime assertions');
+  assert.doesNotMatch(
+    project,
+    /(?:^|[;>])\s*NDEBUG\s*(?:[;<]|$)/m,
+    'NDEBUG would compile out every policy assertion',
+  );
+});
