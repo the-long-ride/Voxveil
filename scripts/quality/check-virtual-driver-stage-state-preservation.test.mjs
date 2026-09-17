@@ -14,3 +14,9 @@ test('restaging a signed virtual driver preserves lifecycle install state byte-f
   assert.ok(restoreState > removeDestination, 'captured install state bytes must be restored after destination replacement');
   assert.match(stager, /virtual-driver-install-state\.json/);
 });
+
+test('signed virtual-driver staging rejects its source directory and descendants as destination', () => {
+  assert.match(stager, /\$destination\s*-eq\s*\$package/i);
+  assert.match(stager, /\$destination\.StartsWith\(\$package\s*\+\s*\[IO\.Path\]::DirectorySeparatorChar/i);
+  assert.match(stager, /must not be the source package directory or one of its descendants/i);
+});
