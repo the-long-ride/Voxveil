@@ -6,6 +6,8 @@ const read = (path) => readFileSync(path, 'utf8');
 
 const apoInstaller = read('scripts/windows/install-system-audio-component.ps1');
 const systemAudio = read('tauri/app/system_audio.rs');
+const systemAudioInstaller = read('tauri/app/system_audio_installer.rs');
+const installerBoundary = `${systemAudio}\n${systemAudioInstaller}`;
 const uiTypes = read('ui/lib/types.ts');
 const uiState = read('ui/app/useVoxveilState.ts');
 
@@ -26,8 +28,8 @@ test('APO install propagates PnPUtil reboot-required without claiming runtime re
     assert.ok(hardFailure > reboot, `${exitVariable} must handle reboot-required before hard failure`);
   }
 
-  assert.match(systemAudio, /enum\s+InstallerLaunchOutcome[\s\S]*RebootRequired/i);
-  assert.match(systemAudio, /Some\(3010\)[\s\S]*InstallerLaunchOutcome::RebootRequired/i);
+  assert.match(installerBoundary, /enum\s+InstallerLaunchOutcome[\s\S]*RebootRequired/i);
+  assert.match(installerBoundary, /Some\(3010\)[\s\S]*InstallerLaunchOutcome::RebootRequired/i);
   assert.match(systemAudio, /"reboot-required"/i);
   assert.match(uiTypes, /'reboot-required'/i);
   assert.match(uiState, /result\.outcome\s*===\s*'reboot-required'/i);
