@@ -78,6 +78,12 @@ function Get-HelperValue([string[]]$Output, [string]$Name) {
   return $line.Substring($prefix.Length).Trim()
 }
 
+function Get-VoxveilPublishedInfNames {
+  @(Get-CimInstance Win32_PnPSignedDriver |
+    Where-Object { $_.DriverProviderName -eq 'Voxveil' -and $_.InfName -match '^oem\d+\.inf$' } |
+    Select-Object -ExpandProperty InfName -Unique)
+}
+
 Assert-Administrator
 Assert-SupportedWindowsBuild
 
@@ -137,6 +143,8 @@ if (-not (Test-Path $deviceHelper -PathType Leaf)) {
   throw "Voxveil root-device helper is missing: $deviceHelper"
 }
 
+$beforePublishedInfNames = @(Get-VoxveilPublishedInfNames)
+$newPublishedInf = $null
 $deviceInstanceId = $null
 $deviceCreated = $false
 try {
@@ -158,6 +166,15 @@ try {
     throw "PnPUtil failed to install VoxveilVirtualAudio.inf (exit $LASTEXITCODE)."
   }
 
+  $afterPublishedInfNames = @(Get-VoxveilPublishedInfNames)
+  $newPublishedInfNames = @($afterPublishedInfNames | Where-Object { $beforePublishedInfNames -inotcontains $_ })
+  if ($newPublishedInfNames.Count -gt 1) {
+    throw "PnPUtil added multiple new Voxveil driver-store packages unexpectedly: $($newPublishedInfNames -join ', ')."
+  }
+  if ($newPublishedInfNames.Count -eq 1) {
+    $newPublishedInf = [string]$newPublishedInfNames[0]
+  }
+
   $installedDrivers = @(Get-CimInstance Win32_PnPSignedDriver |
     Where-Object {
       $_.DeviceID -ieq $deviceInstanceId -and
@@ -169,6 +186,9 @@ try {
     throw "Installed Voxveil Virtual Audio devnode could not be resolved to exactly one signed driver binding (found $($installedDrivers.Count))."
   }
   $publishedInf = [string]$installedDrivers[0].InfName
+  if ($newPublishedInf -and $publishedInf -ine $newPublishedInf) {
+    throw "Newly added driver-store package '$newPublishedInf' does not match the package bound to the Voxveil devnode '$publishedInf'."
+  }
 
   @{
     publishedInf = $publishedInf
@@ -184,12 +204,25 @@ try {
   Write-Host 'Use Windows Sound settings to select Voxveil Input when the relay path is desired.'
 }
 catch {
+  $devnodeRollbackSucceeded = -not $deviceCreated
   if ($deviceCreated -and $deviceInstanceId) {
     Write-Warning "Rolling back newly created Voxveil devnode $deviceInstanceId after installation failure."
     & $deviceHelper remove $deviceInstanceId | Out-Host
     if ($LASTEXITCODE -ne 0) {
       Write-Warning "Devnode rollback failed with exit code $LASTEXITCODE; manual cleanup may be required."
+    } else {
+      $devnodeRollbackSucceeded = $true
     }
+  }
+
+  if ($devnodeRollbackSucceeded -and $newPublishedInf) {
+    Write-Warning "Rolling back newly added Voxveil driver-store package $newPublishedInf after installation failure."
+    pnputil.exe /delete-driver $newPublishedInf | Out-Host
+    if ($LASTEXITCODE -ne 0) {
+      Write-Warning "Driver-store rollback failed for $newPublishedInf with exit code $LASTEXITCODE; manual cleanup may be required."
+    }
+  } elseif ($newPublishedInf) {
+    Write-Warning "New driver-store package $newPublishedInf remains installed because the devnode could not be safely rolled back; manual cleanup may be required."
   }
   throw
 }
