@@ -83,9 +83,13 @@ The componentized APO installer and Tier 2 virtual driver can coexist. Their pac
 | Production APO package staged through verifier | `apo-verification.json` exists and hashes match the five signed APO/Extension artifacts immediately before installation |
 | Legacy runtime-interface development install | uninstall calls `detach-effects` on the exact stored topology/audio interface paths before deleting APO packages |
 | APO install while `VoxveilVirtualAudio` is already installed | `install-state.json.installedInfNames` contains only the APO/Extension packages added or previously owned by the APO installer |
+| APO install returns PnPUtil `3010` | `install-state.json` remains scoped to the exact owned APO/Extension packages with `bindingReady=false`; record the restart-required result, restart Windows, rerun endpoint installation, and do not accept APO `ready` until a later `loaded>=1` verification succeeds |
 | APO uninstall with first-party virtual driver installed | virtual driver remains installed and `Voxveil Input` remains available |
+| APO uninstall returns PnPUtil `3010` | the successfully deleted INF is removed from `installedInfNames`; the remaining `installedInfNames` are persisted in `install-state.json`; restart Windows and rerun uninstall so each remaining recorded package is revalidated before deletion |
 | Missing/old install state with no recorded APO INF names | uninstaller removes no provider-wide driver packages; manual cleanup is required instead of guessing |
 | Successful APO uninstall | recorded install state is removed and AudioSrv rebuilds without stale Voxveil APO registration |
+
+For every `3010` case, record which package operation requested the restart, the exact `installedInfNames` state before reboot, the post-restart rerun result, and the final AudioDG/readiness or uninstall outcome. A `3010` result is successful completion requiring restart, not a hard package failure.
 
 ## Endpoint and hardware matrix
 
@@ -132,4 +136,5 @@ Do not mark the APO production-qualified if any of these are true:
 - the extension INF mixes context CAPX association with legacy root association for the same endpoint;
 - AudioDG crashes, hangs, or repeatedly rebuilds the graph;
 - the effect list/state does not match actual DSP behavior;
+- a PnPUtil `3010` result is treated as a hard failure, or restart/resume evidence is missing for the operation that produced it;
 - the package lacks the required Microsoft/WHCP release evidence for the intended channel.
