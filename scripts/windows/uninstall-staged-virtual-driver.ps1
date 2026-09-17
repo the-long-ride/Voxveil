@@ -47,6 +47,14 @@ function Assert-PublishedInfIdentity([string]$PublishedInf, [string]$DeviceInsta
   }
 }
 
+function Get-WindowsBootMarker {
+  $os = Get-CimInstance Win32_OperatingSystem
+  if (-not $os.LastBootUpTime) {
+    throw 'Could not determine the current Windows boot marker.'
+  }
+  ([DateTime]$os.LastBootUpTime).ToUniversalTime().ToString('o')
+}
+
 Assert-Administrator
 
 if (-not $PackageDir) {
@@ -60,6 +68,23 @@ if (-not (Test-Path $statePath -PathType Leaf)) {
 }
 
 $state = Get-Content $statePath -Raw | ConvertFrom-Json
+$currentBootMarker = Get-WindowsBootMarker
+$uninstallCompleteProperty = $state.PSObject.Properties['uninstallComplete']
+$pendingProperty = $state.PSObject.Properties['pendingReboot']
+$bootMarkerProperty = $state.PSObject.Properties['pendingRebootBootMarker']
+$uninstallComplete = $uninstallCompleteProperty -and [bool]$uninstallCompleteProperty.Value
+$pendingReboot = $pendingProperty -and [bool]$pendingProperty.Value
+$pendingBootMarker = if ($bootMarkerProperty) { [string]$bootMarkerProperty.Value } else { '' }
+
+if ($uninstallComplete) {
+  if ($pendingReboot -and $pendingBootMarker -and $pendingBootMarker -eq $currentBootMarker) {
+    throw 'Restart Windows before continuing Voxveil Virtual Audio uninstall cleanup.'
+  }
+  Remove-Item $statePath -Force
+  Write-Host 'Prior Voxveil Virtual Audio uninstall completed after restart; reboot tombstone removed.'
+  return
+}
+
 $publishedInf = [string]$state.publishedInf
 $deviceInstanceId = [string]$state.deviceInstanceId
 if ($publishedInf -notmatch '^oem\d+\.inf$') {
@@ -86,7 +111,22 @@ Write-Host "Deleting recorded Voxveil Virtual Audio driver-store package $publis
 pnputil.exe /delete-driver $publishedInf | Out-Host
 $pnputilExitCode = $LASTEXITCODE
 if ($pnputilExitCode -eq 3010) {
-  Remove-Item $statePath -Force
+  if ($state.PSObject.Properties['pendingReboot']) {
+    $state.pendingReboot = $true
+  } else {
+    $state | Add-Member -NotePropertyName pendingReboot -NotePropertyValue $true
+  }
+  if ($state.PSObject.Properties['pendingRebootBootMarker']) {
+    $state.pendingRebootBootMarker = $currentBootMarker
+  } else {
+    $state | Add-Member -NotePropertyName pendingRebootBootMarker -NotePropertyValue $currentBootMarker
+  }
+  if ($state.PSObject.Properties['uninstallComplete']) {
+    $state.uninstallComplete = $true
+  } else {
+    $state | Add-Member -NotePropertyName uninstallComplete -NotePropertyValue $true
+  }
+  $state | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
   Write-Warning 'Voxveil Virtual Audio was removed successfully, but Windows requires a restart to finish unloading the driver package.'
   exit 3010
 }
