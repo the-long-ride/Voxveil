@@ -124,6 +124,25 @@ test('PnPUtil failure refreshes Driver Store ownership before throwing so staged
   assert.ok(failureCheck > refreshInventory, 'PnPUtil failure must be thrown only after rollback ownership is refreshed');
 });
 
+test('virtual driver reboot-required success records exact cleanup state before exiting', () => {
+  const text = installer();
+  const addDriver = text.indexOf('pnputil.exe /add-driver $inf /install');
+  const catchStart = text.indexOf('catch {', addDriver);
+  const block = text.slice(addDriver, catchStart);
+  assert.ok(addDriver >= 0 && catchStart > addDriver);
+
+  const rebootCheck = block.search(/if\s*\(\s*\$pnputilExitCode\s*-eq\s*3010\s*\)/i);
+  const stateWrite = block.search(/Write-VirtualDriverInstallState\s+-PublishedInf\s+\$publishedInf\s+-PendingReboot\s+\$true/i);
+  const rebootExit = block.search(/exit\s+3010/i);
+  const hardFailure = block.search(/if\s*\(\s*\$pnputilExitCode\s*-ne\s*0\s*\)/i);
+  assert.ok(rebootCheck >= 0, '3010 must be recognized as reboot-required success');
+  assert.match(block.slice(rebootCheck), /\$newPublishedInf/i);
+  assert.match(block.slice(rebootCheck), /\$installedDrivers\.Count\s*-eq\s*1/i);
+  assert.ok(stateWrite > rebootCheck, 'exact package/devnode ownership must be persisted before exiting');
+  assert.ok(rebootExit > stateWrite, 'reboot-required exit must follow the persisted cleanup state');
+  assert.ok(hardFailure > rebootExit, 'generic failure handling must run only after the reboot-required case');
+});
+
 test('virtual driver rollback ownership reads only the exact package from Driver Store inventory', () => {
   const text = installer();
   const helperMatch = text.match(/function\s+Get-VoxveilPublishedInfNames\s*\{([\s\S]*?)\n\}/i);
