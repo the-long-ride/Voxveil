@@ -320,13 +320,15 @@ try {
 
   Write-Host 'Staging/installing the Voxveil APO software-component package...'
   pnputil.exe /add-driver (Join-Path $work 'VoxveilApo.inf') /install | Out-Host
-  if ($LASTEXITCODE -ne 0) { throw "PnPUtil failed to stage VoxveilApo.inf (exit $LASTEXITCODE)." }
+  $apoPnputilExitCode = $LASTEXITCODE
   Write-InstallStateSnapshot
+  if ($apoPnputilExitCode -ne 0) { throw "PnPUtil failed to stage VoxveilApo.inf (exit $apoPnputilExitCode)." }
 
   Write-Host 'Installing the endpoint-specific Voxveil Extension INF...'
   pnputil.exe /add-driver $extensionInf /install | Out-Host
-  if ($LASTEXITCODE -ne 0) { throw "PnPUtil failed to install VoxveilApoExtension.inf (exit $LASTEXITCODE)." }
+  $extensionPnputilExitCode = $LASTEXITCODE
   Write-InstallStateSnapshot
+  if ($extensionPnputilExitCode -ne 0) { throw "PnPUtil failed to install VoxveilApoExtension.inf (exit $extensionPnputilExitCode)." }
 
   if ($useLegacyRuntimeAttachment) {
     if (-not (Test-Path $control -PathType Leaf)) {
