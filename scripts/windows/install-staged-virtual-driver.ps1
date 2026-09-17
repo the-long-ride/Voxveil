@@ -148,9 +148,34 @@ if (-not (Test-Path $deviceHelper -PathType Leaf)) {
   throw "Voxveil root-device helper is missing: $deviceHelper"
 }
 
+$deviceInstanceId = $null
+function Write-VirtualDriverInstallState {
+  param(
+    [Parameter(Mandatory = $true)][string]$PublishedInf,
+    [bool]$PendingReboot = $false
+  )
+
+  if ($PublishedInf -notmatch '^oem\d+\.inf$') {
+    throw "Cannot record virtual-driver install state for invalid published INF '$PublishedInf'."
+  }
+  if (-not $deviceInstanceId -or $deviceInstanceId -match '[\r\n]') {
+    throw 'Cannot record virtual-driver install state without the exact devnode instance ID.'
+  }
+
+  @{
+    publishedInf = $PublishedInf
+    deviceInstanceId = $deviceInstanceId
+    releaseChannel = [string]$verification.releaseChannel
+    architecture = [string]$verification.architecture
+    infSha256 = ([string]$verification.infSha256).ToLowerInvariant()
+    catalogSha256 = ([string]$verification.catalogSha256).ToLowerInvariant()
+    driverSha256 = ([string]$verification.driverSha256).ToLowerInvariant()
+    pendingReboot = $PendingReboot
+  } | ConvertTo-Json -Depth 3 | Set-Content (Join-Path $package 'virtual-driver-install-state.json') -Encoding utf8
+}
+
 $beforePublishedInfNames = @(Get-VoxveilPublishedInfNames)
 $newPublishedInf = $null
-$deviceInstanceId = $null
 $deviceCreated = $false
 try {
   Write-Host "Preparing Root\VoxveilVirtualAudio devnode..."
@@ -177,9 +202,6 @@ try {
   if ($newPublishedInfNames.Count -eq 1) {
     $newPublishedInf = [string]$newPublishedInfNames[0]
   }
-  if ($pnputilExitCode -ne 0) {
-    throw "PnPUtil failed to install VoxveilVirtualAudio.inf (exit $pnputilExitCode)."
-  }
 
   $installedDrivers = @(Get-CimInstance Win32_PnPSignedDriver |
     Where-Object {
@@ -188,6 +210,23 @@ try {
       $_.DeviceName -eq 'Voxveil Virtual Audio' -and
       $_.InfName -match '^oem\d+\.inf$'
     })
+
+  if ($pnputilExitCode -eq 3010) {
+    if ($newPublishedInf) {
+      $publishedInf = $newPublishedInf
+    } elseif ($installedDrivers.Count -eq 1) {
+      $publishedInf = [string]$installedDrivers[0].InfName
+    } else {
+      throw "PnPUtil requires a restart, but the exact Voxveil driver package could not be resolved safely (new packages=$($newPublishedInfNames.Count), bindings=$($installedDrivers.Count))."
+    }
+    Write-VirtualDriverInstallState -PublishedInf $publishedInf -PendingReboot $true
+    Write-Warning 'Voxveil Virtual Audio was staged successfully, but Windows requires a restart before the driver binding can be verified. Restart Windows before using or reinstalling the virtual driver.'
+    exit 3010
+  }
+  if ($pnputilExitCode -ne 0) {
+    throw "PnPUtil failed to install VoxveilVirtualAudio.inf (exit $pnputilExitCode)."
+  }
+
   if ($installedDrivers.Count -ne 1) {
     throw "Installed Voxveil Virtual Audio devnode could not be resolved to exactly one signed driver binding (found $($installedDrivers.Count))."
   }
@@ -196,15 +235,7 @@ try {
     throw "Newly added driver-store package '$newPublishedInf' does not match the package bound to the Voxveil devnode '$publishedInf'."
   }
 
-  @{
-    publishedInf = $publishedInf
-    deviceInstanceId = $deviceInstanceId
-    releaseChannel = [string]$verification.releaseChannel
-    architecture = [string]$verification.architecture
-    infSha256 = ([string]$verification.infSha256).ToLowerInvariant()
-    catalogSha256 = ([string]$verification.catalogSha256).ToLowerInvariant()
-    driverSha256 = ([string]$verification.driverSha256).ToLowerInvariant()
-  } | ConvertTo-Json -Depth 3 | Set-Content (Join-Path $package 'virtual-driver-install-state.json') -Encoding utf8
+  Write-VirtualDriverInstallState -PublishedInf $publishedInf
 
   Write-Host "Voxveil Virtual Audio installed as $publishedInf on $deviceInstanceId."
   Write-Host 'Use Windows Sound settings to select Voxveil Input when the relay path is desired.'
