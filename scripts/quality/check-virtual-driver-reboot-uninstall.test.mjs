@@ -12,15 +12,17 @@ test('virtual driver uninstall treats package or devnode restart as successful r
 
   const captureExit = tail.search(/\$pnputilExitCode\s*=\s*\$LASTEXITCODE/i);
   const hardFailure = tail.search(/if\s*\(\s*\$pnputilExitCode\s*-ne\s*0\s*-and\s*\$pnputilExitCode\s*-ne\s*3010\s*\)/i);
-  const combinedReboot = tail.search(/\$lifecycleRebootRequired\s*=\s*\$devnodeRebootRequired\s*-or\s*\$pnputilExitCode\s*-eq\s*3010/i);
-  const tombstone = tail.search(/uninstallComplete\s*=\s*\$true/i);
-  const stateWrite = tail.search(/Set-Content\s+\$statePath\s+-Encoding\s+utf8/i);
-  const rebootExit = tail.search(/exit\s+3010/i);
+  const combinedReboot = tail.search(/\$lifecycleRebootRequired\s*=\s*\$helperRebootRequired\s*-or\s*\$pnputilExitCode\s*-eq\s*3010/i);
 
   assert.ok(captureExit >= 0, 'PnPUtil delete exit code must be captured');
   assert.ok(hardFailure > captureExit, 'hard package failures must be separated from reboot-required success');
   assert.ok(combinedReboot > hardFailure, 'devnode and package reboot signals must be combined after package result validation');
-  assert.ok(tombstone > combinedReboot, 'successful removal requiring restart must checkpoint an uninstall-complete tombstone');
+
+  const rebootTail = tail.slice(combinedReboot);
+  const tombstone = rebootTail.search(/uninstallComplete\s*=\s*\$true/i);
+  const stateWrite = rebootTail.search(/Set-Content\s+\$statePath\s+-Encoding\s+utf8/i);
+  const rebootExit = rebootTail.search(/exit\s+3010/i);
+  assert.ok(tombstone >= 0, 'successful removal requiring restart must checkpoint an uninstall-complete tombstone');
   assert.ok(stateWrite > tombstone, 'reboot tombstone must be persisted before restart propagation');
   assert.ok(rebootExit > stateWrite, 'reboot-required exit must follow tombstone persistence');
 });
