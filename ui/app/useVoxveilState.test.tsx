@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { SystemAudioEndpoint, VoxveilState } from '../lib/types';
+import type { SystemAudioEndpoint, SystemAudioInstallResult, VoxveilState } from '../lib/types';
 
 const nativeState: VoxveilState = {
   edition: 'pro-system',
@@ -38,7 +38,7 @@ const playbackEndpoints: SystemAudioEndpoint[] = [
 const client = vi.hoisted(() => ({
   getState: vi.fn(async () => nativeState),
   listSystemAudioEndpoints: vi.fn(async () => playbackEndpoints),
-  installSystemAudioComponent: vi.fn(async (endpointId: string) => ({ endpointId, outcome: 'launched' as const })),
+  installSystemAudioComponent: vi.fn(async (endpointId: string): Promise<SystemAudioInstallResult> => ({ endpointId, outcome: 'launched' })),
   setMasterEnabled: vi.fn(async () => undefined),
   setProcessingMode: vi.fn(async () => undefined),
   setEngine: vi.fn(async () => undefined),
@@ -115,6 +115,23 @@ describe('useVoxveilState', () => {
     act(() => result.current.installSystemAudioEndpoint('speakers'));
 
     await waitFor(() => expect(client.installSystemAudioComponent).toHaveBeenCalledWith('speakers'));
+  });
+
+  it('surfaces reboot-required system audio installs', async () => {
+    (window as Window & { __TAURI_INTERNALS__?: object }).__TAURI_INTERNALS__ = {};
+    client.installSystemAudioComponent.mockResolvedValueOnce({
+      endpointId: 'speakers',
+      outcome: 'reboot-required',
+      detail: 'Restart Windows, then run this installation again.',
+    });
+    const { result } = renderHook(() => useVoxveilState());
+    await waitFor(() => expect(result.current.systemAudioEndpoints[0]?.displayName).toBe('Speakers'));
+
+    act(() => result.current.installSystemAudioEndpoint('speakers'));
+
+    await waitFor(() => {
+      expect(result.current.systemAudioInstallError).toBe('Restart Windows, then run this installation again.');
+    });
   });
 
   it('allows a configured relay to request processing startup', async () => {
