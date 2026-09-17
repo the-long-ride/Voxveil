@@ -17,6 +17,13 @@ test('current Tier 2 docs keep the first-party driver on Windows 11 build 22621+
   }
 });
 
+test('driver signing guide identifies the exact-SHA Manual Build submission artifact', () => {
+  const text = read('docs/release/windows-driver-signing.md');
+  assert.match(text, /Manual Build/i);
+  assert.match(text, /Voxveil-windows-driver-submission-\$\{\{\s*github\.sha\s*\}\}/);
+  assert.match(text, /exact[ -]SHA|exact commit/i);
+});
+
 test('authoritative Tier 2 corrections supersede undecorated INF guidance', () => {
   const corrections = read('docs/superpowers/plans/2026-09-14-windows-signed-audio-paths-review-notes.md');
 
