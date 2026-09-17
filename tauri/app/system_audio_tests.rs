@@ -66,3 +66,14 @@ fn resolves_installer_beside_packaged_executable() {
 fn escapes_apostrophes_for_powershell_single_quoted_strings() {
     assert_eq!(powershell_single_quoted("C:\\User's Files\\setup.ps1"), "C:\\User''s Files\\setup.ps1");
 }
+
+#[test]
+fn maps_windows_reboot_required_exit_without_treating_it_as_failure() {
+    assert_eq!(installer_launch_outcome(Some(0)), Ok(InstallerLaunchOutcome::Completed));
+    assert_eq!(
+        installer_launch_outcome(Some(3010)),
+        Ok(InstallerLaunchOutcome::RebootRequired)
+    );
+    assert!(installer_launch_outcome(Some(1)).is_err());
+    assert!(installer_launch_outcome(None).is_err());
+}
