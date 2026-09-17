@@ -141,6 +141,16 @@ npm run build:windows
 
 If `VOXVEIL_SIGNED_DRIVER_RELEASE_CHANNEL` is omitted while `VOXVEIL_SIGNED_DRIVER_DIR` is set, `build-windows.ps1` deliberately defaults to `Retail`, forcing the stronger evidence gate rather than silently accepting a pilot package.
 
+## Reboot-required lifecycle
+
+PnPUtil exit code `3010` means the requested package operation completed successfully but Windows requires a restart. Treat it as a restart boundary, not as a failed package transaction.
+
+For installation, `install-staged-virtual-driver.ps1` resolves the exact published INF from the new Driver Store delta or the exact Voxveil devnode binding, writes `virtual-driver-install-state.json`, and records `pendingReboot=true` before returning `3010`. Do not describe the endpoint as validated or ready at that point. Restart Windows, then rerun installation/validation so the normal binding checks can prove the exact `Voxveil Virtual Audio` package and endpoint.
+
+For uninstall, the script first removes the recorded devnode and then deletes only the recorded published INF. If PnPUtil returns `3010`, the package deletion has succeeded: the script removes the stale install-state file and propagates `3010`. Restart Windows before reinstalling the package or treating the removal as fully settled.
+
+Any other nonzero PnPUtil code remains a hard failure. Do not manually broaden cleanup to other `Voxveil` provider packages; retain the exact state/identity rules in the lifecycle scripts.
+
 ## Release-blocking validation checklist
 
 - [ ] The exact source revision and Voxveil commit are recorded.
@@ -152,6 +162,7 @@ If `VOXVEIL_SIGNED_DRIVER_RELEASE_CHANNEL` is omitted while `VOXVEIL_SIGNED_DRIV
 - [ ] `InfVerif` succeeds.
 - [ ] Package hashes match release evidence for retail builds.
 - [ ] Fresh-machine installation succeeds without importing a local test certificate.
+- [ ] If install/uninstall returns `3010`, Windows is restarted and the relevant binding/removal validation is repeated before acceptance.
 - [ ] Device Manager reports `Voxveil Virtual Audio` without signature errors.
 - [ ] `Voxveil Input` appears as the render endpoint.
 - [ ] Voxveil selects `voxveil-cable-relay` when the endpoint is the active controlled route and no APO is loaded.
