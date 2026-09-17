@@ -78,6 +78,14 @@ function Get-HelperValue([string[]]$Output, [string]$Name) {
   return $line.Substring($prefix.Length).Trim()
 }
 
+function Get-WindowsBootMarker {
+  $os = Get-CimInstance Win32_OperatingSystem
+  if (-not $os.LastBootUpTime) {
+    throw 'Could not determine the current Windows boot marker.'
+  }
+  ([DateTime]$os.LastBootUpTime).ToUniversalTime().ToString('o')
+}
+
 function Get-VoxveilPublishedInfNames {
   @(Get-WindowsDriver -Online |
     Where-Object {
@@ -148,6 +156,19 @@ if (-not (Test-Path $deviceHelper -PathType Leaf)) {
   throw "Voxveil root-device helper is missing: $deviceHelper"
 }
 
+$statePath = Join-Path $package 'virtual-driver-install-state.json'
+$currentBootMarker = Get-WindowsBootMarker
+if (Test-Path $statePath -PathType Leaf) {
+  $previousState = Get-Content $statePath -Raw | ConvertFrom-Json
+  $pendingProperty = $previousState.PSObject.Properties['pendingReboot']
+  $bootMarkerProperty = $previousState.PSObject.Properties['pendingRebootBootMarker']
+  $previousPendingReboot = $pendingProperty -and [bool]$pendingProperty.Value
+  $previousBootMarker = if ($bootMarkerProperty) { [string]$bootMarkerProperty.Value } else { '' }
+  if ($previousPendingReboot -and $previousBootMarker -and $previousBootMarker -eq $currentBootMarker) {
+    throw 'Restart Windows before continuing the Voxveil virtual-driver installation.'
+  }
+}
+
 $deviceInstanceId = $null
 function Write-VirtualDriverInstallState {
   param(
@@ -162,6 +183,7 @@ function Write-VirtualDriverInstallState {
     throw 'Cannot record virtual-driver install state without the exact devnode instance ID.'
   }
 
+  $pendingRebootBootMarker = if ($PendingReboot) { $currentBootMarker } else { $null }
   @{
     publishedInf = $PublishedInf
     deviceInstanceId = $deviceInstanceId
@@ -171,7 +193,8 @@ function Write-VirtualDriverInstallState {
     catalogSha256 = ([string]$verification.catalogSha256).ToLowerInvariant()
     driverSha256 = ([string]$verification.driverSha256).ToLowerInvariant()
     pendingReboot = $PendingReboot
-  } | ConvertTo-Json -Depth 3 | Set-Content (Join-Path $package 'virtual-driver-install-state.json') -Encoding utf8
+    pendingRebootBootMarker = $pendingRebootBootMarker
+  } | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
 }
 
 $beforePublishedInfNames = @(Get-VoxveilPublishedInfNames)
