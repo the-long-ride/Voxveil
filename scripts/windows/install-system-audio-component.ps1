@@ -340,8 +340,10 @@ try {
     if ($LASTEXITCODE -ne 0 -or $status -notmatch 'loaded=[1-9][0-9]*') {
       throw 'installed-not-loaded: the package installed, but AudioDG did not load a real Voxveil processing instance on the selected playback endpoint.'
     }
+  } elseif (-not $TestSign) {
+    throw 'installed-not-loaded: production CAPX installation requires voxveil-control.exe so AudioDG load verification cannot be skipped.'
   } else {
-    Write-Warning 'voxveil-control.exe was not present, so AudioDG load verification was skipped.'
+    Write-Warning 'voxveil-control.exe was not present, so AudioDG load verification was skipped for this development/test installation.'
   }
 
   if ($TestSign) {
