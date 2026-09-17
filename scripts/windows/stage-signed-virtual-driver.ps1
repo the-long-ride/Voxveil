@@ -78,8 +78,18 @@ $inf = $infFiles[0]
 $cat = $catFiles[0]
 $sys = $sysFiles[0]
 
+$existingInstallStatePath = Join-Path $destination 'virtual-driver-install-state.json'
+$existingInstallStateBytes = if (Test-Path $existingInstallStatePath -PathType Leaf) {
+  [IO.File]::ReadAllBytes($existingInstallStatePath)
+} else {
+  $null
+}
+
 Remove-Item $destination -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $destination | Out-Null
+if ($null -ne $existingInstallStateBytes) {
+  [IO.File]::WriteAllBytes((Join-Path $destination 'virtual-driver-install-state.json'), $existingInstallStateBytes)
+}
 foreach ($file in @($inf, $cat, $sys)) {
   Copy-Item $file.FullName (Join-Path $destination $file.Name)
 }
