@@ -31,6 +31,28 @@ test('installer records only Voxveil package INF names added by its own invocati
   assert.match(installer, /Where-Object\s*\{\s*\$beforeInstalledInfNames\s*-inotcontains\s*\$_\s*\}/s);
 });
 
+test('installer snapshots scoped package ownership after each successful PnP package add', () => {
+  assert.match(installer, /function\s+Write-InstallStateSnapshot/i);
+
+  const baseInstall = installer.indexOf("pnputil.exe /add-driver (Join-Path $work 'VoxveilApo.inf') /install");
+  const extensionInstall = installer.indexOf('pnputil.exe /add-driver $extensionInf /install');
+  const restartAudio = installer.indexOf('Restart-Service Audiosrv -Force');
+
+  assert.ok(baseInstall >= 0, 'base APO PnP install must exist');
+  assert.ok(extensionInstall > baseInstall, 'Extension INF install must follow the base APO install');
+  assert.ok(restartAudio > extensionInstall, 'AudioSrv restart must follow both package installs');
+  assert.match(
+    installer.slice(baseInstall, extensionInstall),
+    /Write-InstallStateSnapshot/,
+    'ownership must be persisted after the base APO package succeeds and before Extension install can fail',
+  );
+  assert.match(
+    installer.slice(extensionInstall, restartAudio),
+    /Write-InstallStateSnapshot/,
+    'ownership must be refreshed after the Extension package succeeds',
+  );
+});
+
 test('APO uninstall never falls back to deleting every Voxveil provider package', () => {
   assert.doesNotMatch(
     uninstaller,
