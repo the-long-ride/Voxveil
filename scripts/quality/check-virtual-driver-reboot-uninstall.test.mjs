@@ -5,24 +5,24 @@ import test from 'node:test';
 const uninstaller = readFileSync('scripts/windows/uninstall-staged-virtual-driver.ps1', 'utf8');
 const installer = readFileSync('scripts/windows/install-staged-virtual-driver.ps1', 'utf8');
 
-test('virtual driver uninstall treats PnPUtil 3010 as successful deletion requiring reboot', () => {
+test('virtual driver uninstall treats package or devnode restart as successful removal requiring reboot', () => {
   const deleteDriver = uninstaller.indexOf('pnputil.exe /delete-driver $publishedInf');
   assert.ok(deleteDriver >= 0, 'uninstaller must delete only the recorded published INF');
   const tail = uninstaller.slice(deleteDriver);
 
   const captureExit = tail.search(/\$pnputilExitCode\s*=\s*\$LASTEXITCODE/i);
-  const rebootCheck = tail.search(/if\s*\(\s*\$pnputilExitCode\s*-eq\s*3010\s*\)/i);
+  const hardFailure = tail.search(/if\s*\(\s*\$pnputilExitCode\s*-ne\s*0\s*-and\s*\$pnputilExitCode\s*-ne\s*3010\s*\)/i);
+  const combinedReboot = tail.search(/\$lifecycleRebootRequired\s*=\s*\$devnodeRebootRequired\s*-or\s*\$pnputilExitCode\s*-eq\s*3010/i);
   const tombstone = tail.search(/uninstallComplete\s*=\s*\$true/i);
   const stateWrite = tail.search(/Set-Content\s+\$statePath\s+-Encoding\s+utf8/i);
   const rebootExit = tail.search(/exit\s+3010/i);
-  const hardFailure = tail.search(/if\s*\(\s*\$pnputilExitCode\s*-ne\s*0\s*\)/i);
 
   assert.ok(captureExit >= 0, 'PnPUtil delete exit code must be captured');
-  assert.ok(rebootCheck > captureExit, 'reboot-required success must be handled after the delete result is captured');
-  assert.ok(tombstone > rebootCheck, 'successful deletion must be checkpointed as an uninstall-complete reboot tombstone');
+  assert.ok(hardFailure > captureExit, 'hard package failures must be separated from reboot-required success');
+  assert.ok(combinedReboot > hardFailure, 'devnode and package reboot signals must be combined after package result validation');
+  assert.ok(tombstone > combinedReboot, 'successful removal requiring restart must checkpoint an uninstall-complete tombstone');
   assert.ok(stateWrite > tombstone, 'reboot tombstone must be persisted before restart propagation');
   assert.ok(rebootExit > stateWrite, 'reboot-required exit must follow tombstone persistence');
-  assert.ok(hardFailure > rebootExit, 'generic failure handling must not classify 3010 as a failure');
 });
 
 test('virtual driver uninstall 3010 blocks same-boot reinstall and clears tombstone only after reboot', () => {
