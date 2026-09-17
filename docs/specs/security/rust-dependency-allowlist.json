@@ -36,6 +36,11 @@
       "version": "0.23.0",
       "license": "MIT",
       "commercialUse": true
+    },
+    "windows": {
+      "version": "0.62.2",
+      "license": "MIT OR Apache-2.0",
+      "commercialUse": true
     }
   }
 }
