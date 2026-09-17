@@ -27,6 +27,12 @@ test('driver signing guide identifies the exact-SHA Manual Build submission arti
   assert.match(text, /exact[ -]SHA|exact commit/i);
 });
 
+test('driver signing guide requires uninstall before changing the recorded signed package', () => {
+  const text = read('docs/release/windows-driver-signing.md');
+  assert.match(text, /uninstall[\s\S]{0,220}different signed package|different signed package[\s\S]{0,220}uninstall/i);
+  assert.match(text, /same-package[\s\S]{0,180}repair|repair[\s\S]{0,180}same-package/i);
+});
+
 test('signed-driver validation matrix records pinned source provenance', () => {
   const text = read('docs/testing/windows-signed-virtual-driver.md');
   assert.ok(
