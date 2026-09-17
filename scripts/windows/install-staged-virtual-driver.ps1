@@ -210,10 +210,13 @@ try {
   }
   $deviceInstanceId = Get-HelperValue $ensureOutput 'instanceId'
   $createdValue = Get-HelperValue $ensureOutput 'created'
-  if (-not $deviceInstanceId -or $deviceInstanceId -match '[\r\n]' -or $createdValue -notin @('0', '1')) {
+  $helperRebootValue = Get-HelperValue $ensureOutput 'rebootRequired'
+  if (-not $deviceInstanceId -or $deviceInstanceId -match '[\r\n]' -or
+      $createdValue -notin @('0', '1') -or $helperRebootValue -notin @('0', '1')) {
     throw 'voxveil-virtual-device.exe returned invalid ensure metadata.'
   }
   $deviceCreated = $createdValue -eq '1'
+  $helperRebootRequired = $helperRebootValue -eq '1'
 
   Write-Host "Installing verified Voxveil virtual driver ($($verification.releaseChannel), $($verification.architecture))..."
   pnputil.exe /add-driver $inf /install | Out-Host
@@ -236,20 +239,24 @@ try {
       $_.InfName -match '^oem\d+\.inf$'
     })
 
-  if ($pnputilExitCode -eq 3010) {
+  if ($pnputilExitCode -ne 0) {
+    if ($pnputilExitCode -ne 3010) {
+      throw "PnPUtil failed to install VoxveilVirtualAudio.inf (exit $pnputilExitCode)."
+    }
+  }
+
+  $lifecycleRebootRequired = $helperRebootRequired -or $pnputilExitCode -eq 3010
+  if ($lifecycleRebootRequired) {
     if ($newPublishedInf) {
       $publishedInf = $newPublishedInf
     } elseif ($installedDrivers.Count -eq 1) {
       $publishedInf = [string]$installedDrivers[0].InfName
     } else {
-      throw "PnPUtil requires a restart, but the exact Voxveil driver package could not be resolved safely (new packages=$($newPublishedInfNames.Count), bindings=$($installedDrivers.Count))."
+      throw "Virtual-device or package installation requires a restart, but the exact Voxveil driver package could not be resolved safely (new packages=$($newPublishedInfNames.Count), bindings=$($installedDrivers.Count))."
     }
     Write-VirtualDriverInstallState -PublishedInf $publishedInf -PendingReboot $true
     Write-Warning 'Voxveil Virtual Audio was staged successfully, but Windows requires a restart before the driver binding can be verified. Restart Windows before using or reinstalling the virtual driver.'
     exit 3010
-  }
-  if ($pnputilExitCode -ne 0) {
-    throw "PnPUtil failed to install VoxveilVirtualAudio.inf (exit $pnputilExitCode)."
   }
 
   if ($installedDrivers.Count -ne 1) {
@@ -267,13 +274,22 @@ try {
 }
 catch {
   $devnodeRollbackSucceeded = -not $deviceCreated
+  $rollbackHelperRebootRequired = $false
   if ($deviceCreated -and $deviceInstanceId) {
     Write-Warning "Rolling back newly created Voxveil devnode $deviceInstanceId after installation failure."
-    & $deviceHelper remove $deviceInstanceId | Out-Host
-    if ($LASTEXITCODE -ne 0) {
-      Write-Warning "Devnode rollback failed with exit code $LASTEXITCODE; manual cleanup may be required."
+    $rollbackRemoveOutput = @(& $deviceHelper remove $deviceInstanceId)
+    $rollbackRemoveExitCode = $LASTEXITCODE
+    $rollbackRemoveOutput | Out-Host
+    if ($rollbackRemoveExitCode -ne 0) {
+      Write-Warning "Devnode rollback failed with exit code $rollbackRemoveExitCode; manual cleanup may be required."
     } else {
-      $devnodeRollbackSucceeded = $true
+      $rollbackRebootValue = Get-HelperValue $rollbackRemoveOutput 'rebootRequired'
+      if ($rollbackRebootValue -notin @('0', '1')) {
+        Write-Warning 'Devnode rollback returned invalid reboot metadata; package rollback was skipped to preserve ownership for manual cleanup.'
+      } else {
+        $rollbackHelperRebootRequired = $rollbackRebootValue -eq '1'
+        $devnodeRollbackSucceeded = $true
+      }
     }
   }
 
@@ -281,14 +297,22 @@ catch {
     Write-Warning "Rolling back newly added Voxveil driver-store package $newPublishedInf after installation failure."
     pnputil.exe /delete-driver $newPublishedInf | Out-Host
     $rollbackDeleteExitCode = $LASTEXITCODE
-    if ($rollbackDeleteExitCode -eq 3010) {
-      Write-VirtualDriverInstallState -PublishedInf $newPublishedInf -PendingReboot $true -UninstallComplete $true
-      Write-Warning "Driver-store rollback removed $newPublishedInf successfully, but Windows requires a restart before another Voxveil virtual-driver lifecycle mutation."
-    } elseif ($rollbackDeleteExitCode -ne 0) {
+    if ($rollbackDeleteExitCode -ne 0 -and $rollbackDeleteExitCode -ne 3010) {
+      if ($rollbackHelperRebootRequired) {
+        Write-VirtualDriverInstallState -PublishedInf $newPublishedInf -PendingReboot $true
+      }
       Write-Warning "Driver-store rollback failed for $newPublishedInf with exit code $rollbackDeleteExitCode; manual cleanup may be required."
+    } else {
+      $rollbackLifecycleRebootRequired = $rollbackHelperRebootRequired -or $rollbackDeleteExitCode -eq 3010
+      if ($rollbackLifecycleRebootRequired) {
+        Write-VirtualDriverInstallState -PublishedInf $newPublishedInf -PendingReboot $true -UninstallComplete $true
+        Write-Warning "Rollback removed $newPublishedInf successfully, but Windows requires a restart before another Voxveil virtual-driver lifecycle mutation."
+      }
     }
   } elseif ($newPublishedInf) {
     Write-Warning "New driver-store package $newPublishedInf remains installed because the devnode could not be safely rolled back; manual cleanup may be required."
+  } elseif ($rollbackHelperRebootRequired) {
+    Write-Warning 'Devnode rollback requires a Windows restart before retrying the Voxveil virtual-driver installation.'
   }
   throw
 }
