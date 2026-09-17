@@ -196,6 +196,32 @@ $template = Join-Path $root 'VoxveilApoExtension.inf.template'
 $generator = Join-Path $root 'new-apo-extension-inf.ps1'
 $control = Join-Path $root 'voxveil-control.exe'
 $useLegacyRuntimeAttachment = $TestSign -and $runtimeBound
+$bindingMode = if (-not $TestSign) {
+  'capx-extension'
+} elseif ($useLegacyRuntimeAttachment) {
+  'legacy-runtime-interface'
+} else {
+  'legacy-reference'
+}
+
+function Write-InstallStateSnapshot {
+  $afterInstalledInfNames = @(Get-VoxveilPublishedInfNames)
+  $newInstalledInfNames = @($afterInstalledInfNames | Where-Object { $beforeInstalledInfNames -inotcontains $_ })
+  $previousStillInstalledInfNames = @($previousInstalledInfNames | Where-Object { $afterInstalledInfNames -icontains $_ })
+  $installed = @($previousStillInstalledInfNames + $newInstalledInfNames)
+  $installed = @($installed | Sort-Object -Unique)
+
+  @{
+    installedInfNames = @($installed)
+    endpointId = $selectedEndpointId
+    hardwareId = $HardwareId
+    bindingMode = $bindingMode
+    bindingPnpInstanceId = $bindingPnpInstanceId
+    topologyInterfacePath = $topologyInterfacePath
+    audioInterfacePath = $audioInterfacePath
+    referenceString = $ReferenceString
+  } | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
+}
 
 foreach ($required in @($apoInf, $apoDll)) {
   if (-not (Test-Path $required)) { throw "Required system-audio file not found: $required" }
@@ -290,10 +316,12 @@ try {
   Write-Host 'Staging/installing the Voxveil APO software-component package...'
   pnputil.exe /add-driver (Join-Path $work 'VoxveilApo.inf') /install | Out-Host
   if ($LASTEXITCODE -ne 0) { throw "PnPUtil failed to stage VoxveilApo.inf (exit $LASTEXITCODE)." }
+  Write-InstallStateSnapshot
 
   Write-Host 'Installing the endpoint-specific Voxveil Extension INF...'
   pnputil.exe /add-driver $extensionInf /install | Out-Host
   if ($LASTEXITCODE -ne 0) { throw "PnPUtil failed to install VoxveilApoExtension.inf (exit $LASTEXITCODE)." }
+  Write-InstallStateSnapshot
 
   if ($useLegacyRuntimeAttachment) {
     if (-not (Test-Path $control -PathType Leaf)) {
@@ -309,30 +337,7 @@ try {
   Write-Host 'Restarting Windows Audio so AudioDG rebuilds the endpoint graph...'
   Restart-Service Audiosrv -Force
   Start-Sleep -Seconds 2
-
-  $afterInstalledInfNames = @(Get-VoxveilPublishedInfNames)
-  $newInstalledInfNames = @($afterInstalledInfNames | Where-Object { $beforeInstalledInfNames -inotcontains $_ })
-  $previousStillInstalledInfNames = @($previousInstalledInfNames | Where-Object { $afterInstalledInfNames -icontains $_ })
-  $installed = @($previousStillInstalledInfNames + $newInstalledInfNames)
-  $installed = @($installed | Sort-Object -Unique)
-
-  $bindingMode = if (-not $TestSign) {
-    'capx-extension'
-  } elseif ($useLegacyRuntimeAttachment) {
-    'legacy-runtime-interface'
-  } else {
-    'legacy-reference'
-  }
-  @{
-    installedInfNames = @($installed)
-    endpointId = $selectedEndpointId
-    hardwareId = $HardwareId
-    bindingMode = $bindingMode
-    bindingPnpInstanceId = $bindingPnpInstanceId
-    topologyInterfacePath = $topologyInterfacePath
-    audioInterfacePath = $audioInterfacePath
-    referenceString = $ReferenceString
-  } | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
+  Write-InstallStateSnapshot
 
   if (Test-Path $control) {
     $status = & $control status 2>&1
