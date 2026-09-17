@@ -55,6 +55,13 @@ function Get-WindowsBootMarker {
   ([DateTime]$os.LastBootUpTime).ToUniversalTime().ToString('o')
 }
 
+function Get-HelperValue([string[]]$Output, [string]$Name) {
+  $prefix = "$Name="
+  $line = $Output | Where-Object { $_.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1
+  if (-not $line) { return $null }
+  return $line.Substring($prefix.Length).Trim()
+}
+
 Assert-Administrator
 
 if (-not $PackageDir) {
@@ -103,15 +110,45 @@ if (-not (Test-Path $deviceHelper -PathType Leaf)) {
 Assert-PublishedInfIdentity $publishedInf $deviceInstanceId
 
 Write-Host "Removing recorded Voxveil Virtual Audio devnode $deviceInstanceId ..."
-& $deviceHelper remove $deviceInstanceId | Out-Host
-if ($LASTEXITCODE -ne 0) {
-  throw "voxveil-virtual-device.exe failed to remove the recorded devnode (exit $LASTEXITCODE). The install-state file was kept for recovery."
+$removeOutput = @(& $deviceHelper remove $deviceInstanceId)
+$removeExitCode = $LASTEXITCODE
+$removeOutput | Out-Host
+if ($removeExitCode -ne 0) {
+  throw "voxveil-virtual-device.exe failed to remove the recorded devnode (exit $removeExitCode). The install-state file was kept for recovery."
 }
+$removeRebootValue = Get-HelperValue $removeOutput 'rebootRequired'
+if ($removeRebootValue -notin @('0', '1')) {
+  throw 'voxveil-virtual-device.exe returned invalid remove reboot metadata. The install-state file was kept for recovery.'
+}
+$devnodeRebootRequired = $removeRebootValue -eq '1'
 
 Write-Host "Deleting recorded Voxveil Virtual Audio driver-store package $publishedInf ..."
 pnputil.exe /delete-driver $publishedInf | Out-Host
 $pnputilExitCode = $LASTEXITCODE
-if ($pnputilExitCode -eq 3010) {
+if ($pnputilExitCode -ne 0 -and $pnputilExitCode -ne 3010) {
+  if ($devnodeRebootRequired) {
+    if ($state.PSObject.Properties['pendingReboot']) {
+      $state.pendingReboot = $true
+    } else {
+      $state | Add-Member -NotePropertyName pendingReboot -NotePropertyValue $true
+    }
+    if ($state.PSObject.Properties['pendingRebootBootMarker']) {
+      $state.pendingRebootBootMarker = $currentBootMarker
+    } else {
+      $state | Add-Member -NotePropertyName pendingRebootBootMarker -NotePropertyValue $currentBootMarker
+    }
+    if ($state.PSObject.Properties['uninstallComplete']) {
+      $state.uninstallComplete = $false
+    } else {
+      $state | Add-Member -NotePropertyName uninstallComplete -NotePropertyValue $false
+    }
+    $state | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
+  }
+  throw "PnPUtil failed to delete $publishedInf (exit $pnputilExitCode). The install-state file was kept for recovery."
+}
+
+$lifecycleRebootRequired = $devnodeRebootRequired -or $pnputilExitCode -eq 3010
+if ($lifecycleRebootRequired) {
   if ($state.PSObject.Properties['pendingReboot']) {
     $state.pendingReboot = $true
   } else {
@@ -128,11 +165,8 @@ if ($pnputilExitCode -eq 3010) {
     $state | Add-Member -NotePropertyName uninstallComplete -NotePropertyValue $true
   }
   $state | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
-  Write-Warning 'Voxveil Virtual Audio was removed successfully, but Windows requires a restart to finish unloading the driver package.'
+  Write-Warning 'Voxveil Virtual Audio was removed successfully, but Windows requires a restart to finish the device/package removal.'
   exit 3010
-}
-if ($pnputilExitCode -ne 0) {
-  throw "PnPUtil failed to delete $publishedInf (exit $pnputilExitCode). The install-state file was kept for recovery."
 }
 
 Remove-Item $statePath -Force
