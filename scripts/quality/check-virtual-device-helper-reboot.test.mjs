@@ -7,6 +7,7 @@ const installer = readFileSync('scripts/windows/install-staged-virtual-driver.ps
 const uninstaller = readFileSync('scripts/windows/uninstall-staged-virtual-driver.ps1', 'utf8');
 
 test('SetupAPI helper reports restart flags after register/remove class-installer calls', () => {
+  assert.match(helper, /bool\s+DeviceInstallNeedsRestart/i);
   assert.match(helper, /SetupDiGetDeviceInstallParamsW/i);
   assert.match(helper, /DI_NEEDREBOOT/i);
   assert.match(helper, /DI_NEEDRESTART/i);
@@ -15,8 +16,8 @@ test('SetupAPI helper reports restart flags after register/remove class-installe
   const register = helper.indexOf('SetupDiCallClassInstaller(DIF_REGISTERDEVICE');
   const remove = helper.indexOf('SetupDiCallClassInstaller(DIF_REMOVE');
   assert.ok(register >= 0 && remove >= 0, 'helper must keep register/remove SetupAPI calls');
-  assert.ok(helper.indexOf('SetupDiGetDeviceInstallParamsW', register) > register, 'register path must inspect restart flags after SetupAPI success');
-  assert.ok(helper.indexOf('SetupDiGetDeviceInstallParamsW', remove) > remove, 'remove path must inspect restart flags after SetupAPI success');
+  assert.ok(helper.indexOf('DeviceInstallNeedsRestart', register) > register, 'register path must inspect restart flags after SetupAPI success');
+  assert.ok(helper.indexOf('DeviceInstallNeedsRestart', remove) > remove, 'remove path must inspect restart flags after SetupAPI success');
 });
 
 test('virtual-driver installer aggregates helper restart with PnPUtil restart state', () => {
