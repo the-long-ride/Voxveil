@@ -38,6 +38,7 @@ const playbackEndpoints: SystemAudioEndpoint[] = [
 const client = vi.hoisted(() => ({
   getState: vi.fn(async () => nativeState),
   listSystemAudioEndpoints: vi.fn(async () => playbackEndpoints),
+  listAudioOutputs: vi.fn(async () => []),
   installSystemAudioComponent: vi.fn(async (endpointId: string): Promise<SystemAudioInstallResult> => ({ endpointId, outcome: 'launched' })),
   setMasterEnabled: vi.fn(async () => undefined),
   setProcessingMode: vi.fn(async () => undefined),
