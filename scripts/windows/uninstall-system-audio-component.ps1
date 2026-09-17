@@ -18,6 +18,14 @@ function Assert-RecordedApoInfIdentity([string]$PublishedInf) {
   }
 }
 
+function Get-WindowsBootMarker {
+  $os = Get-CimInstance Win32_OperatingSystem
+  if (-not $os.LastBootUpTime) {
+    throw 'Could not determine the current Windows boot marker.'
+  }
+  ([DateTime]$os.LastBootUpTime).ToUniversalTime().ToString('o')
+}
+
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $principal = [Security.Principal.WindowsPrincipal]::new($identity)
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
@@ -27,12 +35,26 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $statePath = Join-Path $root 'install-state.json'
 $control = Join-Path $root 'voxveil-control.exe'
+$currentBootMarker = Get-WindowsBootMarker
 $infNames = @()
 $state = $null
 
 if (Test-Path $statePath) {
   $state = Get-Content $statePath -Raw | ConvertFrom-Json
   $infNames = @($state.installedInfNames) | Where-Object { $_ -match '^oem\d+\.inf$' }
+  $pendingProperty = $state.PSObject.Properties['pendingReboot']
+  $bootMarkerProperty = $state.PSObject.Properties['pendingRebootBootMarker']
+  $pendingReboot = $pendingProperty -and [bool]$pendingProperty.Value
+  $pendingBootMarker = if ($bootMarkerProperty) { [string]$bootMarkerProperty.Value } else { '' }
+  if ($pendingReboot -and $pendingBootMarker -and $pendingBootMarker -eq $currentBootMarker) {
+    throw 'Restart Windows before continuing Voxveil APO package cleanup.'
+  }
+  if (-not $pendingProperty) {
+    $state | Add-Member -NotePropertyName pendingReboot -NotePropertyValue $false
+  }
+  if (-not $bootMarkerProperty) {
+    $state | Add-Member -NotePropertyName pendingRebootBootMarker -NotePropertyValue $null
+  }
 }
 
 if ($state -and [string]$state.bindingMode -eq 'legacy-runtime-interface') {
@@ -71,6 +93,13 @@ foreach ($inf in @($infNames)) {
 
   $infNames = @($infNames | Where-Object { $_ -ine $inf })
   $state.installedInfNames = @($infNames)
+  if ($pnputilExitCode -eq 3010) {
+    $state.pendingReboot = $true
+    $state.pendingRebootBootMarker = $currentBootMarker
+  } else {
+    $state.pendingReboot = $false
+    $state.pendingRebootBootMarker = $null
+  }
   $state | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
 
   if ($pnputilExitCode -eq 3010) {
