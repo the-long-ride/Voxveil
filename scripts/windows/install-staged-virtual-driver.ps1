@@ -79,9 +79,14 @@ function Get-HelperValue([string[]]$Output, [string]$Name) {
 }
 
 function Get-VoxveilPublishedInfNames {
-  @(Get-CimInstance Win32_PnPSignedDriver |
-    Where-Object { $_.DriverProviderName -eq 'Voxveil' -and $_.InfName -match '^oem\d+\.inf$' } |
-    Select-Object -ExpandProperty InfName -Unique)
+  @(Get-WindowsDriver -Online |
+    Where-Object {
+      $_.ProviderName -ieq 'Voxveil' -and
+      [IO.Path]::GetFileName([string]$_.OriginalFileName) -ieq 'VoxveilVirtualAudio.inf' -and
+      [string]$_.Driver -match '^oem\d+\.inf$'
+    } |
+    ForEach-Object { [string]$_.Driver } |
+    Sort-Object -Unique)
 }
 
 Assert-Administrator
