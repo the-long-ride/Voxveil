@@ -41,6 +41,14 @@ function Get-OptionalProperty($Object, [string]$Name) {
   return $null
 }
 
+function Get-WindowsBootMarker {
+  $os = Get-CimInstance Win32_OperatingSystem
+  if (-not $os.LastBootUpTime) {
+    throw 'Could not determine the current Windows boot marker.'
+  }
+  ([DateTime]$os.LastBootUpTime).ToUniversalTime().ToString('o')
+}
+
 function Get-VoxveilPublishedInfNames {
   @(Get-WindowsDriver -Online |
     Where-Object {
@@ -171,11 +179,17 @@ if ($PSCmdlet.ParameterSetName -eq 'Manual' -and -not $TestSign) {
 
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $statePath = Join-Path $root 'install-state.json'
+$currentBootMarker = Get-WindowsBootMarker
 $previousInstalledInfNames = @()
 if (Test-Path $statePath -PathType Leaf) {
   $previousState = Get-Content $statePath -Raw | ConvertFrom-Json
   $previousInstalledInfNames = @($previousState.installedInfNames) |
     Where-Object { $_ -match '^oem\d+\.inf$' }
+  $previousPendingReboot = Get-OptionalProperty $previousState 'pendingReboot'
+  $previousBootMarker = [string](Get-OptionalProperty $previousState 'pendingRebootBootMarker')
+  if ($previousPendingReboot -eq $true -and $previousBootMarker -and $previousBootMarker -eq $currentBootMarker) {
+    throw 'Restart Windows before continuing the Voxveil system-audio installation.'
+  }
 }
 $beforeInstalledInfNames = @(Get-VoxveilPublishedInfNames)
 
@@ -209,12 +223,16 @@ $bindingMode = if (-not $TestSign) {
   'legacy-reference'
 }
 
-function Write-InstallStateSnapshot([bool]$BindingReady = $false) {
+function Write-InstallStateSnapshot(
+  [bool]$BindingReady = $false,
+  [bool]$PendingReboot = $false
+) {
   $afterInstalledInfNames = @(Get-VoxveilPublishedInfNames)
   $newInstalledInfNames = @($afterInstalledInfNames | Where-Object { $beforeInstalledInfNames -inotcontains $_ })
   $previousStillInstalledInfNames = @($previousInstalledInfNames | Where-Object { $afterInstalledInfNames -icontains $_ })
   $installed = @($previousStillInstalledInfNames + $newInstalledInfNames)
   $installed = @($installed | Sort-Object -Unique)
+  $pendingRebootBootMarker = if ($PendingReboot) { $currentBootMarker } else { $null }
 
   @{
     installedInfNames = @($installed)
@@ -222,6 +240,8 @@ function Write-InstallStateSnapshot([bool]$BindingReady = $false) {
     hardwareId = $HardwareId
     bindingMode = $bindingMode
     bindingReady = $BindingReady
+    pendingReboot = $PendingReboot
+    pendingRebootBootMarker = $pendingRebootBootMarker
     bindingPnpInstanceId = $bindingPnpInstanceId
     topologyInterfacePath = $topologyInterfacePath
     audioInterfacePath = $audioInterfacePath
@@ -322,28 +342,30 @@ try {
   Write-Host 'Staging/installing the Voxveil APO software-component package...'
   pnputil.exe /add-driver (Join-Path $work 'VoxveilApo.inf') /install | Out-Host
   $apoPnputilExitCode = $LASTEXITCODE
-  Write-InstallStateSnapshot
   if ($apoPnputilExitCode -eq 3010) {
+    Write-InstallStateSnapshot -PendingReboot $true
     Write-Warning 'PnPUtil staged the Voxveil APO package successfully, but Windows requires a restart before installation can continue.'
     exit 3010
   }
+  Write-InstallStateSnapshot
   if ($apoPnputilExitCode -ne 0) { throw "PnPUtil failed to stage VoxveilApo.inf (exit $apoPnputilExitCode)." }
 
   Write-Host 'Installing the endpoint-specific Voxveil Extension INF...'
   pnputil.exe /add-driver $extensionInf /install | Out-Host
   $extensionPnputilExitCode = $LASTEXITCODE
-  Write-InstallStateSnapshot
   if ($extensionPnputilExitCode -eq 3010) {
+    Write-InstallStateSnapshot -PendingReboot $true
     Write-Warning 'PnPUtil installed the Voxveil Extension package successfully, but Windows requires a restart before AudioDG readiness can be verified.'
     exit 3010
   }
+  Write-InstallStateSnapshot
   if ($extensionPnputilExitCode -ne 0) { throw "PnPUtil failed to install VoxveilApoExtension.inf (exit $extensionPnputilExitCode)." }
 
   if ($useLegacyRuntimeAttachment) {
     if (-not (Test-Path $control -PathType Leaf)) {
       throw 'Legacy development runtime interface binding requires voxveil-control.exe in the packaged system-audio directory.'
     }
-    Write-Warning 'Applying legacy development FX\\0 registry attachment. This is not the Windows 11 CAPX production path.'
+    Write-Warning 'Applying legacy development FX\0 registry attachment. This is not the Windows 11 CAPX production path.'
     & $control attach-effects $bindingPnpInstanceId $topologyInterfacePath $audioInterfacePath | Out-Host
     if ($LASTEXITCODE -ne 0) {
       throw "Legacy runtime interface FX attachment failed (exit $LASTEXITCODE)."
