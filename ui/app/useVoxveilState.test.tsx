@@ -134,6 +134,34 @@ describe('useVoxveilState', () => {
     });
   });
 
+  it('stops install-all at the first reboot-required endpoint', async () => {
+    (window as Window & { __TAURI_INTERNALS__?: object }).__TAURI_INTERNALS__ = {};
+    client.listSystemAudioEndpoints.mockResolvedValueOnce([
+      playbackEndpoints[0],
+      {
+        endpointId: 'headphones',
+        displayName: 'Headphones',
+        adapterName: 'Example Audio',
+        isDefault: false,
+        status: 'installable',
+      },
+    ]);
+    client.installSystemAudioComponent.mockResolvedValueOnce({
+      endpointId: 'speakers',
+      outcome: 'reboot-required',
+      detail: 'Restart Windows before installation can continue.',
+    });
+    const { result } = renderHook(() => useVoxveilState());
+    await waitFor(() => expect(result.current.systemAudioEndpoints).toHaveLength(2));
+
+    act(() => result.current.installAllSystemAudioEndpoints());
+
+    await waitFor(() => expect(result.current.systemAudioInstallBusyId).toBeNull());
+    expect(client.installSystemAudioComponent).toHaveBeenCalledTimes(1);
+    expect(client.installSystemAudioComponent).toHaveBeenCalledWith('speakers');
+    expect(result.current.systemAudioInstallError).toContain('Restart Windows before installation can continue.');
+  });
+
   it('allows a configured relay to request processing startup', async () => {
     (window as Window & { __TAURI_INTERNALS__?: object }).__TAURI_INTERNALS__ = {};
     client.getState.mockResolvedValueOnce({
