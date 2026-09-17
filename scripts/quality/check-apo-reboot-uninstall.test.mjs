@@ -25,3 +25,27 @@ test('APO uninstall checkpoints successful 3010 deletion before requiring reboot
   assert.ok(rebootCheck > stateWrite, 'reboot-required handling must run after the remaining ownership is persisted');
   assert.ok(rebootExit > rebootCheck, '3010 must propagate after the checkpoint');
 });
+
+test('APO uninstall blocks same-boot continuation after reboot-required deletion', () => {
+  assert.match(text, /function\s+Get-WindowsBootMarker/i);
+  assert.match(text, /pendingRebootBootMarker/i);
+
+  const detachEffects = text.indexOf('& $control detach-effects');
+  const deleteDriver = text.indexOf('pnputil.exe /delete-driver $inf /uninstall /force');
+  const sameBootGuard = text.indexOf('Restart Windows before continuing Voxveil APO package cleanup');
+  assert.ok(deleteDriver >= 0, 'recorded package delete must exist');
+  assert.ok(sameBootGuard >= 0 && sameBootGuard < deleteDriver, 'same-boot guard must run before package deletion');
+  if (detachEffects >= 0) {
+    assert.ok(sameBootGuard < detachEffects, 'same-boot guard must run before legacy FX detach mutation');
+  }
+
+  const tail = text.slice(deleteDriver);
+  const markPending = tail.search(/\$state\.pendingReboot\s*=\s*\$true/i);
+  const markBoot = tail.search(/\$state\.pendingRebootBootMarker\s*=\s*\$currentBootMarker/i);
+  const stateWrite = tail.search(/Set-Content\s+\$statePath\s+-Encoding\s+utf8/i);
+  const rebootExit = tail.search(/exit\s+3010/i);
+  assert.ok(markPending >= 0, '3010 cleanup state must remain pending reboot');
+  assert.ok(markBoot > markPending, '3010 cleanup state must record the current boot marker');
+  assert.ok(stateWrite > markBoot, 'pending reboot marker must be persisted');
+  assert.ok(rebootExit > stateWrite, 'restart-required exit must follow state persistence');
+});
