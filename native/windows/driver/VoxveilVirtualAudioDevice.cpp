@@ -152,7 +152,7 @@ void SetExactHardwareId(HDEVINFO set, SP_DEVINFO_DATA* device) {
     }
 }
 
-bool DeviceRequiresRestart(HDEVINFO set, SP_DEVINFO_DATA* device) {
+bool DeviceInstallNeedsRestart(HDEVINFO set, SP_DEVINFO_DATA* device) {
     SP_DEVINSTALL_PARAMS_W params{};
     params.cbSize = sizeof(params);
     if (!SetupDiGetDeviceInstallParamsW(set, device, &params)) {
@@ -161,7 +161,12 @@ bool DeviceRequiresRestart(HDEVINFO set, SP_DEVINFO_DATA* device) {
     return (params.Flags & (DI_NEEDREBOOT | DI_NEEDRESTART)) != 0;
 }
 
-std::wstring CreateRootDevice(const std::wstring& infPath) {
+struct CreateResult {
+    std::wstring instanceId;
+    bool rebootRequired = false;
+};
+
+CreateResult CreateRootDevice(const std::wstring& infPath) {
     GUID classGuid{};
     wchar_t className[MAX_CLASS_NAME_LEN]{};
     if (!SetupDiGetINFClassW(
@@ -191,7 +196,8 @@ std::wstring CreateRootDevice(const std::wstring& infPath) {
     if (!SetupDiCallClassInstaller(DIF_REGISTERDEVICE, set.get(), &device)) {
         ThrowLastError("SetupDiCallClassInstaller(DIF_REGISTERDEVICE)");
     }
-    return GetDeviceInstanceId(set.get(), &device);
+    const bool rebootRequired = DeviceInstallNeedsRestart(set.get(), &device);
+    return {GetDeviceInstanceId(set.get(), &device), rebootRequired};
 }
 
 struct RemoveResult {
@@ -231,7 +237,7 @@ RemoveResult RemoveExactDevice(const std::wstring& instanceId) {
     if (!SetupDiCallClassInstaller(DIF_REMOVE, set.get(), &device)) {
         ThrowLastError("SetupDiCallClassInstaller(DIF_REMOVE)");
     }
-    return {true, DeviceRequiresRestart(set.get(), &device)};
+    return {true, DeviceInstallNeedsRestart(set.get(), &device)};
 }
 
 int EnsureCommand(const std::wstring& infPath) {
@@ -242,9 +248,12 @@ int EnsureCommand(const std::wstring& infPath) {
     }
 
     bool created = false;
+    bool rebootRequired = false;
     std::wstring instanceId;
     if (matches.empty()) {
-        instanceId = CreateRootDevice(infPath);
+        const CreateResult result = CreateRootDevice(infPath);
+        instanceId = result.instanceId;
+        rebootRequired = result.rebootRequired;
         created = true;
 
         matches = FindMatchingDeviceInstanceIds();
@@ -262,6 +271,7 @@ int EnsureCommand(const std::wstring& infPath) {
 
     std::wcout << L"instanceId=" << instanceId << L"\n";
     std::wcout << L"created=" << (created ? 1 : 0) << L"\n";
+    std::wcout << L"rebootRequired=" << (rebootRequired ? 1 : 0) << L"\n";
     return 0;
 }
 
