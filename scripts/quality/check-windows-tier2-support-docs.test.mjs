@@ -4,6 +4,9 @@ import test from 'node:test';
 
 const read = (path) => readFileSync(path, 'utf8');
 
+const WINDOWS_DRIVER_SAMPLES_REVISION = '67d81f217bc01edf7a4320e4911c11065635acfa';
+const SYSVAD_TREE_SHA = '6fa502f5bfb3de1395a6c9ffe71e322fd9e28926';
+
 test('current Tier 2 docs keep the first-party driver on Windows 11 build 22621+', () => {
   for (const path of [
     'README.md',
@@ -22,6 +25,15 @@ test('driver signing guide identifies the exact-SHA Manual Build submission arti
   assert.match(text, /Manual Build/i);
   assert.match(text, /Voxveil-windows-driver-submission-\$\{\{\s*github\.sha\s*\}\}/);
   assert.match(text, /exact[ -]SHA|exact commit/i);
+});
+
+test('signed-driver validation matrix records pinned source provenance', () => {
+  const text = read('docs/testing/windows-signed-virtual-driver.md');
+  assert.ok(
+    text.includes(WINDOWS_DRIVER_SAMPLES_REVISION),
+    'validation matrix must record the pinned Windows Driver Samples revision',
+  );
+  assert.ok(text.includes(SYSVAD_TREE_SHA), 'validation matrix must record the pinned SysVAD tree SHA');
 });
 
 test('authoritative Tier 2 corrections supersede undecorated INF guidance', () => {
