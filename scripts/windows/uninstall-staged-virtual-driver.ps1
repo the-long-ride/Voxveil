@@ -84,8 +84,14 @@ if ($LASTEXITCODE -ne 0) {
 
 Write-Host "Deleting recorded Voxveil Virtual Audio driver-store package $publishedInf ..."
 pnputil.exe /delete-driver $publishedInf | Out-Host
-if ($LASTEXITCODE -ne 0) {
-  throw "PnPUtil failed to delete $publishedInf (exit $LASTEXITCODE). The install-state file was kept for recovery."
+$pnputilExitCode = $LASTEXITCODE
+if ($pnputilExitCode -eq 3010) {
+  Remove-Item $statePath -Force
+  Write-Warning 'Voxveil Virtual Audio was removed successfully, but Windows requires a restart to finish unloading the driver package.'
+  exit 3010
+}
+if ($pnputilExitCode -ne 0) {
+  throw "PnPUtil failed to delete $publishedInf (exit $pnputilExitCode). The install-state file was kept for recovery."
 }
 
 Remove-Item $statePath -Force
