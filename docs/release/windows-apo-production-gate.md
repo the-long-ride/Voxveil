@@ -101,6 +101,15 @@ The APO/Extension installer may coexist with the first-party `VoxveilVirtualAudi
 - The uninstaller deletes only the recorded APO/Extension INF names. If no trustworthy names are recorded, it removes no provider-wide driver packages and requires explicit/manual cleanup instead of guessing.
 - Installing or uninstalling the APO must not remove the independent Tier 2 virtual driver or `Voxveil Input` endpoint.
 
+PnPUtil exit code `3010` is successful completion requiring a Windows restart, not a hard package failure. The lifecycle remains fail-closed across that boundary:
+
+- during base APO or Extension installation, ownership is snapshotted with `bindingReady=false` before `3010` is propagated; AudioDG restart/load validation is not run and the UI reports `reboot-required`;
+- restart Windows and rerun the endpoint installation. Only a later successful `loaded>=1` verification may write `bindingReady=true`;
+- during uninstall, a package that returns `3010` is removed from `installedInfNames`, the remaining `installedInfNames` are persisted to `install-state.json`, and the script exits before attempting additional package deletions;
+- after restart, rerun uninstall so any remaining recorded package can be revalidated and deleted. Do not delete or broaden the state manually.
+
+Any other nonzero PnPUtil result remains a hard failure and preserves the recorded package ownership for recovery.
+
 ## Required evidence
 
 Store release evidence outside the source repository and record at minimum:
@@ -113,7 +122,7 @@ Store release evidence outside the source repository and record at minimum:
 - catalog/signature verification output;
 - Secure Boot and `TESTSIGNING` state;
 - endpoint-default transition results proving stale APO instances do not cause false readiness/double DSP;
-- component-scoped uninstall result with the first-party virtual driver present;
+- component-scoped install/uninstall results, including any `3010` restart boundary and post-restart continuation, with the first-party virtual driver present;
 - HLK/WHCP result identifiers where applicable;
 - Partner Center submission/result identifiers where applicable;
 - CAPX discovery/real-processing probe results;
