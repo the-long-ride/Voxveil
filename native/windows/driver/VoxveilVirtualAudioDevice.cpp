@@ -152,6 +152,15 @@ void SetExactHardwareId(HDEVINFO set, SP_DEVINFO_DATA* device) {
     }
 }
 
+bool DeviceRequiresRestart(HDEVINFO set, SP_DEVINFO_DATA* device) {
+    SP_DEVINSTALL_PARAMS_W params{};
+    params.cbSize = sizeof(params);
+    if (!SetupDiGetDeviceInstallParamsW(set, device, &params)) {
+        ThrowLastError("SetupDiGetDeviceInstallParamsW");
+    }
+    return (params.Flags & (DI_NEEDREBOOT | DI_NEEDRESTART)) != 0;
+}
+
 std::wstring CreateRootDevice(const std::wstring& infPath) {
     GUID classGuid{};
     wchar_t className[MAX_CLASS_NAME_LEN]{};
@@ -185,14 +194,19 @@ std::wstring CreateRootDevice(const std::wstring& infPath) {
     return GetDeviceInstanceId(set.get(), &device);
 }
 
-bool RemoveExactDevice(const std::wstring& instanceId) {
+struct RemoveResult {
+    bool removed = false;
+    bool rebootRequired = false;
+};
+
+RemoveResult RemoveExactDevice(const std::wstring& instanceId) {
     DeviceInfoSet set(SetupDiCreateDeviceInfoList(nullptr, nullptr));
     SP_DEVINFO_DATA device{};
     device.cbSize = sizeof(device);
     if (!SetupDiOpenDeviceInfoW(set.get(), instanceId.c_str(), nullptr, 0, &device)) {
         const DWORD error = GetLastError();
         if (error == ERROR_NO_SUCH_DEVINST || error == ERROR_NO_SUCH_DEVICE || error == ERROR_NOT_FOUND) {
-            return false;
+            return {};
         }
         ThrowLastError("SetupDiOpenDeviceInfoW");
     }
@@ -217,7 +231,7 @@ bool RemoveExactDevice(const std::wstring& instanceId) {
     if (!SetupDiCallClassInstaller(DIF_REMOVE, set.get(), &device)) {
         ThrowLastError("SetupDiCallClassInstaller(DIF_REMOVE)");
     }
-    return true;
+    return {true, DeviceRequiresRestart(set.get(), &device)};
 }
 
 int EnsureCommand(const std::wstring& infPath) {
@@ -255,8 +269,9 @@ int RemoveCommand(const std::wstring& instanceId) {
     if (instanceId.empty()) {
         throw std::runtime_error("device instance ID must not be empty");
     }
-    const bool removed = RemoveExactDevice(instanceId);
-    std::wcout << L"removed=" << (removed ? 1 : 0) << L"\n";
+    const RemoveResult result = RemoveExactDevice(instanceId);
+    std::wcout << L"removed=" << (result.removed ? 1 : 0) << L"\n";
+    std::wcout << L"rebootRequired=" << (result.rebootRequired ? 1 : 0) << L"\n";
     return 0;
 }
 
