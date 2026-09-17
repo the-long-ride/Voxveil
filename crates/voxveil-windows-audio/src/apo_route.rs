@@ -27,6 +27,7 @@ mod install_state {
     struct ApoInstallState {
         endpoint_id: Option<String>,
         binding_mode: String,
+        binding_ready: Option<bool>,
     }
 
     pub(crate) fn load_installed_apo_endpoint(
@@ -57,6 +58,9 @@ mod install_state {
                 "Voxveil APO install state has an unknown bindingMode: {}",
                 state.binding_mode
             ));
+        }
+        if state.binding_ready == Some(false) {
+            return Ok(None);
         }
 
         let endpoint_id = state
