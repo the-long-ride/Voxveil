@@ -7,6 +7,8 @@ The first-party Tier 2 driver INF follows the pinned SysVAD applicability bounda
 ## Package identity
 
 - Voxveil commit: ______________________________________
+- Windows Driver Samples revision: `67d81f217bc01edf7a4320e4911c11065635acfa`
+- SysVAD `audio/sysvad` tree: `6fa502f5bfb3de1395a6c9ffe71e322fd9e28926`
 - Release channel: ☐ Pilot ☐ Retail
 - Signing path/evidence: _______________________________
 - Architecture: ☐ x64 ☐ Arm64
