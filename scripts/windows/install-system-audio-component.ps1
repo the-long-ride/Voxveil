@@ -209,7 +209,7 @@ $bindingMode = if (-not $TestSign) {
   'legacy-reference'
 }
 
-function Write-InstallStateSnapshot {
+function Write-InstallStateSnapshot([bool]$BindingReady = $false) {
   $afterInstalledInfNames = @(Get-VoxveilPublishedInfNames)
   $newInstalledInfNames = @($afterInstalledInfNames | Where-Object { $beforeInstalledInfNames -inotcontains $_ })
   $previousStillInstalledInfNames = @($previousInstalledInfNames | Where-Object { $afterInstalledInfNames -icontains $_ })
@@ -221,6 +221,7 @@ function Write-InstallStateSnapshot {
     endpointId = $selectedEndpointId
     hardwareId = $HardwareId
     bindingMode = $bindingMode
+    bindingReady = $BindingReady
     bindingPnpInstanceId = $bindingPnpInstanceId
     topologyInterfacePath = $topologyInterfacePath
     audioInterfacePath = $audioInterfacePath
@@ -352,6 +353,7 @@ try {
     if ($LASTEXITCODE -ne 0 -or $status -notmatch 'loaded=[1-9][0-9]*') {
       throw 'installed-not-loaded: the package installed, but AudioDG did not load a real Voxveil processing instance on the selected playback endpoint.'
     }
+    Write-InstallStateSnapshot -BindingReady $true
   } elseif (-not $TestSign) {
     throw 'installed-not-loaded: production CAPX installation requires voxveil-control.exe so AudioDG load verification cannot be skipped.'
   } else {
