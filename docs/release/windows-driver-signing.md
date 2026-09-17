@@ -47,7 +47,11 @@ The repository must not contain or automate access to:
 
 1. Enroll the organization in Microsoft Hardware Dev Center / Partner Center.
 2. Associate the required valid EV certificate with the Hardware Dev Center account.
-3. Build the unsigned submission package locally:
+3. Obtain the validated unsigned submission for the exact release commit.
+
+   Preferred CI handoff: run **Manual Build** for the exact commit SHA and download the artifact named `Voxveil-windows-driver-submission-${{ github.sha }}`. The artifact is the validated `native\windows\driver\out\x64\submission` signing input produced by that exact SHA; do not reuse an artifact from an older run.
+
+   For local reproduction, build the unsigned submission package:
 
    ```powershell
    npm run build:windows-driver:x64
