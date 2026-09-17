@@ -10,6 +10,8 @@ test('Tier 2 signing guide documents PnPUtil reboot-required lifecycle', () => {
   assert.match(text, /restart/i);
   assert.match(text, /virtual-driver-install-state\.json/i);
   assert.match(text, /pendingReboot/i);
+  assert.match(text, /uninstallComplete/i);
+  assert.match(text, /boot marker/i);
 });
 
 test('Tier 3 APO release gate documents non-ready reboot state and resumable uninstall', () => {
@@ -24,6 +26,8 @@ test('Tier 2 real-machine matrix records install and uninstall restart continuat
   const text = read('docs/testing/windows-signed-virtual-driver.md');
   assert.match(text, /3010/);
   assert.match(text, /pendingReboot/i);
+  assert.match(text, /uninstallComplete/i);
+  assert.match(text, /boot marker/i);
   assert.match(text, /restart[\s\S]{0,180}rerun|rerun[\s\S]{0,180}restart/i);
 });
 
