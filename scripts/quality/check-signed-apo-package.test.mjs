@@ -41,6 +41,31 @@ test('signed APO stager copies only the verified production package', () => {
   assert.doesNotMatch(text, /VoxveilDevelopment|\.cer\b|\.pfx\b/i);
 });
 
+test('signed APO stager rehashes destination copies before writing verification manifest', () => {
+  const text = read('scripts/windows/stage-signed-apo-package.ps1');
+  assert.match(text, /function\s+Assert-StagedHash[\s\S]*?Get-FileHash/i);
+
+  const copy = text.search(/Copy-Item/i);
+  const firstHash = text.indexOf('Assert-StagedHash -Path $stagedApoInf', copy);
+  const manifest = text.search(/apo-verification\.json/i);
+  assert.ok(copy >= 0, 'stager must copy the verified package');
+  assert.ok(firstHash > copy, 'destination hashes must be checked after copying');
+  assert.ok(manifest > firstHash, 'verification manifest must be written only after destination hashes pass');
+
+  for (const [pathVar, hashField] of [
+    ['$stagedApoInf', 'apoInfSha256'],
+    ['$stagedApoDll', 'apoDllSha256'],
+    ['$stagedApoCat', 'apoCatalogSha256'],
+    ['$stagedExtensionInf', 'extensionInfSha256'],
+    ['$stagedExtensionCat', 'extensionCatalogSha256'],
+  ]) {
+    assert.match(
+      text,
+      new RegExp(`Assert-StagedHash\\s+-Path\\s+\\${pathVar.replace('$', '$')}\\s+-Expected\\s+\\$verification\\.${hashField}`, 'i'),
+    );
+  }
+});
+
 test('production endpoint discovery requires the verified APO staging marker', () => {
   const module = read('crates/voxveil-windows-audio/src/discovery.rs');
   const implementation = read('crates/voxveil-windows-audio/src/discovery_windows.rs');
