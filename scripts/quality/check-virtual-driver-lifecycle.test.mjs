@@ -111,6 +111,19 @@ test('failed virtual driver install rolls back only the driver-store package add
   assert.ok(deletePackage > removeDevnode, 'rollback must delete only the newly added package after devnode removal');
 });
 
+test('PnPUtil failure refreshes Driver Store ownership before throwing so staged packages remain rollbackable', () => {
+  const text = installer();
+  const addDriver = text.indexOf('pnputil.exe /add-driver $inf /install');
+  assert.ok(addDriver >= 0, 'installer must invoke PnPUtil for the staged INF');
+  const tail = text.slice(addDriver);
+  const captureExit = tail.search(/\$pnputilExitCode\s*=\s*\$LASTEXITCODE/i);
+  const refreshInventory = tail.search(/\$afterPublishedInfNames\s*=\s*@\(Get-VoxveilPublishedInfNames\)/i);
+  const failureCheck = tail.search(/if\s*\(\s*\$pnputilExitCode\s*-ne\s*0\s*\)/i);
+  assert.ok(captureExit >= 0, 'PnPUtil exit code must be captured before any ownership refresh');
+  assert.ok(refreshInventory > captureExit, 'Driver Store inventory must refresh after PnPUtil returns');
+  assert.ok(failureCheck > refreshInventory, 'PnPUtil failure must be thrown only after rollback ownership is refreshed');
+});
+
 test('virtual driver rollback ownership reads only the exact package from Driver Store inventory', () => {
   const text = installer();
   const helperMatch = text.match(/function\s+Get-VoxveilPublishedInfNames\s*\{([\s\S]*?)\n\}/i);
