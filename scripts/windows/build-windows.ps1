@@ -149,9 +149,10 @@ foreach ($script in @(
   'uninstall-staged-virtual-driver.ps1'
 )) {
   $source = Join-Path $repo "scripts\windows\$script"
-  if (Test-Path $source -PathType Leaf) {
-    Copy-Item $source $systemAudio
+  if (-not (Test-Path $source -PathType Leaf)) {
+    throw "Required Windows package script was not found: $source"
   }
+  Copy-Item $source $systemAudio
 }
 
 $signedApoDir = $env:VOXVEIL_SIGNED_APO_DIR
