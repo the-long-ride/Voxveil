@@ -12,6 +12,7 @@ test('Tier 2 signing guide documents PnPUtil reboot-required lifecycle', () => {
   assert.match(text, /pendingReboot/i);
   assert.match(text, /uninstallComplete/i);
   assert.match(text, /boot marker/i);
+  assert.match(text, /SetupAPI[\s\S]{0,220}restart|restart[\s\S]{0,220}SetupAPI/i);
 });
 
 test('Tier 3 APO release gate documents non-ready reboot state and resumable uninstall', () => {
@@ -29,6 +30,7 @@ test('Tier 2 real-machine matrix records install and uninstall restart continuat
   assert.match(text, /uninstallComplete/i);
   assert.match(text, /boot marker/i);
   assert.match(text, /restart[\s\S]{0,180}rerun|rerun[\s\S]{0,180}restart/i);
+  assert.match(text, /devnode[\s\S]{0,220}restart|restart[\s\S]{0,220}devnode/i);
 });
 
 test('Tier 3 real-machine matrix records non-ready install and resumable uninstall after restart', () => {
