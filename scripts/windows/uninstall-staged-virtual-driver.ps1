@@ -76,10 +76,11 @@ $uninstallComplete = $uninstallCompleteProperty -and [bool]$uninstallCompletePro
 $pendingReboot = $pendingProperty -and [bool]$pendingProperty.Value
 $pendingBootMarker = if ($bootMarkerProperty) { [string]$bootMarkerProperty.Value } else { '' }
 
+if ($pendingReboot -and $pendingBootMarker -and $pendingBootMarker -eq $currentBootMarker) {
+  throw 'Restart Windows before continuing Voxveil Virtual Audio lifecycle changes.'
+}
+
 if ($uninstallComplete) {
-  if ($pendingReboot -and $pendingBootMarker -and $pendingBootMarker -eq $currentBootMarker) {
-    throw 'Restart Windows before continuing Voxveil Virtual Audio uninstall cleanup.'
-  }
   Remove-Item $statePath -Force
   Write-Host 'Prior Voxveil Virtual Audio uninstall completed after restart; reboot tombstone removed.'
   return
