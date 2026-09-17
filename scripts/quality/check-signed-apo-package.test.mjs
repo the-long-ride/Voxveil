@@ -66,6 +66,17 @@ test('signed APO stager rehashes destination copies before writing verification 
   }
 });
 
+test('signed APO restaging invalidates any old verification manifest before replacing artifacts', () => {
+  const text = read('scripts/windows/stage-signed-apo-package.ps1');
+  assert.match(text, /\$manifestPath\s*=\s*Join-Path\s+\$destination\s+'apo-verification\.json'/i);
+  const invalidate = text.search(/Remove-Item\s+\$manifestPath\s+-Force\s+-ErrorAction\s+SilentlyContinue/i);
+  const copy = text.search(/Copy-Item/i);
+  const manifestWrite = text.search(/Set-Content\s+\$manifestPath\s+-Encoding\s+utf8/i);
+  assert.ok(invalidate >= 0, 'stager must invalidate any old verification marker before changing signed artifacts');
+  assert.ok(copy > invalidate, 'old verification marker must be removed before any signed artifact is replaced');
+  assert.ok(manifestWrite > copy, 'a new verification marker must be published only after staging work completes');
+});
+
 test('production endpoint discovery requires the verified APO staging marker', () => {
   const module = read('crates/voxveil-windows-audio/src/discovery.rs');
   const implementation = read('crates/voxveil-windows-audio/src/discovery_windows.rs');
