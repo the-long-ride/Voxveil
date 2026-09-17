@@ -33,7 +33,7 @@ export interface SystemAudioEndpoint {
 
 export interface SystemAudioInstallResult {
   endpointId: string;
-  outcome: 'launched' | 'cancelled' | 'device-changed' | 'installed-not-loaded';
+  outcome: 'launched' | 'reboot-required' | 'cancelled' | 'device-changed' | 'installed-not-loaded';
   detail?: string;
 }
 
