@@ -30,7 +30,7 @@ function Find-WdkTool([string]$Name) {
   $kits = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin'
   if (-not (Test-Path $kits)) { return $null }
   Get-ChildItem $kits -Recurse -Filter $Name -File -ErrorAction SilentlyContinue |
-    Where-Object { $_.FullName -match '\\x64\\' } |
+    Where-Object { $_.FullName -match '\x64\' } |
     Sort-Object FullName -Descending |
     Select-Object -First 1 -ExpandProperty FullName
 }
@@ -323,12 +323,20 @@ try {
   pnputil.exe /add-driver (Join-Path $work 'VoxveilApo.inf') /install | Out-Host
   $apoPnputilExitCode = $LASTEXITCODE
   Write-InstallStateSnapshot
+  if ($apoPnputilExitCode -eq 3010) {
+    Write-Warning 'PnPUtil staged the Voxveil APO package successfully, but Windows requires a restart before installation can continue.'
+    exit 3010
+  }
   if ($apoPnputilExitCode -ne 0) { throw "PnPUtil failed to stage VoxveilApo.inf (exit $apoPnputilExitCode)." }
 
   Write-Host 'Installing the endpoint-specific Voxveil Extension INF...'
   pnputil.exe /add-driver $extensionInf /install | Out-Host
   $extensionPnputilExitCode = $LASTEXITCODE
   Write-InstallStateSnapshot
+  if ($extensionPnputilExitCode -eq 3010) {
+    Write-Warning 'PnPUtil installed the Voxveil Extension package successfully, but Windows requires a restart before AudioDG readiness can be verified.'
+    exit 3010
+  }
   if ($extensionPnputilExitCode -ne 0) { throw "PnPUtil failed to install VoxveilApoExtension.inf (exit $extensionPnputilExitCode)." }
 
   if ($useLegacyRuntimeAttachment) {
