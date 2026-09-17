@@ -38,8 +38,9 @@ $repoRoot = [IO.Path]::GetFullPath((Resolve-Path (Join-Path $PSScriptRoot '..\..
 $submissionRoot = [IO.Path]::GetFullPath((Join-Path $repoRoot 'native\windows\driver\out'))
 
 if ($destination -eq $package -or
-    $destination.StartsWith($package + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
-  throw 'Signed virtual-driver staging destination must not be the source package directory or one of its descendants.'
+    $destination.StartsWith($package + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase) -or
+    $package.StartsWith($destination + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+  throw 'Signed virtual-driver staging destination must not overlap the source package directory.'
 }
 if ($destination.StartsWith($submissionRoot, [StringComparison]::OrdinalIgnoreCase) -and
     $destination -match '(?i)[\\/]submission(?:[\\/]|$)') {
