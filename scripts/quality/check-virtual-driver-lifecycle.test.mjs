@@ -131,16 +131,19 @@ test('virtual driver reboot-required success records exact cleanup state before 
   const block = text.slice(addDriver, catchStart);
   assert.ok(addDriver >= 0 && catchStart > addDriver);
 
-  const rebootCheck = block.search(/if\s*\(\s*\$pnputilExitCode\s*-eq\s*3010\s*\)/i);
+  const hardFailureGate = block.search(/if\s*\(\s*\$pnputilExitCode\s*-ne\s*0\s*\)/i);
+  const rebootExemption = block.search(/if\s*\(\s*\$pnputilExitCode\s*-ne\s*3010\s*\)/i);
+  const rebootAggregate = block.search(/\$lifecycleRebootRequired\s*=\s*\$helperRebootRequired\s*-or\s*\$pnputilExitCode\s*-eq\s*3010/i);
   const stateWrite = block.search(/Write-VirtualDriverInstallState\s+-PublishedInf\s+\$publishedInf\s+-PendingReboot\s+\$true/i);
   const rebootExit = block.search(/exit\s+3010/i);
-  const hardFailure = block.search(/if\s*\(\s*\$pnputilExitCode\s*-ne\s*0\s*\)/i);
-  assert.ok(rebootCheck >= 0, '3010 must be recognized as reboot-required success');
-  assert.match(block.slice(rebootCheck), /\$newPublishedInf/i);
-  assert.match(block.slice(rebootCheck), /\$installedDrivers\.Count\s*-eq\s*1/i);
-  assert.ok(stateWrite > rebootCheck, 'exact package/devnode ownership must be persisted before exiting');
+
+  assert.ok(hardFailureGate >= 0, 'nonzero PnPUtil results must be checked after Driver Store ownership refresh');
+  assert.ok(rebootExemption > hardFailureGate, '3010 must be exempted from the hard package failure path');
+  assert.ok(rebootAggregate > rebootExemption, 'SetupAPI and PnPUtil restart signals must be aggregated after package result validation');
+  assert.match(block.slice(rebootAggregate), /\$newPublishedInf/i);
+  assert.match(block.slice(rebootAggregate), /\$installedDrivers\.Count\s*-eq\s*1/i);
+  assert.ok(stateWrite > rebootAggregate, 'exact package/devnode ownership must be persisted after the combined restart decision');
   assert.ok(rebootExit > stateWrite, 'reboot-required exit must follow the persisted cleanup state');
-  assert.ok(hardFailure > rebootExit, 'generic failure handling must run only after the reboot-required case');
 });
 
 test('virtual driver rollback ownership reads only the exact package from Driver Store inventory', () => {
