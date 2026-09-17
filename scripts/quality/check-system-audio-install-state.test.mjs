@@ -91,6 +91,22 @@ test('APO PnP failures refresh scoped ownership before throwing so staged packag
   assert.ok(extensionFailure > extensionSnapshot, 'Extension PnP failure must be thrown only after ownership is persisted');
 });
 
+test('partial APO ownership snapshots stay non-ready until AudioDG load verification succeeds', () => {
+  assert.match(
+    installer,
+    /function\s+Write-InstallStateSnapshot\s*\(\s*\[bool\]\$BindingReady\s*=\s*\$false\s*\)/i,
+  );
+  assert.match(installer, /bindingReady\s*=\s*\$BindingReady/);
+  assert.match(apoRoute, /binding_ready:\s*Option<bool>/);
+  assert.match(apoRoute, /binding_ready\s*==\s*Some\(false\)/);
+
+  const statusCheck = installer.indexOf('if (Test-Path $control)');
+  const loadedVerification = installer.indexOf("$status -notmatch 'loaded=[1-9][0-9]*'", statusCheck);
+  const readySnapshot = installer.indexOf('Write-InstallStateSnapshot -BindingReady $true', statusCheck);
+  assert.ok(statusCheck >= 0 && loadedVerification > statusCheck, 'installer must verify real AudioDG load');
+  assert.ok(readySnapshot > loadedVerification, 'binding readiness must be committed only after loaded= verification passes');
+});
+
 test('APO uninstaller checkpoints remaining package ownership after each successful delete', () => {
   assert.match(
     uninstaller,
