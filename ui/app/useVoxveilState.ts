@@ -98,7 +98,12 @@ export function useVoxveilState() {
     setSystemAudioInstallBusyId(endpointId);
     setSystemAudioInstallError(null);
     try {
-      await client.installSystemAudioComponent(endpointId);
+      const result = await client.installSystemAudioComponent(endpointId);
+      if (result.outcome === 'reboot-required') {
+        setSystemAudioInstallError(result.detail ?? 'Windows must restart before the Voxveil system-audio installation can continue.');
+        await refreshSystemAudioEndpoints();
+        return;
+      }
       await refreshNativeState();
     } catch (error) {
       setSystemAudioInstallError(errorMessage(error));
@@ -115,7 +120,11 @@ export function useVoxveilState() {
     for (const endpoint of installable) {
       setSystemAudioInstallBusyId(endpoint.endpointId);
       try {
-        await client.installSystemAudioComponent(endpoint.endpointId);
+        const result = await client.installSystemAudioComponent(endpoint.endpointId);
+        if (result.outcome === 'reboot-required') {
+          failures.push(`${endpoint.displayName}: ${result.detail ?? 'Windows restart required before installation can continue.'}`);
+          break;
+        }
       } catch (error) {
         failures.push(`${endpoint.displayName}: ${errorMessage(error)}`);
       }
