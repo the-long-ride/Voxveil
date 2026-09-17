@@ -31,6 +31,21 @@ test('installer records only Voxveil package INF names added by its own invocati
   assert.match(installer, /Where-Object\s*\{\s*\$beforeInstalledInfNames\s*-inotcontains\s*\$_\s*\}/s);
 });
 
+test('APO ownership inventory reads the Driver Store, including staged but not-yet-bound packages', () => {
+  const helperMatch = installer.match(/function\s+Get-VoxveilPublishedInfNames\s*\{([\s\S]*?)\n\}/i);
+  assert.ok(helperMatch, 'installer must define Get-VoxveilPublishedInfNames');
+  const helper = helperMatch[1];
+
+  assert.match(helper, /Get-WindowsDriver\s+-Online/i);
+  assert.match(helper, /ProviderName\s+-ieq\s*'Voxveil'/i);
+  assert.match(helper, /OriginalFileName/i);
+  assert.match(helper, /GetFileName\s*\(/i);
+  assert.match(helper, /VoxveilApo\.inf/i);
+  assert.match(helper, /VoxveilApoExtension\.inf/i);
+  assert.match(helper, /\.Driver\b/);
+  assert.doesNotMatch(helper, /Win32_PnPSignedDriver/i);
+});
+
 test('installer snapshots scoped package ownership after each successful PnP package add', () => {
   assert.match(installer, /function\s+Write-InstallStateSnapshot/i);
 
