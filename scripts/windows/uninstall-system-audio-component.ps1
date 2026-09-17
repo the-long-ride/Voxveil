@@ -3,6 +3,21 @@ param()
 
 $ErrorActionPreference = 'Stop'
 
+function Assert-RecordedApoInfIdentity([string]$PublishedInf) {
+  $matches = @(Get-WindowsDriver -Online |
+    Where-Object { [string]$_.Driver -ieq $PublishedInf })
+  if ($matches.Count -ne 1) {
+    throw "Recorded APO/Extension package $PublishedInf is not present exactly once in the Driver Store. Refusing deletion; install-state.json was kept for recovery."
+  }
+
+  $package = $matches[0]
+  $originalName = [IO.Path]::GetFileName([string]$package.OriginalFileName)
+  if ([string]$package.ProviderName -ine 'Voxveil' -or
+      $originalName -notin @('VoxveilApo.inf', 'VoxveilApoExtension.inf')) {
+    throw "Recorded package $PublishedInf no longer identifies a Voxveil APO/Extension package. Refusing deletion; install-state.json was kept for recovery."
+  }
+}
+
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $principal = [Security.Principal.WindowsPrincipal]::new($identity)
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
@@ -46,6 +61,7 @@ if ($infNames.Count -eq 0) {
 }
 
 foreach ($inf in @($infNames)) {
+  Assert-RecordedApoInfIdentity $inf
   Write-Host "Removing recorded Voxveil APO/Extension driver package $inf ..."
   pnputil.exe /delete-driver $inf /uninstall /force | Out-Host
   if ($LASTEXITCODE -ne 0) {
