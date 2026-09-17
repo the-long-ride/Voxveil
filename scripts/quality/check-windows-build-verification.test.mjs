@@ -19,3 +19,10 @@ test('manual Windows build runs the full repository verification gate', async ()
   }
   assert.doesNotMatch(command, /-SkipTests\b/);
 });
+
+test('manual Windows build preserves the validated unsigned driver submission separately', async () => {
+  const workflow = await readFile('.github/workflows/manual-build.yml', 'utf8');
+  assert.match(workflow, /name:\s*Voxveil-windows-driver-submission-\$\{\{\s*github\.sha\s*\}\}/);
+  assert.match(workflow, /path:\s*native\/windows\/driver\/out\/x64\/submission\/?/);
+  assert.match(workflow, /uses:\s*actions\/upload-artifact@v6/);
+});
