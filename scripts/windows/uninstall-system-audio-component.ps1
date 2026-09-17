@@ -45,12 +45,16 @@ if ($infNames.Count -eq 0) {
   return
 }
 
-foreach ($inf in $infNames) {
+foreach ($inf in @($infNames)) {
   Write-Host "Removing recorded Voxveil APO/Extension driver package $inf ..."
   pnputil.exe /delete-driver $inf /uninstall /force | Out-Host
   if ($LASTEXITCODE -ne 0) {
     throw "PnPUtil failed to remove $inf (exit $LASTEXITCODE)."
   }
+
+  $infNames = @($infNames | Where-Object { $_ -ine $inf })
+  $state.installedInfNames = @($infNames)
+  $state | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
 }
 
 Remove-Item $statePath -Force -ErrorAction SilentlyContinue
