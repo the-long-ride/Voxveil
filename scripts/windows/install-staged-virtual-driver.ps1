@@ -162,10 +162,28 @@ if (Test-Path $statePath -PathType Leaf) {
   $previousState = Get-Content $statePath -Raw | ConvertFrom-Json
   $pendingProperty = $previousState.PSObject.Properties['pendingReboot']
   $bootMarkerProperty = $previousState.PSObject.Properties['pendingRebootBootMarker']
+  $uninstallCompleteProperty = $previousState.PSObject.Properties['uninstallComplete']
   $previousPendingReboot = $pendingProperty -and [bool]$pendingProperty.Value
   $previousBootMarker = if ($bootMarkerProperty) { [string]$bootMarkerProperty.Value } else { '' }
+  $previousUninstallComplete = $uninstallCompleteProperty -and [bool]$uninstallCompleteProperty.Value
   if ($previousPendingReboot -and $previousBootMarker -and $previousBootMarker -eq $currentBootMarker) {
     throw 'Restart Windows before continuing the Voxveil virtual-driver installation.'
+  }
+
+  if (-not $previousUninstallComplete) {
+    $previousInfSha256 = [string]$previousState.infSha256
+    $previousCatalogSha256 = [string]$previousState.catalogSha256
+    $previousDriverSha256 = [string]$previousState.driverSha256
+    foreach ($recordedHash in @($previousInfSha256, $previousCatalogSha256, $previousDriverSha256)) {
+      if ($recordedHash -notmatch '^[0-9A-Fa-f]{64}$') {
+        throw 'Existing virtual-driver install state does not contain a complete signed-package identity. Uninstall the recorded Voxveil Virtual Audio package before installing again.'
+      }
+    }
+    if ($previousInfSha256.ToLowerInvariant() -ne ([string]$verification.infSha256).ToLowerInvariant() -or
+        $previousCatalogSha256.ToLowerInvariant() -ne ([string]$verification.catalogSha256).ToLowerInvariant() -or
+        $previousDriverSha256.ToLowerInvariant() -ne ([string]$verification.driverSha256).ToLowerInvariant()) {
+      throw 'Uninstall the currently recorded Voxveil Virtual Audio package before installing a different signed package.'
+    }
   }
 }
 
