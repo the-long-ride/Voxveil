@@ -62,6 +62,17 @@ test('master disable clears local active state before relay or APO teardown can 
   );
 });
 
+test('production APO installer requires the control helper for load verification', () => {
+  const text = readFileSync('scripts/windows/install-system-audio-component.ps1', 'utf8').replace(/\r\n?/g, '\n');
+  const start = text.indexOf('if (Test-Path $control');
+  const end = text.indexOf("if ($TestSign) {\n    Write-Host 'Voxveil development/test APO installed", start);
+  const verification = start >= 0 && end > start ? text.slice(start, end) : '';
+
+  assert.match(verification, /elseif \(-not \$TestSign\)/);
+  assert.match(verification, /throw ['"][^'"\n]*(?:control|load verification|installed-not-loaded)/i);
+  assert.match(verification, /else \{[\s\S]*Write-Warning/);
+});
+
 test('Windows platform spec forbids relay fallback when installed APO control state cannot be verified', () => {
   const spec = readFileSync('docs/specs/platform/windows.md', 'utf8');
 
