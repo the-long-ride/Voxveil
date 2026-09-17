@@ -167,9 +167,7 @@ try {
 
   Write-Host "Installing verified Voxveil virtual driver ($($verification.releaseChannel), $($verification.architecture))..."
   pnputil.exe /add-driver $inf /install | Out-Host
-  if ($LASTEXITCODE -ne 0) {
-    throw "PnPUtil failed to install VoxveilVirtualAudio.inf (exit $LASTEXITCODE)."
-  }
+  $pnputilExitCode = $LASTEXITCODE
 
   $afterPublishedInfNames = @(Get-VoxveilPublishedInfNames)
   $newPublishedInfNames = @($afterPublishedInfNames | Where-Object { $beforePublishedInfNames -inotcontains $_ })
@@ -178,6 +176,9 @@ try {
   }
   if ($newPublishedInfNames.Count -eq 1) {
     $newPublishedInf = [string]$newPublishedInfNames[0]
+  }
+  if ($pnputilExitCode -ne 0) {
+    throw "PnPUtil failed to install VoxveilVirtualAudio.inf (exit $pnputilExitCode)."
   }
 
   $installedDrivers = @(Get-CimInstance Win32_PnPSignedDriver |
