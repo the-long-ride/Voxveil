@@ -63,6 +63,8 @@ foreach ($name in $expectedFiles) {
 }
 
 New-Item -ItemType Directory -Force -Path $destination | Out-Null
+$manifestPath = Join-Path $destination 'apo-verification.json'
+Remove-Item $manifestPath -Force -ErrorAction SilentlyContinue
 foreach ($file in $resolved) {
   Copy-Item $file.FullName (Join-Path $destination $file.Name) -Force
 }
@@ -89,6 +91,6 @@ Assert-StagedHash -Path $stagedExtensionCat -Expected $verification.extensionCat
   extensionCatalogSigner = $verification.extensionCatalogSigner
   extensionId = $verification.extensionId
   capxContext = $verification.capxContext
-} | ConvertTo-Json -Depth 3 | Set-Content (Join-Path $destination 'apo-verification.json') -Encoding utf8
+} | ConvertTo-Json -Depth 3 | Set-Content $manifestPath -Encoding utf8
 
 Write-Host "Staged verified Microsoft-signed Voxveil APO package: $destination"
