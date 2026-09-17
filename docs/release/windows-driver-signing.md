@@ -143,13 +143,13 @@ If `VOXVEIL_SIGNED_DRIVER_RELEASE_CHANNEL` is omitted while `VOXVEIL_SIGNED_DRIV
 
 ## Reboot-required lifecycle
 
-PnPUtil exit code `3010` means the requested package operation completed successfully but Windows requires a restart. Treat it as a restart boundary, not as a failed package transaction.
+PnPUtil exit code `3010` means the requested package operation completed successfully but Windows requires a restart. SetupAPI devnode removal can independently succeed while setting `DI_NEEDREBOOT` or `DI_NEEDRESTART`; Voxveil treats either signal as the same restart boundary rather than continuing lifecycle mutation in the same boot.
 
 For installation, `install-staged-virtual-driver.ps1` resolves the exact published INF from the new Driver Store delta or the exact Voxveil devnode binding, writes `virtual-driver-install-state.json`, and records `pendingReboot=true` plus the current Windows boot marker before returning `3010`. A same-boot rerun is rejected before devnode or PnP mutation. Do not describe the endpoint as validated or ready at that point. Restart Windows, then rerun installation/validation so the normal binding checks can prove the exact `Voxveil Virtual Audio` package and endpoint.
 
-For uninstall, the script first removes the recorded devnode and then deletes only the recorded published INF. If PnPUtil returns `3010`, the package deletion has succeeded but Windows still requires a restart to finish unloading it. The script retains `virtual-driver-install-state.json` only as a reboot tombstone, sets `pendingReboot=true`, records the current boot marker in `pendingRebootBootMarker`, and sets `uninstallComplete=true`. The deleted package identity must not be acted on again. Same-boot reinstall and uninstall continuation are rejected. After Windows restarts, rerunning the uninstaller removes the tombstone before any package-identity check; a reinstall is also allowed once the stored boot marker differs and will replace the state with the new installation record.
+For uninstall, the script first removes the recorded devnode and reads the SetupAPI restart flags surfaced by `voxveil-virtual-device.exe`, then deletes only the recorded published INF. If either devnode removal requires restart or PnPUtil returns `3010` after successful package deletion, the script retains `virtual-driver-install-state.json` only as a reboot tombstone, sets `pendingReboot=true`, records the current boot marker in `pendingRebootBootMarker`, and sets `uninstallComplete=true`. The deleted package identity must not be acted on again. Same-boot reinstall and uninstall continuation are rejected. After Windows restarts, rerunning the uninstaller removes the tombstone before any package-identity check; a reinstall is also allowed once the stored boot marker differs and will replace the state with the new installation record.
 
-Any other nonzero PnPUtil code remains a hard failure. Do not manually broaden cleanup to other `Voxveil` provider packages; retain the exact state/identity rules in the lifecycle scripts.
+If SetupAPI reports restart-required devnode removal but PnPUtil then hard-fails package deletion, the script preserves the package ownership with `uninstallComplete=false`, records the reboot marker, and requires Windows to restart before cleanup is retried. Any other nonzero PnPUtil code remains a hard failure. Do not manually broaden cleanup to other `Voxveil` provider packages; retain the exact state/identity rules in the lifecycle scripts.
 
 ## Release-blocking validation checklist
 
@@ -163,7 +163,7 @@ Any other nonzero PnPUtil code remains a hard failure. Do not manually broaden c
 - [ ] Package hashes match release evidence for retail builds.
 - [ ] Fresh-machine installation succeeds without importing a local test certificate.
 - [ ] If install returns `3010`, `pendingReboot=true` and the current boot marker are persisted, same-boot retry is refused, Windows is restarted, and binding validation is repeated before acceptance.
-- [ ] If uninstall returns `3010`, `uninstallComplete=true` plus the current boot marker are persisted, same-boot reinstall/cleanup is refused, Windows is restarted, and the tombstone is cleared before further lifecycle mutation.
+- [ ] If uninstall requires restart from either SetupAPI devnode removal or PnPUtil `3010`, the current boot marker is persisted, same-boot reinstall/cleanup is refused, Windows is restarted, and cleanup/absence validation is resumed only afterward.
 - [ ] Device Manager reports `Voxveil Virtual Audio` without signature errors.
 - [ ] `Voxveil Input` appears as the render endpoint.
 - [ ] Voxveil selects `voxveil-cable-relay` when the endpoint is the active controlled route and no APO is loaded.
