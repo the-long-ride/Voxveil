@@ -133,17 +133,20 @@ From the staged `system-audio` directory:
 .\uninstall-staged-virtual-driver.ps1
 ```
 
-The uninstaller revalidates the recorded `publishedInf` against the recorded `deviceInstanceId`, removes only that exact `Root\VoxveilVirtualAudio` devnode through the SetupAPI helper, then deletes only the recorded driver-store package. If an interrupted prior uninstall already removed the devnode, it verifies the current `%WINDIR%\INF\oemN.inf` still carries Voxveil's exact hardware/provider identity before package deletion.
+The uninstaller revalidates the recorded `publishedInf` against the recorded `deviceInstanceId`, removes only that exact `Root\VoxveilVirtualAudio` devnode through the SetupAPI helper, reads the helper's `rebootRequired` result, then deletes only the recorded driver-store package. If an interrupted prior uninstall already removed the devnode, it verifies the current `%WINDIR%\INF\oemN.inf` still carries Voxveil's exact hardware/provider identity before package deletion.
 
-If package deletion returns `3010`, deletion succeeded but Windows still requires a restart to finish unloading the package. The script keeps `virtual-driver-install-state.json` only as a reboot tombstone, records `pendingReboot=true`, the current boot marker in `pendingRebootBootMarker`, and `uninstallComplete=true`, then propagates restart-required. Do not delete the package again and do not reinstall in the same boot. After Windows restarts, rerun the uninstaller once to clear the tombstone without revalidating/deleting the already removed package; alternatively a post-restart install may proceed and will replace the tombstone with new install state.
+If the SetupAPI devnode removal reports that a restart is required, or package deletion returns `3010`, the successful removal reaches a restart boundary. When package deletion succeeded, the script keeps `virtual-driver-install-state.json` only as a reboot tombstone, records `pendingReboot=true`, the current boot marker in `pendingRebootBootMarker`, and `uninstallComplete=true`, then propagates restart-required. Do not delete the package again and do not reinstall in the same boot. After Windows restarts, rerun the uninstaller once to clear the tombstone without revalidating/deleting the already removed package; alternatively a post-restart install may proceed and will replace the tombstone with new install state.
+
+If devnode removal requires restart but PnPUtil hard-fails package deletion, `uninstallComplete=false` is retained with the pending boot marker. Restart Windows before retrying cleanup so the recorded package can be revalidated and deleted without guessing.
 
 - [ ] Uninstall removes only the `deviceInstanceId` and `publishedInf` recorded in `virtual-driver-install-state.json`.
 - [ ] The script refuses broad deletion when the recorded INF is bound to multiple devices or a non-Voxveil device.
 - [ ] The script does not enumerate/delete every driver whose provider is Voxveil.
 - [ ] If install state is missing, the script removes no device/package rather than guessing.
-- [ ] If uninstall returns `3010`, the state records `pendingReboot=true`, `pendingRebootBootMarker=<current boot marker>`, and `uninstallComplete=true` before restart-required propagates.
-- [ ] Same-boot uninstall continuation and reinstall are rejected after uninstall `3010`.
-- [ ] After restart, rerunning the uninstaller removes only the reboot tombstone and performs no second package deletion.
+- [ ] Record whether SetupAPI devnode removal reports `rebootRequired=1`; if it does, restart is required even when PnPUtil package deletion returns `0`.
+- [ ] If uninstall returns `3010`, the state records `pendingReboot=true` and `pendingRebootBootMarker=<current boot marker>` before restart-required propagates; `uninstallComplete=true` only when package deletion succeeded.
+- [ ] Same-boot uninstall continuation and reinstall are rejected after any recorded uninstall restart boundary.
+- [ ] After restart, rerunning the uninstaller removes only an `uninstallComplete=true` reboot tombstone, or resumes package cleanup when `uninstallComplete=false`.
 - [ ] `Voxveil Input` is gone after uninstall/reboot.
 - [ ] No stale Voxveil virtual endpoint remains.
 - [ ] Any independently installed Voxveil APO/Extension packages remain installed.
