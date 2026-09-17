@@ -111,6 +111,21 @@ test('failed virtual driver install rolls back only the driver-store package add
   assert.ok(deletePackage > removeDevnode, 'rollback must delete only the newly added package after devnode removal');
 });
 
+test('virtual driver rollback ownership reads only the exact package from Driver Store inventory', () => {
+  const text = installer();
+  const helperMatch = text.match(/function\s+Get-VoxveilPublishedInfNames\s*\{([\s\S]*?)\n\}/i);
+  assert.ok(helperMatch, 'installer must define Get-VoxveilPublishedInfNames');
+  const helper = helperMatch[1];
+
+  assert.match(helper, /Get-WindowsDriver\s+-Online/i);
+  assert.match(helper, /ProviderName\s+-ieq\s*'Voxveil'/i);
+  assert.match(helper, /OriginalFileName/i);
+  assert.match(helper, /GetFileName\s*\(/i);
+  assert.match(helper, /VoxveilVirtualAudio\.inf/i);
+  assert.match(helper, /\.Driver\b/);
+  assert.doesNotMatch(helper, /Win32_PnPSignedDriver/i);
+});
+
 test('virtual driver lifecycle records and deletes only its exact published INF and devnode', () => {
   const install = installer();
   const uninstall = uninstaller();
