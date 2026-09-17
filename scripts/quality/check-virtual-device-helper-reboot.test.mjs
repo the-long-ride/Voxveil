@@ -1,0 +1,35 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import test from 'node:test';
+
+const helper = readFileSync('native/windows/driver/VoxveilVirtualAudioDevice.cpp', 'utf8');
+const installer = readFileSync('scripts/windows/install-staged-virtual-driver.ps1', 'utf8');
+const uninstaller = readFileSync('scripts/windows/uninstall-staged-virtual-driver.ps1', 'utf8');
+
+test('SetupAPI helper reports restart flags after register/remove class-installer calls', () => {
+  assert.match(helper, /SetupDiGetDeviceInstallParamsW/i);
+  assert.match(helper, /DI_NEEDREBOOT/i);
+  assert.match(helper, /DI_NEEDRESTART/i);
+  assert.match(helper, /rebootRequired=/i);
+
+  const register = helper.indexOf('SetupDiCallClassInstaller(DIF_REGISTERDEVICE');
+  const remove = helper.indexOf('SetupDiCallClassInstaller(DIF_REMOVE');
+  assert.ok(register >= 0 && remove >= 0, 'helper must keep register/remove SetupAPI calls');
+  assert.ok(helper.indexOf('SetupDiGetDeviceInstallParamsW', register) > register, 'register path must inspect restart flags after SetupAPI success');
+  assert.ok(helper.indexOf('SetupDiGetDeviceInstallParamsW', remove) > remove, 'remove path must inspect restart flags after SetupAPI success');
+});
+
+test('virtual-driver installer aggregates helper restart with PnPUtil restart state', () => {
+  assert.match(installer, /Get-HelperValue\s+\$ensureOutput\s+'rebootRequired'/i);
+  assert.match(installer, /helperRebootRequired/i);
+  assert.match(installer, /\$helperRebootRequired\s*-or\s*\$pnputilExitCode\s*-eq\s*3010/i);
+  assert.match(installer, /Write-VirtualDriverInstallState\s+-PublishedInf\s+\$publishedInf\s+-PendingReboot\s+\$true/i);
+});
+
+test('virtual-driver uninstaller aggregates helper restart with PnPUtil restart tombstone', () => {
+  assert.match(uninstaller, /Get-HelperValue\s+\$removeOutput\s+'rebootRequired'/i);
+  assert.match(uninstaller, /helperRebootRequired/i);
+  assert.match(uninstaller, /\$helperRebootRequired\s*-or\s*\$pnputilExitCode\s*-eq\s*3010/i);
+  assert.match(uninstaller, /uninstallComplete\s*=\s*\$true/i);
+  assert.match(uninstaller, /pendingRebootBootMarker\s*=\s*\$currentBootMarker/i);
+});
