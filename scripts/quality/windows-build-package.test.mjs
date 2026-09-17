@@ -34,3 +34,13 @@ test('Windows package fails if a required system-audio script is missing', () =>
   assert.match(staging, /Copy-Item \$source \$systemAudio/);
   assert.doesNotMatch(staging, /if \(Test-Path \$source -PathType Leaf\) \{\s*Copy-Item/i);
 });
+
+test('Windows package starts from a clean output tree before signed virtual-driver staging', () => {
+  const removeOutput = buildScript.indexOf('Remove-Item $output -Recurse -Force -ErrorAction SilentlyContinue');
+  const recreateSystemAudio = buildScript.indexOf('New-Item -ItemType Directory -Force -Path $systemAudio', removeOutput);
+  const signedDriverStage = buildScript.indexOf("stage-signed-virtual-driver.ps1", recreateSystemAudio);
+
+  assert.ok(removeOutput >= 0, 'build must delete the previous package output tree');
+  assert.ok(recreateSystemAudio > removeOutput, 'system-audio staging must be recreated only after output cleanup');
+  assert.ok(signedDriverStage > recreateSystemAudio, 'signed driver staging must run only inside the newly cleaned package tree');
+});
