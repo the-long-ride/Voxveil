@@ -173,7 +173,8 @@ $deviceInstanceId = $null
 function Write-VirtualDriverInstallState {
   param(
     [Parameter(Mandatory = $true)][string]$PublishedInf,
-    [bool]$PendingReboot = $false
+    [bool]$PendingReboot = $false,
+    [bool]$UninstallComplete = $false
   )
 
   if ($PublishedInf -notmatch '^oem\d+\.inf$') {
@@ -194,6 +195,7 @@ function Write-VirtualDriverInstallState {
     driverSha256 = ([string]$verification.driverSha256).ToLowerInvariant()
     pendingReboot = $PendingReboot
     pendingRebootBootMarker = $pendingRebootBootMarker
+    uninstallComplete = $UninstallComplete
   } | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
 }
 
@@ -278,8 +280,12 @@ catch {
   if ($devnodeRollbackSucceeded -and $newPublishedInf) {
     Write-Warning "Rolling back newly added Voxveil driver-store package $newPublishedInf after installation failure."
     pnputil.exe /delete-driver $newPublishedInf | Out-Host
-    if ($LASTEXITCODE -ne 0) {
-      Write-Warning "Driver-store rollback failed for $newPublishedInf with exit code $LASTEXITCODE; manual cleanup may be required."
+    $rollbackDeleteExitCode = $LASTEXITCODE
+    if ($rollbackDeleteExitCode -eq 3010) {
+      Write-VirtualDriverInstallState -PublishedInf $newPublishedInf -PendingReboot $true -UninstallComplete $true
+      Write-Warning "Driver-store rollback removed $newPublishedInf successfully, but Windows requires a restart before another Voxveil virtual-driver lifecycle mutation."
+    } elseif ($rollbackDeleteExitCode -ne 0) {
+      Write-Warning "Driver-store rollback failed for $newPublishedInf with exit code $rollbackDeleteExitCode; manual cleanup may be required."
     }
   } elseif ($newPublishedInf) {
     Write-Warning "New driver-store package $newPublishedInf remains installed because the devnode could not be safely rolled back; manual cleanup may be required."
