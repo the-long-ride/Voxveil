@@ -1,4 +1,5 @@
 use super::*;
+use super::system_audio_installer::{installer_launch_outcome, InstallerLaunchOutcome};
 
 fn endpoint(id: &str, status: SystemAudioEndpointStatus) -> SystemAudioEndpoint {
     SystemAudioEndpoint {
