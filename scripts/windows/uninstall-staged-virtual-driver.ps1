@@ -120,13 +120,13 @@ $removeRebootValue = Get-HelperValue $removeOutput 'rebootRequired'
 if ($removeRebootValue -notin @('0', '1')) {
   throw 'voxveil-virtual-device.exe returned invalid remove reboot metadata. The install-state file was kept for recovery.'
 }
-$devnodeRebootRequired = $removeRebootValue -eq '1'
+$helperRebootRequired = $removeRebootValue -eq '1'
 
 Write-Host "Deleting recorded Voxveil Virtual Audio driver-store package $publishedInf ..."
 pnputil.exe /delete-driver $publishedInf | Out-Host
 $pnputilExitCode = $LASTEXITCODE
 if ($pnputilExitCode -ne 0 -and $pnputilExitCode -ne 3010) {
-  if ($devnodeRebootRequired) {
+  if ($helperRebootRequired) {
     if ($state.PSObject.Properties['pendingReboot']) {
       $state.pendingReboot = $true
     } else {
@@ -147,7 +147,7 @@ if ($pnputilExitCode -ne 0 -and $pnputilExitCode -ne 3010) {
   throw "PnPUtil failed to delete $publishedInf (exit $pnputilExitCode). The install-state file was kept for recovery."
 }
 
-$lifecycleRebootRequired = $devnodeRebootRequired -or $pnputilExitCode -eq 3010
+$lifecycleRebootRequired = $helperRebootRequired -or $pnputilExitCode -eq 3010
 if ($lifecycleRebootRequired) {
   if ($state.PSObject.Properties['pendingReboot']) {
     $state.pendingReboot = $true
