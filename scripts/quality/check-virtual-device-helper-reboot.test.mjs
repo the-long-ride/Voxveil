@@ -26,6 +26,16 @@ test('virtual-driver installer aggregates helper restart with PnPUtil restart st
   assert.match(installer, /Write-VirtualDriverInstallState\s+-PublishedInf\s+\$publishedInf\s+-PendingReboot\s+\$true/i);
 });
 
+test('virtual-driver install rollback preserves helper restart requirements', () => {
+  const catchStart = installer.indexOf('catch {');
+  assert.ok(catchStart >= 0, 'installer must keep rollback catch block');
+  const rollback = installer.slice(catchStart);
+  assert.match(rollback, /Get-HelperValue\s+\$rollbackRemoveOutput\s+'rebootRequired'/i);
+  assert.match(rollback, /rollbackHelperRebootRequired/i);
+  assert.match(rollback, /\$rollbackHelperRebootRequired\s*-or\s*\$rollbackDeleteExitCode\s*-eq\s*3010/i);
+  assert.match(rollback, /Write-VirtualDriverInstallState\s+-PublishedInf\s+\$newPublishedInf\s+-PendingReboot\s+\$true\s+-UninstallComplete\s+\$true/i);
+});
+
 test('virtual-driver uninstaller aggregates helper restart with PnPUtil restart tombstone', () => {
   assert.match(uninstaller, /Get-HelperValue\s+\$removeOutput\s+'rebootRequired'/i);
   assert.match(uninstaller, /helperRebootRequired/i);
