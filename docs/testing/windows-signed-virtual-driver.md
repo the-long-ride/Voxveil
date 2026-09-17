@@ -77,9 +77,13 @@ From an elevated PowerShell in the staged `system-audio` directory:
 
 The installer re-hashes the INF/CAT/SYS against `virtual-driver/verification.json`, verifies the fixed Voxveil driver/interface identity and Microsoft catalog signer, resolves native processor architecture through `Win32_Processor`, and rejects a package/OS architecture mismatch before creating or reusing the root devnode. Only then does it ensure exactly one `Root\VoxveilVirtualAudio` devnode through `voxveil-virtual-device.exe` and invoke `pnputil /add-driver ... /install`. It resolves the installed driver from the exact returned device instance and records both that instance ID and one published INF in `virtual-driver/virtual-driver-install-state.json`.
 
+If PnPUtil returns `3010`, the package operation succeeded but Windows requires restart before binding validation can finish. The script records exact cleanup ownership in `virtual-driver-install-state.json` with `pendingReboot=true`. Restart Windows, then rerun `install-staged-virtual-driver.ps1` and repeat the binding/Device Manager checks before accepting the result.
+
 - [ ] Wrong-architecture staged packages are rejected before any root-devnode mutation.
 - [ ] The helper reports exactly one Voxveil root devnode.
-- [ ] PnPUtil succeeds without enabling test mode.
+- [ ] PnPUtil succeeds without enabling test mode, or returns only documented reboot-required `3010` followed by restart/resume validation.
+- [ ] On `3010`, `virtual-driver-install-state.json` records the exact `deviceInstanceId`, `publishedInf`, and `pendingReboot=true` before restart.
+- [ ] After restart, rerun installation and prove the exact recorded devnode is bound to the exact Voxveil published INF before continuing.
 - [ ] `virtual-driver-install-state.json` contains one `deviceInstanceId` and one `oemN.inf` `publishedInf`.
 - [ ] The recorded `deviceInstanceId` is the `Voxveil Virtual Audio` devnode bound to the recorded `publishedInf`.
 - [ ] Device Manager reports `Voxveil Virtual Audio` without signature/code errors.
@@ -130,11 +134,13 @@ From the staged `system-audio` directory:
 
 The uninstaller revalidates the recorded `publishedInf` against the recorded `deviceInstanceId`, removes only that exact `Root\VoxveilVirtualAudio` devnode through the SetupAPI helper, then deletes only the recorded driver-store package. If an interrupted prior uninstall already removed the devnode, it verifies the current `%WINDIR%\INF\oemN.inf` still carries Voxveil's exact hardware/provider identity before package deletion.
 
+If package deletion returns `3010`, deletion succeeded and the script removes `virtual-driver-install-state.json` before propagating restart-required. Restart Windows before reinstalling, then repeat the absence checks below; do not retry deletion from stale state.
+
 - [ ] Uninstall removes only the `deviceInstanceId` and `publishedInf` recorded in `virtual-driver-install-state.json`.
 - [ ] The script refuses broad deletion when the recorded INF is bound to multiple devices or a non-Voxveil device.
 - [ ] The script does not enumerate/delete every driver whose provider is Voxveil.
 - [ ] If install state is missing, the script removes no device/package rather than guessing.
-- [ ] Uninstall succeeds; reboot if Windows requests it.
+- [ ] Uninstall succeeds; if it returns `3010`, confirm the state file is removed, restart Windows, and verify package/endpoint absence before reinstalling.
 - [ ] `Voxveil Input` is gone after uninstall/reboot.
 - [ ] No stale Voxveil virtual endpoint remains.
 - [ ] Any independently installed Voxveil APO/Extension packages remain installed.
