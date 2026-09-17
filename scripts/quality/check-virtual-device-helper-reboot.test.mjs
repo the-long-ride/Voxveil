@@ -37,6 +37,24 @@ test('virtual-driver install rollback preserves helper restart requirements', ()
   assert.match(rollback, /Write-VirtualDriverInstallState\s+-PublishedInf\s+\$newPublishedInf\s+-PendingReboot\s+\$true\s+-UninstallComplete\s+\$true/i);
 });
 
+test('virtual-driver rollback persists package-less reboot tombstone when only devnode removal requires restart', () => {
+  assert.match(installer, /function\s+Write-VirtualDriverRebootTombstone/i);
+  assert.match(installer, /pendingReboot\s*=\s*\$true/i);
+  assert.match(installer, /pendingRebootBootMarker\s*=\s*\$currentBootMarker/i);
+  assert.match(installer, /uninstallComplete\s*=\s*\$true/i);
+
+  const catchStart = installer.indexOf('catch {');
+  assert.ok(catchStart >= 0, 'installer must keep rollback catch block');
+  const rollback = installer.slice(catchStart);
+  const noPackageBranch = rollback.indexOf('elseif ($rollbackHelperRebootRequired)');
+  assert.ok(noPackageBranch >= 0, 'rollback must retain the helper-only reboot branch');
+  assert.match(
+    rollback.slice(noPackageBranch),
+    /Write-VirtualDriverRebootTombstone/i,
+    'helper-only reboot must persist a tombstone instead of only warning',
+  );
+});
+
 test('virtual-driver uninstaller aggregates helper restart with PnPUtil restart tombstone', () => {
   assert.match(uninstaller, /Get-HelperValue\s+\$removeOutput\s+'rebootRequired'/i);
   assert.match(uninstaller, /helperRebootRequired/i);
