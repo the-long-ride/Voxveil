@@ -64,13 +64,19 @@ foreach ($inf in @($infNames)) {
   Assert-RecordedApoInfIdentity $inf
   Write-Host "Removing recorded Voxveil APO/Extension driver package $inf ..."
   pnputil.exe /delete-driver $inf /uninstall /force | Out-Host
-  if ($LASTEXITCODE -ne 0) {
-    throw "PnPUtil failed to remove $inf (exit $LASTEXITCODE)."
+  $pnputilExitCode = $LASTEXITCODE
+  if ($pnputilExitCode -ne 0 -and $pnputilExitCode -ne 3010) {
+    throw "PnPUtil failed to remove $inf (exit $pnputilExitCode)."
   }
 
   $infNames = @($infNames | Where-Object { $_ -ine $inf })
   $state.installedInfNames = @($infNames)
   $state | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
+
+  if ($pnputilExitCode -eq 3010) {
+    Write-Warning "Voxveil APO/Extension package $inf was removed successfully, but Windows requires a restart before remaining package cleanup can continue."
+    exit 3010
+  }
 }
 
 Remove-Item $statePath -Force -ErrorAction SilentlyContinue
