@@ -53,6 +53,21 @@ test('installer snapshots scoped package ownership after each successful PnP pac
   );
 });
 
+test('APO uninstaller checkpoints remaining package ownership after each successful delete', () => {
+  assert.match(
+    uninstaller,
+    /\$infNames\s*=\s*@\(\$infNames\s*\|\s*Where-Object\s*\{\s*\$_\s*-ine\s*\$inf\s*\}\)/s,
+  );
+  assert.match(uninstaller, /\$state\.installedInfNames\s*=\s*@\(\$infNames\)/);
+
+  const deleteDriver = uninstaller.indexOf('pnputil.exe /delete-driver $inf /uninstall /force');
+  const checkpoint = uninstaller.indexOf('$state.installedInfNames = @($infNames)');
+  const finalStateRemoval = uninstaller.indexOf('Remove-Item $statePath -Force -ErrorAction SilentlyContinue');
+  assert.ok(deleteDriver >= 0, 'scoped APO package deletion must exist');
+  assert.ok(checkpoint > deleteDriver, 'remaining ownership must be checkpointed only after a successful deletion');
+  assert.ok(finalStateRemoval > checkpoint, 'install state must survive until every recorded package is deleted');
+});
+
 test('APO uninstall never falls back to deleting every Voxveil provider package', () => {
   assert.doesNotMatch(
     uninstaller,
