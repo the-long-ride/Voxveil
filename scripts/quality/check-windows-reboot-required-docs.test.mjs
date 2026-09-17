@@ -19,3 +19,17 @@ test('Tier 3 APO release gate documents non-ready reboot state and resumable uni
   assert.match(text, /bindingReady=false/i);
   assert.match(text, /remaining[\s\S]{0,120}installedInfNames|installedInfNames[\s\S]{0,120}remaining/i);
 });
+
+test('Tier 2 real-machine matrix records install and uninstall restart continuation', () => {
+  const text = read('docs/testing/windows-signed-virtual-driver.md');
+  assert.match(text, /3010/);
+  assert.match(text, /pendingReboot/i);
+  assert.match(text, /restart[\s\S]{0,180}rerun|rerun[\s\S]{0,180}restart/i);
+});
+
+test('Tier 3 real-machine matrix records non-ready install and resumable uninstall after restart', () => {
+  const text = read('docs/testing/windows-apo-capx-hlk.md');
+  assert.match(text, /3010/);
+  assert.match(text, /bindingReady=false/i);
+  assert.match(text, /remaining[\s\S]{0,160}installedInfNames|installedInfNames[\s\S]{0,160}remaining/i);
+});
