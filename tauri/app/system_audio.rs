@@ -211,7 +211,26 @@ fn powershell_single_quoted(value: &str) -> String {
 }
 
 #[cfg(target_os = "windows")]
-fn launch_system_audio_installer(script: &Path, descriptor: &Path) -> Result<(), String> {
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum InstallerLaunchOutcome {
+    Completed,
+    RebootRequired,
+}
+
+#[cfg(target_os = "windows")]
+fn installer_launch_outcome(exit_code: Option<i32>) -> Result<InstallerLaunchOutcome, String> {
+    match exit_code {
+        Some(0) => Ok(InstallerLaunchOutcome::Completed),
+        Some(3010) => Ok(InstallerLaunchOutcome::RebootRequired),
+        _ => Err("The system-audio installer was cancelled or exited with an error.".into()),
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn launch_system_audio_installer(
+    script: &Path,
+    descriptor: &Path,
+) -> Result<InstallerLaunchOutcome, String> {
     use std::os::windows::process::CommandExt;
 
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
@@ -225,11 +244,7 @@ fn launch_system_audio_installer(script: &Path, descriptor: &Path) -> Result<(),
         .creation_flags(CREATE_NO_WINDOW)
         .status()
         .map_err(|error| format!("failed to open the system-audio installer: {error}"))?;
-    if status.success() {
-        Ok(())
-    } else {
-        Err("The system-audio installer was cancelled or exited with an error.".into())
-    }
+    installer_launch_outcome(status.code())
 }
 
 #[tauri::command]
@@ -260,8 +275,22 @@ pub fn install_system_audio_component(
             .map_err(|error| format!("failed to create endpoint descriptor: {error}"))?;
         let result = launch_system_audio_installer(&script, &descriptor_path);
         let _ = std::fs::remove_file(&descriptor_path);
-        result?;
-        return Ok(InstallResultDto { endpoint_id, outcome: "launched".into(), detail: None });
+        let outcome = result?;
+        return Ok(match outcome {
+            InstallerLaunchOutcome::Completed => InstallResultDto {
+                endpoint_id,
+                outcome: "launched".into(),
+                detail: None,
+            },
+            InstallerLaunchOutcome::RebootRequired => InstallResultDto {
+                endpoint_id,
+                outcome: "reboot-required".into(),
+                detail: Some(
+                    "Windows must restart to finish installing the Voxveil system-audio component. Restart Windows, then run this installation again."
+                        .into(),
+                ),
+            },
+        });
     }
     #[cfg(not(target_os = "windows"))]
     {
