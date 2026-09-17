@@ -37,6 +37,10 @@ $destination = [IO.Path]::GetFullPath($Destination)
 $repoRoot = [IO.Path]::GetFullPath((Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path)
 $submissionRoot = [IO.Path]::GetFullPath((Join-Path $repoRoot 'native\windows\driver\out'))
 
+if ($destination -eq $package -or
+    $destination.StartsWith($package + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+  throw 'Signed virtual-driver staging destination must not be the source package directory or one of its descendants.'
+}
 if ($destination.StartsWith($submissionRoot, [StringComparison]::OrdinalIgnoreCase) -and
     $destination -match '(?i)[\\/]submission(?:[\\/]|$)') {
   throw 'Signed release destination must not be inside an unsigned submission directory.'
