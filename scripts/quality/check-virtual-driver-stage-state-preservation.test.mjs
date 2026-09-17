@@ -15,8 +15,9 @@ test('restaging a signed virtual driver preserves lifecycle install state byte-f
   assert.match(stager, /virtual-driver-install-state\.json/);
 });
 
-test('signed virtual-driver staging rejects its source directory and descendants as destination', () => {
+test('signed virtual-driver staging rejects overlapping source and destination trees', () => {
   assert.match(stager, /\$destination\s*-eq\s*\$package/i);
   assert.match(stager, /\$destination\.StartsWith\(\$package\s*\+\s*\[IO\.Path\]::DirectorySeparatorChar/i);
-  assert.match(stager, /must not be the source package directory or one of its descendants/i);
+  assert.match(stager, /\$package\.StartsWith\(\$destination\s*\+\s*\[IO\.Path\]::DirectorySeparatorChar/i);
+  assert.match(stager, /must not overlap the source package directory/i);
 });
