@@ -91,6 +91,26 @@ test('virtual driver install creates the exact devnode before PnPUtil and record
   assert.match(text, /if\s*\(\s*\$deviceCreated[\s\S]*?\bremove\b/i);
 });
 
+test('failed virtual driver install rolls back only the driver-store package added by this attempt', () => {
+  const text = installer();
+  assert.match(text, /beforePublishedInfNames/);
+  assert.match(text, /afterPublishedInfNames/);
+  assert.match(text, /newPublishedInf/);
+  assert.match(
+    text,
+    /Where-Object\s*\{\s*\$beforePublishedInfNames\s*-inotcontains\s*\$_\s*\}/s,
+    'rollback ownership must come from the before/after published-INF delta',
+  );
+
+  const catchStart = text.indexOf('catch {');
+  assert.ok(catchStart >= 0, 'installer must have a failure rollback block');
+  const rollback = text.slice(catchStart);
+  const removeDevnode = rollback.search(/&\s*\$deviceHelper\s+remove\s+\$deviceInstanceId/i);
+  const deletePackage = rollback.search(/pnputil(?:\.exe)?\s+\/delete-driver\s+\$newPublishedInf/i);
+  assert.ok(removeDevnode >= 0, 'rollback must remove a newly created devnode first');
+  assert.ok(deletePackage > removeDevnode, 'rollback must delete only the newly added package after devnode removal');
+});
+
 test('virtual driver lifecycle records and deletes only its exact published INF and devnode', () => {
   const install = installer();
   const uninstall = uninstaller();
