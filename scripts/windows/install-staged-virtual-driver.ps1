@@ -199,6 +199,14 @@ function Write-VirtualDriverInstallState {
   } | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
 }
 
+function Write-VirtualDriverRebootTombstone {
+  @{
+    pendingReboot = $true
+    pendingRebootBootMarker = $currentBootMarker
+    uninstallComplete = $true
+  } | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
+}
+
 $beforePublishedInfNames = @(Get-VoxveilPublishedInfNames)
 $newPublishedInf = $null
 $deviceCreated = $false
@@ -312,6 +320,7 @@ catch {
   } elseif ($newPublishedInf) {
     Write-Warning "New driver-store package $newPublishedInf remains installed because the devnode could not be safely rolled back; manual cleanup may be required."
   } elseif ($rollbackHelperRebootRequired) {
+    Write-VirtualDriverRebootTombstone
     Write-Warning 'Devnode rollback requires a Windows restart before retrying the Voxveil virtual-driver installation.'
   }
   throw
