@@ -1,13 +1,18 @@
+import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { walkFilesSync } from '../lib/walk-files.mjs';
 
-const IGNORED_DIRS = new Set(['.git', 'node_modules', 'dist', 'target', 'coverage']);
 const FORBIDDEN_SUFFIXES = ['.tsbuildinfo', '.profraw', '.lcov'];
 const FORBIDDEN_NAMES = new Set(['.DS_Store']);
 
+function trackedFiles(root) {
+  return execFileSync('git', ['-C', root, 'ls-files', '-z'], { encoding: 'utf8' })
+    .split('\0')
+    .filter(Boolean);
+}
+
 export function scanRepositoryHygiene(root) {
-  return walkFilesSync(root, IGNORED_DIRS)
+  return trackedFiles(root)
     .filter((file) => FORBIDDEN_NAMES.has(path.basename(file)) || FORBIDDEN_SUFFIXES.some((suffix) => file.endsWith(suffix)))
     .map((file) => `${file} is generated build state and must not be committed`);
 }
