@@ -6,6 +6,12 @@ use super::dto::{InstallResultDto, SystemAudioEndpointDto};
 use crate::platform::ProcessingController;
 
 #[cfg(target_os = "windows")]
+#[path = "system_audio_installer.rs"]
+mod system_audio_installer;
+#[cfg(target_os = "windows")]
+use system_audio_installer::{launch_system_audio_installer, InstallerLaunchOutcome};
+
+#[cfg(target_os = "windows")]
 use serde::Serialize;
 #[cfg(target_os = "windows")]
 use voxveil_windows_audio::{SystemAudioEndpoint, SystemAudioEndpointStatus};
@@ -208,43 +214,6 @@ fn temporary_descriptor_path() -> PathBuf {
 #[cfg(target_os = "windows")]
 fn powershell_single_quoted(value: &str) -> String {
     value.replace('\'', "''")
-}
-
-#[cfg(target_os = "windows")]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum InstallerLaunchOutcome {
-    Completed,
-    RebootRequired,
-}
-
-#[cfg(target_os = "windows")]
-fn installer_launch_outcome(exit_code: Option<i32>) -> Result<InstallerLaunchOutcome, String> {
-    match exit_code {
-        Some(0) => Ok(InstallerLaunchOutcome::Completed),
-        Some(3010) => Ok(InstallerLaunchOutcome::RebootRequired),
-        _ => Err("The system-audio installer was cancelled or exited with an error.".into()),
-    }
-}
-
-#[cfg(target_os = "windows")]
-fn launch_system_audio_installer(
-    script: &Path,
-    descriptor: &Path,
-) -> Result<InstallerLaunchOutcome, String> {
-    use std::os::windows::process::CommandExt;
-
-    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-    let script = powershell_single_quoted(&script.to_string_lossy());
-    let descriptor = powershell_single_quoted(&descriptor.to_string_lossy());
-    let launch = format!(
-        r#"$ErrorActionPreference='Stop'; $script='{script}'; $descriptor='{descriptor}'; $scriptArg='"' + $script + '"'; $descriptorArg='"' + $descriptor + '"'; try {{ $process=Start-Process -FilePath 'powershell.exe' -Verb RunAs -Wait -PassThru -ArgumentList @('-NoLogo','-NoProfile','-ExecutionPolicy','Bypass','-File',$scriptArg,'-EndpointDescriptor',$descriptorArg); exit $process.ExitCode }} catch {{ Write-Error $_; exit 1 }}"#,
-    );
-    let status = std::process::Command::new("powershell.exe")
-        .args(["-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &launch])
-        .creation_flags(CREATE_NO_WINDOW)
-        .status()
-        .map_err(|error| format!("failed to open the system-audio installer: {error}"))?;
-    installer_launch_outcome(status.code())
 }
 
 #[tauri::command]
