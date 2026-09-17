@@ -83,6 +83,25 @@ test('APO uninstaller checkpoints remaining package ownership after each success
   assert.ok(finalStateRemoval > checkpoint, 'install state must survive until every recorded package is deleted');
 });
 
+test('APO uninstaller revalidates recorded Driver Store identity before deletion', () => {
+  const helperMatch = uninstaller.match(/function\s+Assert-RecordedApoInfIdentity[^\{]*\{([\s\S]*?)\n\}/i);
+  assert.ok(helperMatch, 'uninstaller must define Assert-RecordedApoInfIdentity');
+  const helper = helperMatch[1];
+
+  assert.match(helper, /Get-WindowsDriver\s+-Online/i);
+  assert.match(helper, /\.Driver\s+-ieq\s+\$PublishedInf/i);
+  assert.match(helper, /ProviderName/i);
+  assert.match(helper, /OriginalFileName/i);
+  assert.match(helper, /GetFileName\s*\(/i);
+  assert.match(helper, /VoxveilApo\.inf/i);
+  assert.match(helper, /VoxveilApoExtension\.inf/i);
+
+  const identityCheck = uninstaller.indexOf('Assert-RecordedApoInfIdentity $inf');
+  const deleteDriver = uninstaller.indexOf('pnputil.exe /delete-driver $inf /uninstall /force');
+  assert.ok(identityCheck >= 0, 'recorded INF identity must be checked');
+  assert.ok(deleteDriver > identityCheck, 'identity must be revalidated before deleting the package');
+});
+
 test('APO uninstall never falls back to deleting every Voxveil provider package', () => {
   assert.doesNotMatch(
     uninstaller,
