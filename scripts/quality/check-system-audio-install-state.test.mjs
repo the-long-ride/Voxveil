@@ -68,6 +68,29 @@ test('installer snapshots scoped package ownership after each successful PnP pac
   );
 });
 
+test('APO PnP failures refresh scoped ownership before throwing so staged packages remain recoverable', () => {
+  const baseInstall = installer.indexOf("pnputil.exe /add-driver (Join-Path $work 'VoxveilApo.inf') /install");
+  const extensionInstall = installer.indexOf('pnputil.exe /add-driver $extensionInf /install');
+  const restartAudio = installer.indexOf('Restart-Service Audiosrv -Force');
+  assert.ok(baseInstall >= 0 && extensionInstall > baseInstall && restartAudio > extensionInstall);
+
+  const baseBlock = installer.slice(baseInstall, extensionInstall);
+  const baseCapture = baseBlock.search(/\$apoPnputilExitCode\s*=\s*\$LASTEXITCODE/i);
+  const baseSnapshot = baseBlock.search(/Write-InstallStateSnapshot/);
+  const baseFailure = baseBlock.search(/if\s*\(\s*\$apoPnputilExitCode\s*-ne\s*0\s*\)/i);
+  assert.ok(baseCapture >= 0, 'base APO PnPUtil exit code must be captured');
+  assert.ok(baseSnapshot > baseCapture, 'base APO ownership snapshot must run after PnPUtil returns');
+  assert.ok(baseFailure > baseSnapshot, 'base APO PnP failure must be thrown only after ownership is persisted');
+
+  const extensionBlock = installer.slice(extensionInstall, restartAudio);
+  const extensionCapture = extensionBlock.search(/\$extensionPnputilExitCode\s*=\s*\$LASTEXITCODE/i);
+  const extensionSnapshot = extensionBlock.search(/Write-InstallStateSnapshot/);
+  const extensionFailure = extensionBlock.search(/if\s*\(\s*\$extensionPnputilExitCode\s*-ne\s*0\s*\)/i);
+  assert.ok(extensionCapture >= 0, 'Extension PnPUtil exit code must be captured');
+  assert.ok(extensionSnapshot > extensionCapture, 'Extension ownership snapshot must run after PnPUtil returns');
+  assert.ok(extensionFailure > extensionSnapshot, 'Extension PnP failure must be thrown only after ownership is persisted');
+});
+
 test('APO uninstaller checkpoints remaining package ownership after each successful delete', () => {
   assert.match(
     uninstaller,
