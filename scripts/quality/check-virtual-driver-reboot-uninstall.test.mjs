@@ -32,8 +32,10 @@ test('virtual driver uninstall 3010 blocks same-boot reinstall and clears tombst
   assert.match(uninstaller, /uninstallComplete\s*=\s*\$true/i);
 
   const identityCheck = uninstaller.indexOf('Assert-PublishedInfIdentity $publishedInf $deviceInstanceId');
+  const pendingGuard = uninstaller.indexOf('if ($pendingReboot -and $pendingBootMarker -and $pendingBootMarker -eq $currentBootMarker)');
   const completedGuard = uninstaller.indexOf('if ($uninstallComplete)');
   const completedStateRemoval = uninstaller.indexOf('Remove-Item $statePath -Force', completedGuard);
+  assert.ok(pendingGuard >= 0 && pendingGuard < completedGuard, 'any pending same-boot reboot must block uninstall mutation, including a pending install');
   assert.ok(completedGuard >= 0 && completedGuard < identityCheck, 'completed-uninstall reboot tombstone must be handled before stale package identity checks');
   assert.ok(completedStateRemoval > completedGuard && completedStateRemoval < identityCheck, 'post-reboot tombstone cleanup must happen before package identity revalidation');
 
