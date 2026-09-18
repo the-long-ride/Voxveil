@@ -47,10 +47,10 @@ test('signed APO stager rehashes destination copies before writing verification 
 
   const copy = text.search(/Copy-Item/i);
   const firstHash = text.indexOf('Assert-StagedHash -Path $stagedApoInf', copy);
-  const manifest = text.search(/apo-verification\.json/i);
+  const manifestWrite = text.search(/Set-Content\s+\$manifestPath\s+-Encoding\s+utf8/i);
   assert.ok(copy >= 0, 'stager must copy the verified package');
   assert.ok(firstHash > copy, 'destination hashes must be checked after copying');
-  assert.ok(manifest > firstHash, 'verification manifest must be written only after destination hashes pass');
+  assert.ok(manifestWrite > firstHash, 'verification manifest must be written only after destination hashes pass');
 
   for (const [pathVar, hashField] of [
     ['$stagedApoInf', 'apoInfSha256'],
