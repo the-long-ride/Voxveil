@@ -231,6 +231,19 @@ if ($infNames.Count -eq 0) {
 }
 
 foreach ($inf in @($infNames)) {
+  $packagePresentBeforeDelete = Test-RecordedApoInfPresent $inf
+  if (-not $packagePresentBeforeDelete) {
+    $infNames = @($infNames | Where-Object { $_ -ine $inf })
+    $state.installedInfNames = @($infNames)
+    $state.pendingRemovedInfName = $inf
+    $state.pendingReboot = $true
+    $state.pendingRebootBootMarker = $currentBootMarker
+    $state.audioServiceRestartRequired = $false
+    Write-JsonStateAtomically -State $state -Path $statePath
+    Write-Warning "Recorded Voxveil APO/Extension package $inf is already absent. Treating this as an interrupted prior deletion and requiring a restart before cleanup continues."
+    exit 3010
+  }
+
   Assert-RecordedApoInfIdentity $inf
   Write-Host "Removing recorded Voxveil APO/Extension driver package $inf ..."
   pnputil.exe /delete-driver $inf /uninstall /force | Out-Host
