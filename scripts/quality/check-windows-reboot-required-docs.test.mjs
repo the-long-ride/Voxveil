@@ -37,6 +37,12 @@ test('Tier 2 real-machine matrix records install and uninstall restart continuat
   assert.match(text, /after restart[\s\S]{0,260}absen|absen[\s\S]{0,260}after restart/i);
 });
 
+test('Tier 2 real-machine matrix records signed-package replacement ownership boundary', () => {
+  const text = read('docs/testing/windows-signed-virtual-driver.md');
+  assert.match(text, /different signed package[\s\S]{0,220}uninstall|uninstall[\s\S]{0,220}different signed package/i);
+  assert.match(text, /same-package repair[\s\S]{0,220}(INF|CAT|SYS|hash)|(?:INF|CAT|SYS|hash)[\s\S]{0,220}same-package repair/i);
+});
+
 test('Tier 3 real-machine matrix records non-ready install and resumable uninstall after restart', () => {
   const text = read('docs/testing/windows-apo-capx-hlk.md');
   assert.match(text, /3010/);
