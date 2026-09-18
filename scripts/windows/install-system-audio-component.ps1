@@ -198,6 +198,8 @@ $statePath = Join-Path $root 'install-state.json'
 $currentBootMarker = Get-WindowsBootMarker
 $previousInstalledInfNames = @()
 $previousManagedEndpointId = $null
+$previousDevelopmentCertificateThumbprint = $null
+$developmentCertificateThumbprint = $null
 if (Test-Path $statePath -PathType Leaf) {
   $previousState = Get-Content $statePath -Raw | ConvertFrom-Json
   $recordedInfNames = @($previousState.installedInfNames)
@@ -213,6 +215,511 @@ if (Test-Path $statePath -PathType Leaf) {
   if ($previousBindingMode -notin @('capx-extension', 'legacy-runtime-interface', 'legacy-reference')) {
     throw "install-state.json has unknown bindingMode '$previousBindingMode'; state was kept for recovery."
   }
+  $previousDevelopmentCertificateThumbprint = [string](Get-OptionalProperty $previousState 'developmentCertificateThumbprint')
+  if ($previousDevelopmentCertificateThumbprint -and $previousDevelopmentCertificateThumbprint -notmatch '^[0-9A-Fa-f]{40}  $previousEndpointId = [string](Get-OptionalProperty $previousState 'endpointId')
+  if ($previousEndpointId -and $previousBindingMode -ne 'legacy-reference') {
+    $previousManagedEndpointId = $previousEndpointId
+  }
+  if ($previousPendingReboot -eq $true -and -not $previousBootMarker) {
+    if ($previousState.PSObject.Properties['pendingRebootBootMarker']) {
+      $previousState.pendingRebootBootMarker = $currentBootMarker
+    } else {
+      $previousState | Add-Member -NotePropertyName pendingRebootBootMarker -NotePropertyValue $currentBootMarker
+    }
+    $previousState | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
+    throw 'Restart Windows before continuing the Voxveil system-audio installation.'
+  }
+  if ($previousPendingReboot -eq $true -and $previousBootMarker -and $previousBootMarker -eq $currentBootMarker) {
+    throw 'Restart Windows before continuing the Voxveil system-audio installation.'
+  }
+  if ($previousPendingRemovedInfName) {
+    Assert-PendingRemovedApoInfAbsent $previousPendingRemovedInfName
+  }
+}
+$beforeInstalledInfNames = @(Get-VoxveilPublishedInfNames)
+$unexpectedInstalledInfNames = @(
+  $beforeInstalledInfNames | Where-Object { $previousInstalledInfNames -inotcontains $_ }
+)
+if ($unexpectedInstalledInfNames.Count -gt 0) {
+  throw "Driver Store contains untracked Voxveil APO/Extension package(s): $($unexpectedInstalledInfNames -join ', '). Remove them explicitly before installation so package ownership remains scoped."
+}
+
+$selectedEndpointId = $null
+$bindingPnpInstanceId = $null
+$topologyInterfacePath = $null
+$audioInterfacePath = $null
+$runtimeBound = $false
+if ($PSCmdlet.ParameterSetName -eq 'Descriptor') {
+  $binding = Resolve-EndpointDescriptor $EndpointDescriptor $root
+  $selectedEndpointId = $binding.EndpointId
+  if ($previousManagedEndpointId -and $selectedEndpointId -ine $previousManagedEndpointId) {
+    throw "Uninstall the currently managed Voxveil APO endpoint '$previousManagedEndpointId' before installing a different playback endpoint '$selectedEndpointId'. Endpoint ownership/readiness is tracked for one managed APO endpoint at a time."
+  }
+  $bindingPnpInstanceId = $binding.BindingPnpInstanceId
+  $HardwareId = $binding.HardwareId
+  $runtimeBound = $binding.RuntimeBound
+  $topologyInterfacePath = $binding.TopologyInterfacePath
+  $audioInterfacePath = $binding.AudioInterfacePath
+  $ReferenceString = $binding.ReferenceString
+}
+
+$apoInf = Join-Path $root 'VoxveilApo.inf'
+$apoDll = Join-Path $root 'VoxveilApo.dll'
+$template = Join-Path $root 'VoxveilApoExtension.inf.template'
+$generator = Join-Path $root 'new-apo-extension-inf.ps1'
+$control = Join-Path $root 'voxveil-control.exe'
+$useLegacyRuntimeAttachment = $TestSign -and $runtimeBound
+$bindingMode = if (-not $TestSign) {
+  'capx-extension'
+} elseif ($useLegacyRuntimeAttachment) {
+  'legacy-runtime-interface'
+} else {
+  'legacy-reference'
+}
+
+function Write-InstallStateSnapshot(
+  [bool]$BindingReady = $false,
+  [bool]$PendingReboot = $false
+) {
+  $afterInstalledInfNames = @(Get-VoxveilPublishedInfNames)
+  $newInstalledInfNames = @($afterInstalledInfNames | Where-Object { $beforeInstalledInfNames -inotcontains $_ })
+  $previousStillInstalledInfNames = @($previousInstalledInfNames | Where-Object { $afterInstalledInfNames -icontains $_ })
+  $installed = @($previousStillInstalledInfNames + $newInstalledInfNames)
+  $installed = @($installed | Sort-Object -Unique)
+  $pendingRebootBootMarker = if ($PendingReboot) { $currentBootMarker } else { $null }
+
+  @{
+    installedInfNames = @($installed)
+    endpointId = $selectedEndpointId
+    hardwareId = $HardwareId
+    bindingMode = $bindingMode
+    bindingReady = $BindingReady
+    pendingReboot = $PendingReboot
+    pendingRebootBootMarker = $pendingRebootBootMarker
+    developmentCertificateThumbprint = $developmentCertificateThumbprint
+    bindingPnpInstanceId = $bindingPnpInstanceId
+    topologyInterfacePath = $topologyInterfacePath
+    audioInterfacePath = $audioInterfacePath
+    referenceString = $ReferenceString
+  } | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
+}
+
+foreach ($required in @($apoInf, $apoDll)) {
+  if (-not (Test-Path $required)) { throw "Required system-audio file not found: $required" }
+}
+
+$work = Join-Path $env:TEMP ("voxveil-apo-install-" + [Guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Force -Path $work | Out-Null
+try {
+  Copy-Item $apoInf, $apoDll -Destination $work
+  $extensionInf = Join-Path $work 'VoxveilApoExtension.inf'
+
+  if ($TestSign) {
+    foreach ($required in @($template, $generator)) {
+      if (-not (Test-Path $required)) { throw "Required development packaging file not found: $required" }
+    }
+    if ($runtimeBound) {
+      & $generator -HardwareId $HardwareId -FxPropertyMode Legacy -TemplatePath $template -OutputPath $extensionInf
+    } else {
+      & $generator -HardwareId $HardwareId -ReferenceString $ReferenceString -FxPropertyMode Legacy -TemplatePath $template -OutputPath $extensionInf
+    }
+
+    $inf2cat = Find-WdkTool 'Inf2Cat.exe'
+    $signtool = Find-WdkTool 'signtool.exe'
+    if (-not $inf2cat -or -not $signtool) {
+      throw 'TestSign requires the Windows Driver Kit (Inf2Cat.exe and signtool.exe). Install the WDK first.'
+    }
+
+    $testSigning = (bcdedit /enum '{current}' 2>$null | Select-String -Pattern '^testsigning\s+Yes$')
+    if (-not $testSigning) {
+      Write-Warning 'Windows TESTSIGNING is not enabled. The development package may install but AudioDG/PNP will not load it after reboot.'
+      Write-Warning 'Enable TESTSIGNING only on a dedicated development machine; Secure Boot may need to be disabled.'
+    }
+
+    $certificate = $null
+    if ($previousDevelopmentCertificateThumbprint) {
+      $recordedCertificatePath = "Cert:\LocalMachine\My\$previousDevelopmentCertificateThumbprint"
+      if (-not (Test-Path $recordedCertificatePath -PathType Leaf)) {
+        throw 'Recorded Voxveil development certificate is missing from LocalMachine\My; uninstall the development APO state before creating a new certificate.'
+      }
+      $certificate = Get-Item $recordedCertificatePath
+      if ([string]$certificate.Subject -notmatch '(^|,\s*)CN=Voxveil Development APO($|,)' -or -not $certificate.HasPrivateKey) {
+        throw 'Recorded developmentCertificateThumbprint does not identify the expected Voxveil code-signing certificate with a private key.'
+      }
+    } else {
+      $certificate = New-SelfSignedCertificate `
+        -Type CodeSigningCert `
+        -Subject 'CN=Voxveil Development APO' `
+        -CertStoreLocation 'Cert:\LocalMachine\My' `
+        -KeyExportPolicy Exportable `
+        -HashAlgorithm SHA256 `
+        -NotAfter (Get-Date).AddYears(2)
+      $developmentCertificateThumbprint = [string]$certificate.Thumbprint
+    }
+    if (-not $developmentCertificateThumbprint) {
+      $developmentCertificateThumbprint = [string]$certificate.Thumbprint
+    }
+
+    $cerPath = Join-Path $work 'VoxveilDevelopment.cer'
+    Export-Certificate -Cert $certificate -FilePath $cerPath | Out-Null
+    certutil.exe -addstore -f Root $cerPath | Out-Host
+    if ($LASTEXITCODE -ne 0) { throw 'Failed to trust the Voxveil development certificate in LocalMachine\Root.' }
+    certutil.exe -addstore -f TrustedPublisher $cerPath | Out-Host
+    if ($LASTEXITCODE -ne 0) { throw 'Failed to trust the Voxveil development certificate in LocalMachine\TrustedPublisher.' }
+
+    & $signtool sign /fd SHA256 /sha1 $certificate.Thumbprint /s My /sm (Join-Path $work 'VoxveilApo.dll') | Out-Host
+    if ($LASTEXITCODE -ne 0) { throw 'Failed to test-sign VoxveilApo.dll.' }
+
+    & $inf2cat "/driver:$work" /os:10_X64 | Out-Host
+    if ($LASTEXITCODE -ne 0) { throw 'Inf2Cat rejected the Voxveil APO package.' }
+
+    Get-ChildItem $work -Filter '*.cat' -File | ForEach-Object {
+      & $signtool sign /fd SHA256 /sha1 $certificate.Thumbprint /s My /sm $_.FullName | Out-Host
+      if ($LASTEXITCODE -ne 0) { throw "Failed to sign catalog: $($_.Name)" }
+    }
+  } else {
+    $null = Assert-StagedProductionApo $root
+    $prebuiltExtension = Join-Path $root 'VoxveilApoExtension.inf'
+    $apoCat = Join-Path $root 'VoxveilApo.cat'
+    $extensionCat = Join-Path $root 'VoxveilApoExtension.cat'
+
+    $prebuiltText = Get-Content $prebuiltExtension -Raw
+    if (-not $prebuiltText.Contains($HardwareId)) {
+      throw 'The signed Voxveil Extension INF does not match the automatically resolved playback endpoint hardware ID.'
+    }
+    if ($prebuiltText -notmatch '(?im)^\s*ExtensionId\s*=\s*\{1D81E93D-AB81-473B-9E5E-94FAE8D2377F\}\s*$') {
+      throw 'The signed Voxveil Extension INF does not match the committed Voxveil extension servicing lineage.'
+    }
+    if ($prebuiltText -notmatch '(?i)VOXVEIL_APO_CONTEXT\s*=\s*"\{63E268CE-4CBC-48E0-BEB6-55103316F477\}"') {
+      throw 'The signed Voxveil Extension INF is not the expected CAPX production package: the fixed property-context identity is missing.'
+    }
+    if ($prebuiltText -notmatch '(?im)^\s*HKR\s*,\s*FX\\0\\%VOXVEIL_APO_CONTEXT%\s*,\s*%PKEY_FX_Association%') {
+      throw 'The signed Voxveil Extension INF is not CAPX production-bound to the Voxveil property context.'
+    }
+    if ($prebuiltText -match '(?im)^\s*HKR\s*,\s*FX\\0\s*,\s*%PKEY_FX_Association%') {
+      throw 'The signed Voxveil Extension INF contains the legacy root FX association; production CAPX packages must not mix legacy and context property stores.'
+    }
+    if ($prebuiltText -notmatch '(?im)^\s*AddInterface\s*=') {
+      throw 'The signed Voxveil Extension INF has no signed endpoint interface binding. Runtime registry attachment is not a CAPX production path.'
+    }
+    if ($ReferenceString -and -not $prebuiltText.Contains($ReferenceString)) {
+      throw 'The signed Voxveil Extension INF does not match the resolved playback endpoint topology reference.'
+    }
+
+    Copy-Item $prebuiltExtension $extensionInf
+    Copy-Item $apoCat, $extensionCat -Destination $work
+  }
+
+  Write-Host 'Staging/installing the Voxveil APO software-component package...'
+  pnputil.exe /add-driver (Join-Path $work 'VoxveilApo.inf') /install | Out-Host
+  $apoPnputilExitCode = $LASTEXITCODE
+  if ($apoPnputilExitCode -eq 3010) {
+    Write-InstallStateSnapshot -PendingReboot $true
+    Write-Warning 'PnPUtil staged the Voxveil APO package successfully, but Windows requires a restart before installation can continue.'
+    exit 3010
+  }
+  Write-InstallStateSnapshot
+  if ($apoPnputilExitCode -ne 0) { throw "PnPUtil failed to stage VoxveilApo.inf (exit $apoPnputilExitCode)." }
+
+  Write-Host 'Installing the endpoint-specific Voxveil Extension INF...'
+  pnputil.exe /add-driver $extensionInf /install | Out-Host
+  $extensionPnputilExitCode = $LASTEXITCODE
+  if ($extensionPnputilExitCode -eq 3010) {
+    Write-InstallStateSnapshot -PendingReboot $true
+    Write-Warning 'PnPUtil installed the Voxveil Extension package successfully, but Windows requires a restart before AudioDG readiness can be verified.'
+    exit 3010
+  }
+  Write-InstallStateSnapshot
+  if ($extensionPnputilExitCode -ne 0) { throw "PnPUtil failed to install VoxveilApoExtension.inf (exit $extensionPnputilExitCode)." }
+
+  if ($useLegacyRuntimeAttachment) {
+    if (-not (Test-Path $control -PathType Leaf)) {
+      throw 'Legacy development runtime interface binding requires voxveil-control.exe in the packaged system-audio directory.'
+    }
+    Write-Warning 'Applying legacy development FX\0 registry attachment. This is not the Windows 11 CAPX production path.'
+    & $control attach-effects $bindingPnpInstanceId $topologyInterfacePath $audioInterfacePath | Out-Host
+    if ($LASTEXITCODE -ne 0) {
+      throw "Legacy runtime interface FX attachment failed (exit $LASTEXITCODE)."
+    }
+  }
+
+  Write-Host 'Restarting Windows Audio so AudioDG rebuilds the endpoint graph...'
+  Restart-Service Audiosrv -Force
+  Start-Sleep -Seconds 2
+  Write-InstallStateSnapshot
+
+  if (Test-Path $control) {
+    $status = & $control status 2>&1
+    Write-Host "APO control status: $status"
+    if ($LASTEXITCODE -ne 0 -or $status -notmatch 'loaded=[1-9][0-9]*') {
+      throw 'installed-not-loaded: the package installed, but AudioDG did not load a real Voxveil processing instance on the selected playback endpoint.'
+    }
+    Write-InstallStateSnapshot -BindingReady $true
+  } elseif (-not $TestSign) {
+    throw 'installed-not-loaded: production CAPX installation requires voxveil-control.exe so AudioDG load verification cannot be skipped.'
+  } else {
+    Write-Warning 'voxveil-control.exe was not present, so AudioDG load verification was skipped for this development/test installation.'
+  }
+
+  if ($TestSign) {
+    Write-Host 'Voxveil development/test APO installed. This is not a production qualification result.'
+  } else {
+    Write-Host 'Voxveil production-signed CAPX APO package installed and bound to the selected render endpoint.'
+  }
+}
+finally {
+  Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
+}
+ })
+  if ($invalidRecordedInfNames.Count -gt 0) {
+    throw "Malformed APO/Extension package identity in install-state.json: $($invalidRecordedInfNames -join ', '). State was kept for recovery."
+  }
+  $previousInstalledInfNames = @($recordedInfNames)
+  $previousPendingReboot = Get-OptionalProperty $previousState 'pendingReboot'
+  $previousBootMarker = [string](Get-OptionalProperty $previousState 'pendingRebootBootMarker')
+  $previousPendingRemovedInfName = [string](Get-OptionalProperty $previousState 'pendingRemovedInfName')
+  $previousBindingMode = [string](Get-OptionalProperty $previousState 'bindingMode')
+  $previousEndpointId = [string](Get-OptionalProperty $previousState 'endpointId')
+  if ($previousEndpointId -and $previousBindingMode -ne 'legacy-reference') {
+    $previousManagedEndpointId = $previousEndpointId
+  }
+  if ($previousPendingReboot -eq $true -and -not $previousBootMarker) {
+    if ($previousState.PSObject.Properties['pendingRebootBootMarker']) {
+      $previousState.pendingRebootBootMarker = $currentBootMarker
+    } else {
+      $previousState | Add-Member -NotePropertyName pendingRebootBootMarker -NotePropertyValue $currentBootMarker
+    }
+    $previousState | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
+    throw 'Restart Windows before continuing the Voxveil system-audio installation.'
+  }
+  if ($previousPendingReboot -eq $true -and $previousBootMarker -and $previousBootMarker -eq $currentBootMarker) {
+    throw 'Restart Windows before continuing the Voxveil system-audio installation.'
+  }
+  if ($previousPendingRemovedInfName) {
+    Assert-PendingRemovedApoInfAbsent $previousPendingRemovedInfName
+  }
+}
+$beforeInstalledInfNames = @(Get-VoxveilPublishedInfNames)
+$unexpectedInstalledInfNames = @(
+  $beforeInstalledInfNames | Where-Object { $previousInstalledInfNames -inotcontains $_ }
+)
+if ($unexpectedInstalledInfNames.Count -gt 0) {
+  throw "Driver Store contains untracked Voxveil APO/Extension package(s): $($unexpectedInstalledInfNames -join ', '). Remove them explicitly before installation so package ownership remains scoped."
+}
+
+$selectedEndpointId = $null
+$bindingPnpInstanceId = $null
+$topologyInterfacePath = $null
+$audioInterfacePath = $null
+$runtimeBound = $false
+if ($PSCmdlet.ParameterSetName -eq 'Descriptor') {
+  $binding = Resolve-EndpointDescriptor $EndpointDescriptor $root
+  $selectedEndpointId = $binding.EndpointId
+  if ($previousManagedEndpointId -and $selectedEndpointId -ine $previousManagedEndpointId) {
+    throw "Uninstall the currently managed Voxveil APO endpoint '$previousManagedEndpointId' before installing a different playback endpoint '$selectedEndpointId'. Endpoint ownership/readiness is tracked for one managed APO endpoint at a time."
+  }
+  $bindingPnpInstanceId = $binding.BindingPnpInstanceId
+  $HardwareId = $binding.HardwareId
+  $runtimeBound = $binding.RuntimeBound
+  $topologyInterfacePath = $binding.TopologyInterfacePath
+  $audioInterfacePath = $binding.AudioInterfacePath
+  $ReferenceString = $binding.ReferenceString
+}
+
+$apoInf = Join-Path $root 'VoxveilApo.inf'
+$apoDll = Join-Path $root 'VoxveilApo.dll'
+$template = Join-Path $root 'VoxveilApoExtension.inf.template'
+$generator = Join-Path $root 'new-apo-extension-inf.ps1'
+$control = Join-Path $root 'voxveil-control.exe'
+$useLegacyRuntimeAttachment = $TestSign -and $runtimeBound
+$bindingMode = if (-not $TestSign) {
+  'capx-extension'
+} elseif ($useLegacyRuntimeAttachment) {
+  'legacy-runtime-interface'
+} else {
+  'legacy-reference'
+}
+
+function Write-InstallStateSnapshot(
+  [bool]$BindingReady = $false,
+  [bool]$PendingReboot = $false
+) {
+  $afterInstalledInfNames = @(Get-VoxveilPublishedInfNames)
+  $newInstalledInfNames = @($afterInstalledInfNames | Where-Object { $beforeInstalledInfNames -inotcontains $_ })
+  $previousStillInstalledInfNames = @($previousInstalledInfNames | Where-Object { $afterInstalledInfNames -icontains $_ })
+  $installed = @($previousStillInstalledInfNames + $newInstalledInfNames)
+  $installed = @($installed | Sort-Object -Unique)
+  $pendingRebootBootMarker = if ($PendingReboot) { $currentBootMarker } else { $null }
+
+  @{
+    installedInfNames = @($installed)
+    endpointId = $selectedEndpointId
+    hardwareId = $HardwareId
+    bindingMode = $bindingMode
+    bindingReady = $BindingReady
+    pendingReboot = $PendingReboot
+    pendingRebootBootMarker = $pendingRebootBootMarker
+    bindingPnpInstanceId = $bindingPnpInstanceId
+    topologyInterfacePath = $topologyInterfacePath
+    audioInterfacePath = $audioInterfacePath
+    referenceString = $ReferenceString
+  } | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
+}
+
+foreach ($required in @($apoInf, $apoDll)) {
+  if (-not (Test-Path $required)) { throw "Required system-audio file not found: $required" }
+}
+
+$work = Join-Path $env:TEMP ("voxveil-apo-install-" + [Guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Force -Path $work | Out-Null
+try {
+  Copy-Item $apoInf, $apoDll -Destination $work
+  $extensionInf = Join-Path $work 'VoxveilApoExtension.inf'
+
+  if ($TestSign) {
+    foreach ($required in @($template, $generator)) {
+      if (-not (Test-Path $required)) { throw "Required development packaging file not found: $required" }
+    }
+    if ($runtimeBound) {
+      & $generator -HardwareId $HardwareId -FxPropertyMode Legacy -TemplatePath $template -OutputPath $extensionInf
+    } else {
+      & $generator -HardwareId $HardwareId -ReferenceString $ReferenceString -FxPropertyMode Legacy -TemplatePath $template -OutputPath $extensionInf
+    }
+
+    $inf2cat = Find-WdkTool 'Inf2Cat.exe'
+    $signtool = Find-WdkTool 'signtool.exe'
+    if (-not $inf2cat -or -not $signtool) {
+      throw 'TestSign requires the Windows Driver Kit (Inf2Cat.exe and signtool.exe). Install the WDK first.'
+    }
+
+    $testSigning = (bcdedit /enum '{current}' 2>$null | Select-String -Pattern '^testsigning\s+Yes$')
+    if (-not $testSigning) {
+      Write-Warning 'Windows TESTSIGNING is not enabled. The development package may install but AudioDG/PNP will not load it after reboot.'
+      Write-Warning 'Enable TESTSIGNING only on a dedicated development machine; Secure Boot may need to be disabled.'
+    }
+
+    $certificate = New-SelfSignedCertificate `
+      -Type CodeSigningCert `
+      -Subject 'CN=Voxveil Development APO' `
+      -CertStoreLocation 'Cert:\LocalMachine\My' `
+      -KeyExportPolicy Exportable `
+      -HashAlgorithm SHA256 `
+      -NotAfter (Get-Date).AddYears(2)
+
+    $cerPath = Join-Path $work 'VoxveilDevelopment.cer'
+    Export-Certificate -Cert $certificate -FilePath $cerPath | Out-Null
+    certutil.exe -addstore -f Root $cerPath | Out-Host
+    if ($LASTEXITCODE -ne 0) { throw 'Failed to trust the Voxveil development certificate in LocalMachine\Root.' }
+    certutil.exe -addstore -f TrustedPublisher $cerPath | Out-Host
+    if ($LASTEXITCODE -ne 0) { throw 'Failed to trust the Voxveil development certificate in LocalMachine\TrustedPublisher.' }
+
+    & $signtool sign /fd SHA256 /sha1 $certificate.Thumbprint /s My /sm (Join-Path $work 'VoxveilApo.dll') | Out-Host
+    if ($LASTEXITCODE -ne 0) { throw 'Failed to test-sign VoxveilApo.dll.' }
+
+    & $inf2cat "/driver:$work" /os:10_X64 | Out-Host
+    if ($LASTEXITCODE -ne 0) { throw 'Inf2Cat rejected the Voxveil APO package.' }
+
+    Get-ChildItem $work -Filter '*.cat' -File | ForEach-Object {
+      & $signtool sign /fd SHA256 /sha1 $certificate.Thumbprint /s My /sm $_.FullName | Out-Host
+      if ($LASTEXITCODE -ne 0) { throw "Failed to sign catalog: $($_.Name)" }
+    }
+  } else {
+    $null = Assert-StagedProductionApo $root
+    $prebuiltExtension = Join-Path $root 'VoxveilApoExtension.inf'
+    $apoCat = Join-Path $root 'VoxveilApo.cat'
+    $extensionCat = Join-Path $root 'VoxveilApoExtension.cat'
+
+    $prebuiltText = Get-Content $prebuiltExtension -Raw
+    if (-not $prebuiltText.Contains($HardwareId)) {
+      throw 'The signed Voxveil Extension INF does not match the automatically resolved playback endpoint hardware ID.'
+    }
+    if ($prebuiltText -notmatch '(?im)^\s*ExtensionId\s*=\s*\{1D81E93D-AB81-473B-9E5E-94FAE8D2377F\}\s*$') {
+      throw 'The signed Voxveil Extension INF does not match the committed Voxveil extension servicing lineage.'
+    }
+    if ($prebuiltText -notmatch '(?i)VOXVEIL_APO_CONTEXT\s*=\s*"\{63E268CE-4CBC-48E0-BEB6-55103316F477\}"') {
+      throw 'The signed Voxveil Extension INF is not the expected CAPX production package: the fixed property-context identity is missing.'
+    }
+    if ($prebuiltText -notmatch '(?im)^\s*HKR\s*,\s*FX\\0\\%VOXVEIL_APO_CONTEXT%\s*,\s*%PKEY_FX_Association%') {
+      throw 'The signed Voxveil Extension INF is not CAPX production-bound to the Voxveil property context.'
+    }
+    if ($prebuiltText -match '(?im)^\s*HKR\s*,\s*FX\\0\s*,\s*%PKEY_FX_Association%') {
+      throw 'The signed Voxveil Extension INF contains the legacy root FX association; production CAPX packages must not mix legacy and context property stores.'
+    }
+    if ($prebuiltText -notmatch '(?im)^\s*AddInterface\s*=') {
+      throw 'The signed Voxveil Extension INF has no signed endpoint interface binding. Runtime registry attachment is not a CAPX production path.'
+    }
+    if ($ReferenceString -and -not $prebuiltText.Contains($ReferenceString)) {
+      throw 'The signed Voxveil Extension INF does not match the resolved playback endpoint topology reference.'
+    }
+
+    Copy-Item $prebuiltExtension $extensionInf
+    Copy-Item $apoCat, $extensionCat -Destination $work
+  }
+
+  Write-Host 'Staging/installing the Voxveil APO software-component package...'
+  pnputil.exe /add-driver (Join-Path $work 'VoxveilApo.inf') /install | Out-Host
+  $apoPnputilExitCode = $LASTEXITCODE
+  if ($apoPnputilExitCode -eq 3010) {
+    Write-InstallStateSnapshot -PendingReboot $true
+    Write-Warning 'PnPUtil staged the Voxveil APO package successfully, but Windows requires a restart before installation can continue.'
+    exit 3010
+  }
+  Write-InstallStateSnapshot
+  if ($apoPnputilExitCode -ne 0) { throw "PnPUtil failed to stage VoxveilApo.inf (exit $apoPnputilExitCode)." }
+
+  Write-Host 'Installing the endpoint-specific Voxveil Extension INF...'
+  pnputil.exe /add-driver $extensionInf /install | Out-Host
+  $extensionPnputilExitCode = $LASTEXITCODE
+  if ($extensionPnputilExitCode -eq 3010) {
+    Write-InstallStateSnapshot -PendingReboot $true
+    Write-Warning 'PnPUtil installed the Voxveil Extension package successfully, but Windows requires a restart before AudioDG readiness can be verified.'
+    exit 3010
+  }
+  Write-InstallStateSnapshot
+  if ($extensionPnputilExitCode -ne 0) { throw "PnPUtil failed to install VoxveilApoExtension.inf (exit $extensionPnputilExitCode)." }
+
+  if ($useLegacyRuntimeAttachment) {
+    if (-not (Test-Path $control -PathType Leaf)) {
+      throw 'Legacy development runtime interface binding requires voxveil-control.exe in the packaged system-audio directory.'
+    }
+    Write-Warning 'Applying legacy development FX\0 registry attachment. This is not the Windows 11 CAPX production path.'
+    & $control attach-effects $bindingPnpInstanceId $topologyInterfacePath $audioInterfacePath | Out-Host
+    if ($LASTEXITCODE -ne 0) {
+      throw "Legacy runtime interface FX attachment failed (exit $LASTEXITCODE)."
+    }
+  }
+
+  Write-Host 'Restarting Windows Audio so AudioDG rebuilds the endpoint graph...'
+  Restart-Service Audiosrv -Force
+  Start-Sleep -Seconds 2
+  Write-InstallStateSnapshot
+
+  if (Test-Path $control) {
+    $status = & $control status 2>&1
+    Write-Host "APO control status: $status"
+    if ($LASTEXITCODE -ne 0 -or $status -notmatch 'loaded=[1-9][0-9]*') {
+      throw 'installed-not-loaded: the package installed, but AudioDG did not load a real Voxveil processing instance on the selected playback endpoint.'
+    }
+    Write-InstallStateSnapshot -BindingReady $true
+  } elseif (-not $TestSign) {
+    throw 'installed-not-loaded: production CAPX installation requires voxveil-control.exe so AudioDG load verification cannot be skipped.'
+  } else {
+    Write-Warning 'voxveil-control.exe was not present, so AudioDG load verification was skipped for this development/test installation.'
+  }
+
+  if ($TestSign) {
+    Write-Host 'Voxveil development/test APO installed. This is not a production qualification result.'
+  } else {
+    Write-Host 'Voxveil production-signed CAPX APO package installed and bound to the selected render endpoint.'
+  }
+}
+finally {
+  Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
+}
+) {
+    throw 'install-state.json contains an invalid developmentCertificateThumbprint; state was kept for recovery.'
+  }
+  $developmentCertificateThumbprint = $previousDevelopmentCertificateThumbprint
   $previousEndpointId = [string](Get-OptionalProperty $previousState 'endpointId')
   if ($previousEndpointId -and $previousBindingMode -ne 'legacy-reference') {
     $previousManagedEndpointId = $previousEndpointId
