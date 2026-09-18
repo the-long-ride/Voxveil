@@ -426,3 +426,23 @@ test('legacy runtime uninstall skips detach when install never reached attachmen
   );
   assert.match(detachCondition, /legacyRuntimeAttached/i);
 });
+
+
+test('legacy APO repair refuses old state without recorded TestSign certificate ownership', () => {
+  const stateLoad = installer.indexOf('$previousState = Get-Content $statePath -Raw | ConvertFrom-Json');
+  const firstPnp = installer.indexOf("pnputil.exe /add-driver (Join-Path $work 'VoxveilApo.inf') /install");
+  const preflight = installer.slice(stateLoad, firstPnp);
+
+  assert.match(preflight, /previousBindingMode/i);
+  assert.match(preflight, /previousDevelopmentCertificateThumbprint/i);
+  assert.match(preflight, /previousInstalledInfNames\.Count\s*-gt\s*0/i);
+  assert.match(preflight, /legacy TestSign certificate ownership is unknown/i);
+});
+
+test('legacy APO uninstall never guesses an unrecorded development certificate', () => {
+  assert.match(uninstaller, /legacy TestSign certificate ownership is unknown/i);
+  assert.doesNotMatch(
+    uninstaller,
+    /Get-ChildItem\s+Cert:\\LocalMachine\\(?:My|Root|TrustedPublisher)[\s\S]*CN=Voxveil Development APO/i,
+  );
+});
