@@ -383,6 +383,19 @@ if ($PSCmdlet.ParameterSetName -eq 'Manual' -and -not $TestSign) {
   throw 'Manual HardwareId/ReferenceString mode is development-only and requires -TestSign.'
 }
 
+$trustedSystemDirectory = [Environment]::SystemDirectory
+if (-not $trustedSystemDirectory) {
+  throw 'Windows system directory could not be resolved for privileged system tools.'
+}
+$trustedSystemCommands = @('pnputil.exe', 'certutil.exe', 'bcdedit.exe')
+foreach ($commandName in $trustedSystemCommands) {
+  $commandPath = Join-Path $trustedSystemDirectory $commandName
+  if (-not (Test-Path $commandPath -PathType Leaf)) {
+    throw "Required Windows system executable was not found: $commandPath"
+  }
+  Set-Alias -Name $commandName -Value $commandPath -Scope Script -Option ReadOnly
+}
+
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $statePath = Join-Path $root 'install-state.json'
 $currentBootMarker = Get-WindowsBootMarker
