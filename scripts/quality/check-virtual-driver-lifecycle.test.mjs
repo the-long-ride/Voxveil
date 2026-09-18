@@ -255,9 +255,12 @@ test('virtual-driver staging and lifecycle hash-bind the packaged SetupAPI helpe
     ['uninstaller', uninstaller()],
   ]) {
     const helperExecution = text.search(/&\s*\$deviceHelper\s+(?:ensure|query|remove)/i);
-    const helperHashCheck = text.search(/Assert-StagedFileHash\s+\$deviceHelper\s+\$expectedDeviceHelperSha256\s+'voxveil-virtual-device\.exe'/i);
-    assert.ok(helperHashCheck >= 0, `${label} must hash-check the SetupAPI helper`);
-    assert.ok(helperExecution > helperHashCheck, `${label} must verify the helper before first execution`);
+    const helperLock = text.search(/\$deviceHelperLock\s*=\s*Open-TrustedVerifiedReadLock\s+\$deviceHelper\s+\$expectedDeviceHelperSha256\s+'voxveil-virtual-device\.exe'/i);
+    assert.ok(helperLock >= 0, `${label} must open a verified read lock on the SetupAPI helper`);
+    assert.ok(helperExecution > helperLock, `${label} must lock and verify the helper before first execution`);
+    assert.match(text, /\[IO\.File\]::Open\([\s\S]*?\[IO\.FileShare\]::Read/i);
+    assert.match(text, /ComputeHash\(\$stream\)/i);
+    assert.match(text, /finally\s*\{[\s\S]*?\$deviceHelperLock\.Dispose\(\)/i);
     assert.match(text, /deviceHelperSha256/i);
   }
 });

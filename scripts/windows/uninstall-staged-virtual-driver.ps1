@@ -163,6 +163,44 @@ function Write-JsonStateAtomically($State, [string]$Path) {
   }
 }
 
+function Open-TrustedVerifiedReadLock(
+  [Parameter(Mandatory = $true)][string]$Path,
+  [Parameter(Mandatory = $true)][string]$ExpectedSha256,
+  [Parameter(Mandatory = $true)][string]$Description
+) {
+  if (-not (Test-Path $Path -PathType Leaf)) {
+    throw "Verified virtual-driver artifact is missing: $Description ($Path)"
+  }
+  if ($ExpectedSha256 -notmatch '^[0-9A-Fa-f]{64}$') {
+    throw "verification.json contains an invalid SHA-256 value for $Description."
+  }
+
+  $stream = [IO.File]::Open(
+    $Path,
+    [IO.FileMode]::Open,
+    [IO.FileAccess]::Read,
+    [IO.FileShare]::Read
+  )
+  try {
+    $sha256 = [Security.Cryptography.SHA256]::Create()
+    try {
+      $actual = ([BitConverter]::ToString($sha256.ComputeHash($stream))).Replace('-', '').ToLowerInvariant()
+    }
+    finally {
+      $sha256.Dispose()
+    }
+    if ($actual -ne $ExpectedSha256.ToLowerInvariant()) {
+      throw "Verified virtual-driver artifact changed after staging: $Description."
+    }
+    $stream.Position = 0
+    return $stream
+  }
+  catch {
+    $stream.Dispose()
+    throw
+  }
+}
+
 function Get-HelperValue([string[]]$Output, [string]$Name) {
   $prefix = "$Name="
   $line = $Output | Where-Object { $_.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1
@@ -202,7 +240,8 @@ if ($expectedDeviceHelperSha256 -notmatch '^[0-9A-Fa-f]{64}$') {
   throw 'verification.json does not contain a valid deviceHelperSha256.'
 }
 $deviceHelper = Join-Path $PSScriptRoot 'voxveil-virtual-device.exe'
-Assert-StagedFileHash $deviceHelper $expectedDeviceHelperSha256 'voxveil-virtual-device.exe'
+$deviceHelperLock = Open-TrustedVerifiedReadLock $deviceHelper $expectedDeviceHelperSha256 'voxveil-virtual-device.exe'
+try {
 
 $state = Get-Content $statePath -Raw | ConvertFrom-Json
 $currentBootMarker = Get-WindowsBootMarker
@@ -391,3 +430,9 @@ if ($lifecycleRebootRequired) {
 
 Remove-Item $statePath -Force
 Write-Host 'Recorded Voxveil Virtual Audio devnode and driver package removed.'
+}
+finally {
+  if ($deviceHelperLock) {
+    $deviceHelperLock.Dispose()
+  }
+}
