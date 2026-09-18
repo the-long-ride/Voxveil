@@ -55,12 +55,12 @@ function Test-DirectoryOverlap([string]$Left, [string]$Right) {
 $package = Get-NormalizedDirectoryPath $PackageDir
 $destination = Get-NormalizedDirectoryPath $Destination
 $repoRoot = Get-NormalizedDirectoryPath ((Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path)
-$distRoot = Get-NormalizedDirectoryPath (Join-Path $repoRoot 'dist')
+$distRoot = Get-NormalizedDirectoryPath (Join-Path $repoRoot 'dist\windows-x64')
 if (-not (Test-Path $package -PathType Container)) {
   throw "Signed APO package directory not found: $package"
 }
-if (-not (Test-DirectoryContains $distRoot $destination)) {
-  throw 'Signed APO staging destination must be under the repository dist tree.'
+if ($destination -ieq $distRoot -or -not (Test-DirectoryContains $distRoot $destination)) {
+  throw 'Signed APO staging destination must be below the repository dist\windows-x64 tree.'
 }
 if (Test-DirectoryOverlap $destination $package) {
   throw 'Signed APO staging destination must not overlap the source package directory.'
