@@ -197,6 +197,50 @@ if (-not (Test-Path $deviceHelper -PathType Leaf)) {
   throw "Voxveil root-device helper is missing: $deviceHelper"
 }
 
+$packagePresentBeforeDelete = Test-RecordedVirtualDriverPackagePresent $publishedInf
+if (-not $packagePresentBeforeDelete) {
+  $queryOutput = @(& $deviceHelper query $deviceInstanceId)
+  $queryExitCode = $LASTEXITCODE
+  if ($queryExitCode -ne 0) {
+    throw "Recorded package $publishedInf is already absent, but the Voxveil devnode could not be queried safely; install state was kept for recovery."
+  }
+  $queryExists = Get-HelperValue $queryOutput 'exists'
+  if ($queryExists -notin @('0', '1')) {
+    throw 'Voxveil root-device helper returned invalid query metadata while recovering an interrupted uninstall.'
+  }
+  if ($queryExists -eq '1') {
+    $recoveryRemoveOutput = @(& $deviceHelper remove $deviceInstanceId)
+    $recoveryRemoveExitCode = $LASTEXITCODE
+    $recoveryRemoveOutput | Out-Host
+    if ($recoveryRemoveExitCode -ne 0) {
+      throw "Recorded package $publishedInf is already absent, but removing the exact Voxveil devnode failed (exit $recoveryRemoveExitCode); install state was kept for recovery."
+    }
+    $recoveryRebootValue = Get-HelperValue $recoveryRemoveOutput 'rebootRequired'
+    if ($recoveryRebootValue -notin @('0', '1')) {
+      throw 'Voxveil root-device helper returned invalid reboot metadata while recovering an interrupted uninstall.'
+    }
+  }
+
+  if ($state.PSObject.Properties['pendingReboot']) {
+    $state.pendingReboot = $true
+  } else {
+    $state | Add-Member -NotePropertyName pendingReboot -NotePropertyValue $true
+  }
+  if ($state.PSObject.Properties['pendingRebootBootMarker']) {
+    $state.pendingRebootBootMarker = $currentBootMarker
+  } else {
+    $state | Add-Member -NotePropertyName pendingRebootBootMarker -NotePropertyValue $currentBootMarker
+  }
+  if ($state.PSObject.Properties['uninstallComplete']) {
+    $state.uninstallComplete = $true
+  } else {
+    $state | Add-Member -NotePropertyName uninstallComplete -NotePropertyValue $true
+  }
+  Write-JsonStateAtomically -State $state -Path $statePath
+  Write-Warning "Recorded Voxveil package $publishedInf is already absent. Treating this as an interrupted prior deletion and requiring a restart before lifecycle state is cleared."
+  exit 3010
+}
+
 Assert-PublishedInfIdentity $publishedInf $deviceInstanceId
 
 Write-Host "Removing recorded Voxveil Virtual Audio devnode $deviceInstanceId ..."
