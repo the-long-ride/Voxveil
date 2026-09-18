@@ -640,6 +640,10 @@ try {
   Write-InstallStateSnapshot
 
   if (Test-Path $control) {
+    if (-not $TestSign) {
+      Assert-TrustedPackagedFile $control $ControlHelperSha256 'voxveil-control.exe'
+      Assert-TrustedPackagedFile $controlDll $ControlDllSha256 'VoxveilControl.dll'
+    }
     $status = & $control status 2>&1
     Write-Host "APO control status: $status"
     if ($LASTEXITCODE -ne 0 -or $status -notmatch 'loaded=[1-9][0-9]*') {
