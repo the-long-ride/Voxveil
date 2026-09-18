@@ -150,6 +150,21 @@ On representative Windows hardware, record:
 
 Measure both profiles with the same fixture and routing path. Profile switching should not restart the stream. Repeat at both 44.1 kHz and 48 kHz when the target endpoint exposes both shared formats.
 
+
+Run the local machine-evidence collector from an elevated PowerShell while Voxveil is processing the representative route:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/evaluation/collect-windows-runtime-evidence.ps1 `
+  -SampleRate 44100 `
+  -Profile music-preservation `
+  -Vocal 0 `
+  -SourceEndpoint '<source endpoint>' `
+  -PhysicalOutput '<physical output>' `
+  -CpuSampleSeconds 10
+```
+
+The collector writes only under the ignored `.local-evaluation/classic-dsp/measurements/` workspace. It records Windows build/architecture, CPU model and logical-core count, Secure Boot query state, the current BCD `testsigning` value when present, route/profile metadata, and an optional normalized process-CPU sample. It intentionally leaves dropout count and end-to-end latency as `null` with `status: "pending"`; those require an actual observed run and an explicit latency measurement method. Run it separately for each required sample-rate/profile route.
+
 ## Result template
 
 | Fixture | Tier | Rate | Profile | Vocal | Vocal reduction | Center-instrument damage | Artifacts | Stereo change | CPU | E2E latency | Decision/notes |

@@ -26,6 +26,15 @@ The first-party Tier 2 driver INF follows the pinned SysVAD applicability bounda
 - TESTSIGNING state: ___________________________________
 - Validation date/operator: ____________________________
 
+
+For a machine-readable local snapshot of the non-secret validation identity, run the same ignored-workspace collector before installation:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/evaluation/collect-windows-runtime-evidence.ps1
+```
+
+Use its Windows build/architecture, Secure Boot, and TESTSIGNING fields as supporting evidence, then complete the signed-package and Device Manager checks below manually. The collector deliberately does not record machine serial numbers, user names, or a pass/fail release decision.
+
 ## Pre-install checks
 
 Run from an elevated PowerShell:
