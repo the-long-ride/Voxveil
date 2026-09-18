@@ -183,14 +183,16 @@ Write-Host 'Building VoxveilVirtualAudioDevice.vcxproj ...'
 if ($LASTEXITCODE -ne 0) { throw "VoxveilVirtualAudioDevice.vcxproj failed with exit code $LASTEXITCODE" }
 
 $nativeBin = Join-Path $native 'bin\x64\Release'
+$trustedInstallerScript = Join-Path $repo 'scripts\windows\install-system-audio-component.ps1'
 $trustedDiscoveryHelper = Join-Path $repo 'scripts\windows\discover-system-audio-endpoints.ps1'
 $trustedControlHelper = Join-Path $nativeBin 'voxveil-control.exe'
 $trustedControlDll = Join-Path $nativeBin 'VoxveilControl.dll'
-foreach ($trustedHelper in @($trustedDiscoveryHelper, $trustedControlHelper, $trustedControlDll)) {
+foreach ($trustedHelper in @($trustedInstallerScript, $trustedDiscoveryHelper, $trustedControlHelper, $trustedControlDll)) {
   if (-not (Test-Path $trustedHelper -PathType Leaf)) {
     throw "Trusted privileged helper was not produced: $trustedHelper"
   }
 }
+$trustedInstallerSha256 = Get-Sha256Hex $trustedInstallerScript
 $env:VOXVEIL_DISCOVERY_SHA256 = Get-Sha256Hex $trustedDiscoveryHelper
 $env:VOXVEIL_CONTROL_SHA256 = Get-Sha256Hex $trustedControlHelper
 $env:VOXVEIL_CONTROL_DLL_SHA256 = Get-Sha256Hex $trustedControlDll
@@ -277,6 +279,31 @@ if ($signedDriverDir) {
     -Destination $driverStage `
     -ReleaseChannel $releaseChannel
   if ($LASTEXITCODE -ne 0) { throw 'Signed virtual driver staging failed.' }
+}
+
+$trustedPackageFiles = @(
+  @{
+    Path = Join-Path $systemAudio 'install-system-audio-component.ps1'
+    Expected = $trustedInstallerSha256
+  },
+  @{
+    Path = Join-Path $systemAudio 'discover-system-audio-endpoints.ps1'
+    Expected = $env:VOXVEIL_DISCOVERY_SHA256
+  },
+  @{
+    Path = Join-Path $systemAudio 'voxveil-control.exe'
+    Expected = $env:VOXVEIL_CONTROL_SHA256
+  },
+  @{
+    Path = Join-Path $systemAudio 'VoxveilControl.dll'
+    Expected = $env:VOXVEIL_CONTROL_DLL_SHA256
+  }
+)
+foreach ($trustedPackageFile in $trustedPackageFiles) {
+  $actual = Get-Sha256Hex $trustedPackageFile.Path
+  if ($actual -ne $trustedPackageFile.Expected) {
+    throw "Packaged privileged helper changed after Tauri trust anchors were compiled: $($trustedPackageFile.Path)"
+  }
 }
 
 @'
