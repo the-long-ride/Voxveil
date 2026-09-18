@@ -14,6 +14,7 @@ if (-not (Test-Path $trustedModulePath -PathType Container)) {
   throw "Trusted Windows PowerShell module directory was not found: $trustedModulePath"
 }
 $env:PSModulePath = $trustedModulePath
+$trustedWindowsDirectory = Split-Path -Parent $trustedSystemDirectoryForModules
 Set-StrictMode -Version Latest
 
 function Assert-Administrator {
@@ -44,7 +45,7 @@ function Assert-PublishedInfIdentity([string]$PublishedInf, [string]$DeviceInsta
   # The devnode may already have been removed by a previous interrupted uninstall.
   # In that recovery case, verify the current published INF file itself before
   # deleting an unbound driver-store package. This also rejects oemN.inf reuse.
-  $publishedInfPath = Join-Path $env:windir "INF\$PublishedInf"
+  $publishedInfPath = Join-Path $trustedWindowsDirectory "INF\$PublishedInf"
   if (-not (Test-Path $publishedInfPath -PathType Leaf)) {
     throw "Recorded package $PublishedInf is neither bound nor present under Windows\INF. The install-state file was kept for recovery."
   }
