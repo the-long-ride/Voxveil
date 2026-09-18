@@ -516,3 +516,17 @@ test('endpoint descriptor temp file is created exclusively instead of overwritin
   assert.match(systemAudioBackend, /write_all\(json\)/i);
   assert.doesNotMatch(systemAudioBackend, /std::fs::write\(&descriptor_path/i);
 });
+
+test('UAC launcher anchors privileged installer script to bytes embedded in the executable', () => {
+  assert.match(systemAudioLauncher, /include_bytes!\([^)]*install-system-audio-component\.ps1/i);
+  assert.match(systemAudioLauncher, /Sha256::digest/i);
+  assert.match(systemAudioLauncher, /std::fs::read\(script\)/i);
+  assert.match(systemAudioLauncher, /installer failed integrity verification/i);
+  assert.match(systemAudioLauncher, /Get-FileHash[\s\S]{0,120}\$script[\s\S]{0,80}SHA256/i);
+  assert.match(systemAudioLauncher, /integrity check failed/i);
+  assert.match(systemAudioLauncher, /EncodedCommand/i);
+  assert.doesNotMatch(
+    systemAudioLauncher,
+    /Start-Process[\s\S]{0,500}'-File',\$scriptArg/i,
+  );
+});
