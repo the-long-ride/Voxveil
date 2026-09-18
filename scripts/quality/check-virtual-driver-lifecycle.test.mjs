@@ -220,6 +220,6 @@ test('retail virtual-driver install revalidates retained qualification evidence'
   assert.match(text, /signingPath/i);
   assert.match(text, /whcp-hlk/i);
   assert.match(text, /microsoft-approved-retail/i);
-  assert.match(text, /Get-FileHash\s+\$releaseEvidencePath\s+-Algorithm\s+SHA256/i);
+  assert.match(text, /Assert-StagedFileHash\s+\$releaseEvidencePath\s+\$expectedEvidenceSha256\s+'release-evidence\.json'/i);
   assert.match(text, /Retail release evidence changed after staging/i);
 });
