@@ -49,9 +49,11 @@ test('signed virtual-driver restaging refuses unexpected destination entries bef
 });
 
 
-test('signed virtual-driver staging is confined below repository dist/windows-x64 before destination cleanup', () => {
+test('signed virtual-driver staging uses an architecture-scoped dist root before destination cleanup', () => {
   assert.match(stager, /\$distRoot/i);
-  assert.match(stager, /destination must be below the repository dist\\windows-x64 tree/i);
+  assert.match(stager, /windows-arm64/i);
+  assert.match(stager, /windows-x64/i);
+  assert.match(stager, /destination must be below the architecture-specific repository dist tree/i);
 
   const safety = stager.indexOf('destination must be under the repository dist tree');
   const destinationCreate = stager.indexOf('New-Item -ItemType Directory -Force -Path $destination');
