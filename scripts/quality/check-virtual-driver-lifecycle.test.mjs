@@ -211,3 +211,15 @@ test('virtual-driver lifecycle state checkpoints use same-directory atomic repla
     assert.doesNotMatch(text, /ConvertTo-Json\s+-Depth\s+3\s*\|\s*Set-Content\s+\$statePath/i);
   }
 });
+
+
+test('retail virtual-driver install revalidates retained qualification evidence', () => {
+  const text = installer();
+  assert.match(text, /releaseEvidenceSha256/i);
+  assert.match(text, /release-evidence\.json/i);
+  assert.match(text, /signingPath/i);
+  assert.match(text, /whcp-hlk/i);
+  assert.match(text, /microsoft-approved-retail/i);
+  assert.match(text, /Get-FileHash\s+\$releaseEvidencePath\s+-Algorithm\s+SHA256/i);
+  assert.match(text, /Retail release evidence changed after staging/i);
+});
