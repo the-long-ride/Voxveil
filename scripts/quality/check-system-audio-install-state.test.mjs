@@ -707,3 +707,16 @@ test('elevated endpoint discovery executes from the same exclusively locked byte
   assert.doesNotMatch(resolver, /-File\s+\$helper/i);
   assert.doesNotMatch(resolver, /\$request\s*\|\s*&\s*\$powershell/i);
 });
+
+
+test('privileged APO scripts pin PowerShell module discovery to the OS module directory', () => {
+  for (const [label, text] of [
+    ['installer', installer],
+    ['uninstaller', uninstaller],
+    ['discovery', discoveryHelper],
+  ]) {
+    assert.match(text, /\[Environment\]::SystemDirectory/i, `${label} must resolve the OS system directory`);
+    assert.match(text, /WindowsPowerShell\\v1\.0\\Modules/i);
+    assert.match(text, /\$env:PSModulePath\s*=\s*\$trustedModulePath/i);
+  }
+});
