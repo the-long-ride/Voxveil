@@ -27,13 +27,17 @@ The first-party Tier 2 driver INF follows the pinned SysVAD applicability bounda
 - Validation date/operator: ____________________________
 
 
-For a machine-readable local snapshot of the non-secret validation identity, run the same ignored-workspace collector before installation:
+For a machine-readable local snapshot that binds the exact Voxveil checkout, returned Microsoft-signed package, release channel, and release-machine state, run:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/evaluation/collect-windows-runtime-evidence.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/evaluation/collect-windows-driver-validation-evidence.ps1 `
+  -PackageDir <returned-package> `
+  -Architecture x64 `
+  -ReleaseChannel Pilot `
+  -VoxveilCommit <40-hex-exact-commit>
 ```
 
-Use its Windows build/architecture, Secure Boot, and TESTSIGNING fields as supporting evidence, then complete the signed-package and Device Manager checks below manually. The collector deliberately does not record machine serial numbers, user names, or a pass/fail release decision.
+Use `-ReleaseChannel Retail` for a retail-qualified package. The collector fails closed unless the current checkout matches the supplied commit, signed-package verification succeeds, Windows is build 22621+, package/native architecture match, Secure Boot is enabled, and TESTSIGNING is off. Retail runs also revalidate `release-evidence.json` and its package hashes/signing path. Evidence stays under ignored `.local-evaluation/windows-driver/measurements/` and deliberately records no serial number, user/account identity, certificate private key, or Partner Center credential. Lifecycle observations remain `pending` until the real install/uninstall/reboot/repair/replacement matrix is executed.
 
 ## Pre-install checks
 

@@ -153,6 +153,8 @@ For uninstall, the script first removes the recorded devnode and reads the Setup
 
 If SetupAPI reports restart-required devnode removal but PnPUtil then hard-fails package deletion while the package still exists, the script preserves package ownership with `uninstallComplete=false`, records the reboot marker, and requires Windows to restart before cleanup is retried. If a recorded package is already absent on entry, or a hard non-3010 delete result is followed by proof that the package is already absent, cleanup is treated as an interrupted/ambiguous prior deletion: the exact devnode is queried/removed if necessary, a completed-uninstall reboot tombstone is written, and one restart plus post-reboot absence proof is required before state is discarded. Lifecycle JSON checkpoints are written through a same-directory atomic replace so a torn state write cannot replace the last complete ownership record. Do not manually broaden cleanup to other `Voxveil` provider packages; retain the exact state/identity rules in the lifecycle scripts.
 
+Before starting the release-blocking real-machine checklist, capture the exact returned-package and machine pre-install identity with `scripts/evaluation/collect-windows-driver-validation-evidence.ps1`. This produces ignored local evidence tied to the exact Voxveil checkout and fails closed on Windows build, architecture, Secure Boot, TESTSIGNING, Microsoft signature, and retail release-evidence requirements. It does not replace the lifecycle or HLK/WHCP checks below.
+
 ## Release-blocking validation checklist
 
 - [ ] The exact source revision and Voxveil commit are recorded.
