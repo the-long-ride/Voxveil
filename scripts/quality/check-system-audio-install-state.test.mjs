@@ -307,3 +307,36 @@ test('APO lifecycle state preflight is singular and uninstaller has no trailing 
     /Write-Host 'Recorded Voxveil componentized APO packages removed\.'$/,
   );
 });
+
+
+test('TestSign APO certificate ownership is persisted, reused, and removed only after final package cleanup', () => {
+  assert.match(installer, /developmentCertificateThumbprint/i);
+  assert.match(installer, /previousDevelopmentCertificateThumbprint/i);
+  assert.match(installer, /Cert:\\LocalMachine\\My\\\$previousDevelopmentCertificateThumbprint/i);
+  assert.match(installer, /New-SelfSignedCertificate/i);
+  assert.match(installer, /developmentCertificateThumbprint\s*=\s*\$developmentCertificateThumbprint/i);
+
+  const finalPackageDelete = uninstaller.lastIndexOf('pnputil.exe /delete-driver $inf /uninstall /force');
+  const certificateCleanup = uninstaller.lastIndexOf('Remove-RecordedDevelopmentCertificate $developmentCertificateThumbprint');
+  const stateRemoval = uninstaller.lastIndexOf('Remove-Item $statePath -Force');
+  assert.match(uninstaller, /function\s+Remove-RecordedDevelopmentCertificate/i);
+  assert.match(uninstaller, /Cert:\\LocalMachine\\My/i);
+  assert.match(uninstaller, /Cert:\\LocalMachine\\Root/i);
+  assert.match(uninstaller, /Cert:\\LocalMachine\\TrustedPublisher/i);
+  assert.ok(certificateCleanup > finalPackageDelete, 'development trust must remain until recorded APO packages are removed');
+  assert.ok(stateRemoval > certificateCleanup, 'certificate cleanup failure must preserve install-state ownership for retry');
+});
+
+test('APO lifecycle validates recorded development certificate thumbprint before mutation', () => {
+  const installStateLoad = installer.indexOf('$previousState = Get-Content $statePath -Raw | ConvertFrom-Json');
+  const installPnp = installer.indexOf("pnputil.exe /add-driver (Join-Path $work 'VoxveilApo.inf') /install");
+  const installPreflight = installer.slice(installStateLoad, installPnp);
+  assert.match(installPreflight, /previousDevelopmentCertificateThumbprint/i);
+  assert.match(installPreflight, /\^\[0-9A-Fa-f\]\{40\}\$/i);
+
+  const uninstallStateLoad = uninstaller.indexOf('$state = Get-Content $statePath -Raw | ConvertFrom-Json');
+  const uninstallPnp = uninstaller.indexOf('pnputil.exe /delete-driver $inf /uninstall /force');
+  const uninstallPreflight = uninstaller.slice(uninstallStateLoad, uninstallPnp);
+  assert.match(uninstallPreflight, /developmentCertificateThumbprint/i);
+  assert.match(uninstallPreflight, /\^\[0-9A-Fa-f\]\{40\}\$/i);
+});
