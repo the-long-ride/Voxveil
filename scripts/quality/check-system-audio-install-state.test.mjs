@@ -720,3 +720,10 @@ test('privileged APO scripts pin PowerShell module discovery to the OS module di
     assert.match(text, /\$env:PSModulePath\s*=\s*\$trustedModulePath/i);
   }
 });
+
+
+test('endpoint discovery derives the Windows INF directory from the OS system directory', () => {
+  assert.match(discoveryHelper, /\$trustedWindowsDirectory\s*=\s*Split-Path\s+-Parent\s+\$trustedSystemDirectoryForModules/i);
+  assert.match(discoveryHelper, /Join-Path\s+\$trustedWindowsDirectory\s+\('INF\\'/i);
+  assert.doesNotMatch(discoveryHelper, /\$env:(?:windir|SystemRoot)/i);
+});
