@@ -55,7 +55,7 @@ test('signed virtual-driver staging uses an architecture-scoped dist root before
   assert.match(stager, /windows-x64/i);
   assert.match(stager, /destination must be below the architecture-specific repository dist tree/i);
 
-  const safety = stager.indexOf('destination must be under the repository dist tree');
+  const safety = stager.indexOf('destination must be below the architecture-specific repository dist tree');
   const destinationCreate = stager.indexOf('New-Item -ItemType Directory -Force -Path $destination');
   const cleanup = stager.indexOf('Get-ChildItem $destination -Force', destinationCreate);
   assert.ok(safety >= 0 && destinationCreate > safety && cleanup > safety, 'dist boundary must be checked before destination mutation');
@@ -65,7 +65,7 @@ test('signed virtual-driver staging uses an architecture-scoped dist root before
 test('signed virtual-driver staging rejects junction or symlink destination ancestors before cleanup', () => {
   assert.match(stager, /function\s+Assert-NoReparsePointInPath/i);
   assert.match(stager, /FileAttributes\]::ReparsePoint/i);
-  const check = stager.indexOf('Assert-NoReparsePointInPath');
+  const check = stager.indexOf('Assert-NoReparsePointInPath -Path $destination -Boundary $repoRoot');
   const mutation = stager.indexOf('New-Item -ItemType Directory -Force -Path $destination');
   assert.ok(check >= 0 && mutation > check, 'reparse-point preflight must precede staging mutation');
 });
