@@ -102,6 +102,8 @@ The APO/Extension installer may coexist with the first-party `VoxveilVirtualAudi
 - `legacy-runtime-interface` uninstall first calls `detach-effects` against the exact stored topology/audio interface paths.
 - The uninstaller deletes only the recorded APO/Extension INF names. If no trustworthy names are recorded, it removes no provider-wide driver packages and requires explicit/manual cleanup instead of guessing.
 - Installing or uninstalling the APO must not remove the independent Tier 2 virtual driver or `Voxveil Input` endpoint.
+- Development/TestSign installs persist the exact generated certificate thumbprint in `install-state.json`; repair/reboot retries reuse that certificate, and scoped uninstall removes it from `LocalMachine\\My`, `Root`, and `TrustedPublisher` only after owned APO packages are gone.
+- Final APO cleanup persists `audioServiceRestartRequired=true` before attempting the last `AudioSrv` restart. If that restart fails, rerunning uninstall must retry the service restart before certificate/state removal; a new install must fail closed until that cleanup completes.
 
 PnPUtil exit code `3010` is successful completion requiring a Windows restart, not a hard package failure. The lifecycle remains fail-closed across that boundary:
 
