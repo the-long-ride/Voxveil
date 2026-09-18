@@ -212,6 +212,12 @@ if (Test-Path $statePath -PathType Leaf) {
   }
 }
 $beforeInstalledInfNames = @(Get-VoxveilPublishedInfNames)
+$unexpectedInstalledInfNames = @(
+  $beforeInstalledInfNames | Where-Object { $previousInstalledInfNames -inotcontains $_ }
+)
+if ($unexpectedInstalledInfNames.Count -gt 0) {
+  throw "Driver Store contains untracked Voxveil APO/Extension package(s): $($unexpectedInstalledInfNames -join ', '). Remove them explicitly before installation so package ownership remains scoped."
+}
 
 $selectedEndpointId = $null
 $bindingPnpInstanceId = $null
