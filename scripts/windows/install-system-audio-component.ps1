@@ -4,6 +4,10 @@ param(
   [ValidateNotNullOrEmpty()]
   [string]$EndpointDescriptor,
 
+  [Parameter(ParameterSetName = 'Descriptor', Mandatory = $true)]
+  [ValidatePattern('^[0-9A-Fa-f]{64}$')]
+  [string]$EndpointDescriptorSha256,
+
   [Parameter(ParameterSetName = 'Manual', Mandatory = $true)]
   [ValidateNotNullOrEmpty()]
   [string]$HardwareId,
@@ -202,11 +206,29 @@ function Assert-StagedProductionApo([string]$Root) {
   return $verification
 }
 
-function Resolve-EndpointDescriptor([string]$DescriptorPath, [string]$Root) {
+function Resolve-EndpointDescriptor(
+  [string]$DescriptorPath,
+  [string]$ExpectedSha256,
+  [string]$Root
+) {
   if (-not (Test-Path $DescriptorPath -PathType Leaf)) {
     throw "device-changed: endpoint descriptor no longer exists: $DescriptorPath"
   }
-  $descriptor = Get-Content $DescriptorPath -Raw | ConvertFrom-Json
+
+  $descriptorBytes = [IO.File]::ReadAllBytes($DescriptorPath)
+  $sha256 = [Security.Cryptography.SHA256]::Create()
+  try {
+    $actualSha256 = ([BitConverter]::ToString($sha256.ComputeHash($descriptorBytes))).Replace('-', '').ToLowerInvariant()
+  }
+  finally {
+    $sha256.Dispose()
+  }
+  if ($actualSha256 -ine $ExpectedSha256) {
+    throw 'device-changed: endpoint descriptor integrity check failed.'
+  }
+
+  $descriptorJson = [Text.Encoding]::UTF8.GetString($descriptorBytes)
+  $descriptor = ConvertFrom-Json -InputObject $descriptorJson
   foreach ($name in @('endpointId', 'bindingPnpInstanceId', 'pnpInstanceId', 'hardwareId', 'driverInf')) {
     if (-not $descriptor.$name) { throw "device-changed: endpoint descriptor is missing $name" }
   }
@@ -364,7 +386,7 @@ $topologyInterfacePath = $null
 $audioInterfacePath = $null
 $runtimeBound = $false
 if ($PSCmdlet.ParameterSetName -eq 'Descriptor') {
-  $binding = Resolve-EndpointDescriptor $EndpointDescriptor $root
+  $binding = Resolve-EndpointDescriptor $EndpointDescriptor $EndpointDescriptorSha256 $root
   $selectedEndpointId = $binding.EndpointId
   if ($previousManagedEndpointId -and $selectedEndpointId -ine $previousManagedEndpointId) {
     throw "Uninstall the currently managed Voxveil APO endpoint '$previousManagedEndpointId' before installing a different playback endpoint '$selectedEndpointId'. Endpoint ownership/readiness is tracked for one managed APO endpoint at a time."
