@@ -213,6 +213,15 @@ if (Test-Path $statePath -PathType Leaf) {
   $previousPendingReboot = $pendingProperty -and [bool]$pendingProperty.Value
   $previousBootMarker = if ($bootMarkerProperty) { [string]$bootMarkerProperty.Value } else { '' }
   $previousUninstallComplete = $uninstallCompleteProperty -and [bool]$uninstallCompleteProperty.Value
+  if ($previousPendingReboot -and -not $previousBootMarker) {
+    if ($previousState.PSObject.Properties['pendingRebootBootMarker']) {
+      $previousState.pendingRebootBootMarker = $currentBootMarker
+    } else {
+      $previousState | Add-Member -NotePropertyName pendingRebootBootMarker -NotePropertyValue $currentBootMarker
+    }
+    $previousState | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
+    throw 'Restart Windows before continuing the Voxveil virtual-driver installation.'
+  }
   if ($previousPendingReboot -and $previousBootMarker -and $previousBootMarker -eq $currentBootMarker) {
     throw 'Restart Windows before continuing the Voxveil virtual-driver installation.'
   }
