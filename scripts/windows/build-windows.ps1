@@ -92,6 +92,27 @@ function Test-DirectoryOverlap([string]$Left, [string]$Right) {
   (Test-DirectoryContains $Left $Right) -or (Test-DirectoryContains $Right $Left)
 }
 
+function Assert-NoReparsePointInPath([string]$Path, [string]$Boundary) {
+  $current = [IO.Path]::GetFullPath($Path)
+  $boundaryFull = [IO.Path]::GetFullPath($Boundary)
+  while ($true) {
+    if (Test-Path -LiteralPath $current) {
+      $item = Get-Item -LiteralPath $current -Force
+      if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "Refusing to mutate a staging/output path that traverses a junction or symbolic link: $current"
+      }
+    }
+    if ($current -ieq $boundaryFull) {
+      break
+    }
+    $parent = Split-Path -Parent $current
+    if (-not $parent -or $parent -ieq $current) {
+      throw 'Could not prove the staging/output path remains beneath the repository boundary.'
+    }
+    $current = $parent
+  }
+}
+
 function Assert-SafeOutputDirectory(
   [string]$Output,
   [string]$RepoPath,
@@ -194,6 +215,7 @@ Assert-SafeOutputDirectory `
   -RepoPath $repoPath `
   -DistRoot $distRoot `
   -SignedInputDirectories @($signedApoDir, $signedDriverDir)
+Assert-NoReparsePointInPath -Path $output -Boundary $repoPath
 
 $systemAudio = Join-Path $output 'system-audio'
 Remove-Item $output -Recurse -Force -ErrorAction SilentlyContinue
