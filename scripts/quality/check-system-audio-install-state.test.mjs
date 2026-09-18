@@ -556,8 +556,8 @@ test('production UAC path binds discovery and control helpers to build-time SHA-
 
 
 test('production elevation resolves Windows PowerShell from the OS system directory', () => {
-  assert.match(systemAudioLauncher, /GetSystemDirectoryW/i);
-  assert.match(systemAudioLauncher, /windows_sys::Win32::System::SystemInformation/i);
+  assert.match(systemAudioLauncher, /voxveil_windows_audio::windows_system_directory\(\)/i);
+  assert.doesNotMatch(systemAudioLauncher, /\bunsafe\b/i);
   assert.match(systemAudioLauncher, /WindowsPowerShell[\\/]v1\.0[\\/]powershell\.exe/i);
   assert.doesNotMatch(systemAudioLauncher, /SystemRoot/i);
   assert.doesNotMatch(systemAudioLauncher, /Command::new\("powershell\.exe"\)/i);
