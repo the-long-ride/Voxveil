@@ -46,7 +46,8 @@ test('APO uninstall blocks same-boot continuation after reboot-required deletion
   const tail = text.slice(deleteDriver);
   const markPending = tail.search(/\$state\.pendingReboot\s*=\s*\$true/i);
   const markBoot = tail.search(/\$state\.pendingRebootBootMarker\s*=\s*\$currentBootMarker/i);
-  const stateWrite = tail.search(/Set-Content\s+\$statePath\s+-Encoding\s+utf8/i);
+  const stateWriteRelative = tail.slice(markBoot).search(/Set-Content\s+\$statePath\s+-Encoding\s+utf8/i);
+  const stateWrite = stateWriteRelative >= 0 ? markBoot + stateWriteRelative : -1;
   const rebootExit = tail.search(/exit\s+3010/i);
   assert.ok(markPending >= 0, '3010 cleanup state must remain pending reboot');
   assert.ok(markBoot > markPending, '3010 cleanup state must record the current boot marker');
