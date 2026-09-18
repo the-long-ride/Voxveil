@@ -265,6 +265,7 @@ if (Test-Path $statePath -PathType Leaf) {
 
   if ($previousUninstallComplete) {
     Assert-CompletedUninstallAbsent $previousState
+    Remove-Item $statePath -Force
   } else {
     $publishedInfProperty = $previousState.PSObject.Properties['publishedInf']
     if (-not $publishedInfProperty -or [string]$publishedInfProperty.Value -notmatch '^oem\d+[.]inf\z') {
