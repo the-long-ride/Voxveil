@@ -600,15 +600,22 @@ test('production APO install verifies build-time hashes on the retained read loc
   assert.match(installer, /\$productionPackageLocks/i);
   assert.match(installer, /Open-TrustedVerifiedReadLock\s+\$control\s+\$ControlHelperSha256/i);
   assert.match(installer, /Open-TrustedVerifiedReadLock\s+\$controlDll\s+\$ControlDllSha256/i);
-  for (const expected of [
-    'ExpectedApoInfSha256',
-    'ExpectedApoDllSha256',
-    'ExpectedApoCatalogSha256',
-    'ExpectedExtensionInfSha256',
-    'ExpectedExtensionCatalogSha256',
+  for (const [pathName, expected] of [
+    ['apoInf', 'ExpectedApoInfSha256'],
+    ['apoDll', 'ExpectedApoDllSha256'],
+    ['apoCat', 'ExpectedApoCatalogSha256'],
+    ['prebuiltExtension', 'ExpectedExtensionInfSha256'],
+    ['extensionCat', 'ExpectedExtensionCatalogSha256'],
   ]) {
-    assert.match(installer, new RegExp(`Open-TrustedVerifiedReadLock[\\s\\S]{0,180}\\$${expected}`, 'i'));
+    assert.match(
+      installer,
+      new RegExp('Path\\s*=\\s*\\$' + pathName + '[\\s\\S]{0,80}Expected\\s*=\\s*\\$' + expected, 'i'),
+    );
   }
+  assert.match(
+    installer,
+    /Open-TrustedVerifiedReadLock[\s\S]{0,160}\$productionFile\.Expected/i,
+  );
   assert.match(installer, /\.Dispose\(\)/i);
 });
 
