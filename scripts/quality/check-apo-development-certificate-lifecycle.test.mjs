@@ -39,3 +39,12 @@ test('pre-ownership test certificate is cleaned if the first lifecycle snapshot 
   assert.match(finalCleanup, /-not\s+\$script:developmentCertificateOwnedByState/i);
   assert.match(finalCleanup, /Remove-RecordedDevelopmentCertificate\s+\$developmentCertificateThumbprint/i);
 });
+
+
+test('temporary APO staging cleanup still runs if pre-ownership certificate cleanup fails', () => {
+  const finallyStart = installer.indexOf('finally {');
+  assert.ok(finallyStart >= 0);
+  const cleanup = installer.slice(finallyStart);
+  assert.match(cleanup, /try\s*\{[\s\S]*Remove-RecordedDevelopmentCertificate/i);
+  assert.match(cleanup, /finally\s*\{[\s\S]*Remove-Item\s+\$work\s+-Recurse\s+-Force/i);
+});
