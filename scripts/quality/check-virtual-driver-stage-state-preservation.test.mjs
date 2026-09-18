@@ -4,15 +4,21 @@ import test from 'node:test';
 
 const stager = readFileSync('scripts/windows/stage-signed-virtual-driver.ps1', 'utf8');
 
-test('restaging a signed virtual driver preserves lifecycle install state byte-for-byte', () => {
-  const removeDestination = stager.indexOf('Remove-Item $destination -Recurse -Force');
-  assert.ok(removeDestination >= 0, 'stager must replace the previous destination');
+test('restaging a signed virtual driver never deletes or rewrites lifecycle install state', () => {
+  assert.match(stager, /\$preservedInstallStateName\s*=\s*'virtual-driver-install-state\.json'/i);
+  assert.match(stager, /Get-ChildItem\s+\$destination\s+-Force/i);
+  assert.match(stager, /\$_\.Name\s+-ine\s+\$preservedInstallStateName/i);
+  assert.match(stager, /Remove-Item\s+-Recurse\s+-Force/i);
+  assert.doesNotMatch(stager, /Remove-Item\s+\$destination\s+-Recurse\s+-Force/i);
+  assert.doesNotMatch(stager, /ReadAllBytes\(\$existingInstallStatePath\)|WriteAllBytes\([^\n]*virtual-driver-install-state\.json/i);
+});
 
-  const captureState = stager.indexOf('[IO.File]::ReadAllBytes($existingInstallStatePath)');
-  const restoreState = stager.indexOf("[IO.File]::WriteAllBytes((Join-Path $destination 'virtual-driver-install-state.json'), $existingInstallStateBytes)");
-  assert.ok(captureState >= 0 && captureState < removeDestination, 'install state bytes must be captured before destination deletion');
-  assert.ok(restoreState > removeDestination, 'captured install state bytes must be restored after destination replacement');
-  assert.match(stager, /virtual-driver-install-state\.json/);
+test('signed virtual-driver restaging invalidates old verification without touching lifecycle state', () => {
+  const cleanup = stager.indexOf('Get-ChildItem $destination -Force');
+  const firstCopy = stager.indexOf('Copy-Item $file.FullName', cleanup);
+  const manifestWrite = stager.indexOf("Set-Content (Join-Path $destination 'verification.json')", firstCopy);
+  assert.ok(cleanup >= 0 && firstCopy > cleanup, 'old non-state staging artifacts must be cleaned before new copies');
+  assert.ok(manifestWrite > firstCopy, 'new verification marker must be published only after staging/copy checks');
 });
 
 test('signed virtual-driver staging rejects overlapping source and destination trees', () => {
