@@ -47,3 +47,14 @@ test('signed virtual-driver restaging refuses unexpected destination entries bef
   assert.ok(unexpectedGuard >= 0 && cleanup > unexpectedGuard, 'unexpected entries must be rejected before destination cleanup');
   assert.match(stager.slice(unexpectedGuard, cleanup), /refusing destructive restaging/i);
 });
+
+
+test('signed virtual-driver staging is confined to repository dist before destination cleanup', () => {
+  assert.match(stager, /\$distRoot/i);
+  assert.match(stager, /destination must be under the repository dist tree/i);
+
+  const safety = stager.indexOf('destination must be under the repository dist tree');
+  const destinationCreate = stager.indexOf('New-Item -ItemType Directory -Force -Path $destination');
+  const cleanup = stager.indexOf('Get-ChildItem $destination -Force', destinationCreate);
+  assert.ok(safety >= 0 && destinationCreate > safety && cleanup > safety, 'dist boundary must be checked before destination mutation');
+});
