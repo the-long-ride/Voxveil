@@ -106,8 +106,8 @@ function Assert-SafeOutputDirectory(
   if ($outputFull -ieq $volumeRoot -or (Test-DirectoryContains $outputFull $repoFull)) {
     throw 'Windows package output must not be a filesystem root, the repository root, or an ancestor of the repository.'
   }
-  if (-not (Test-DirectoryContains $distFull $outputFull)) {
-    throw 'Windows package output directory must be under the repository dist tree.'
+  if ($outputFull -ieq $distFull -or -not (Test-DirectoryContains $distFull $outputFull)) {
+    throw 'Windows package output directory must be below the repository dist\windows-x64 tree.'
   }
 
   foreach ($signedInput in $SignedInputDirectories) {
@@ -186,7 +186,7 @@ if (-not $OutputDirectory) {
 }
 $output = [IO.Path]::GetFullPath($OutputDirectory)
 $repoPath = [IO.Path]::GetFullPath($repo.Path)
-$distRoot = [IO.Path]::GetFullPath((Join-Path $repoPath 'dist'))
+$distRoot = [IO.Path]::GetFullPath((Join-Path $repoPath 'dist\windows-x64'))
 $signedApoDir = $env:VOXVEIL_SIGNED_APO_DIR
 $signedDriverDir = $env:VOXVEIL_SIGNED_DRIVER_DIR
 Assert-SafeOutputDirectory `
