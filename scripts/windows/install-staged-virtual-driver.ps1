@@ -238,6 +238,12 @@ $expectedCatalogSigner = [string]$verification.catalogSigner
 if (-not $expectedCatalogSigner -or $signerSubject -ine $expectedCatalogSigner) {
   throw 'Staged virtual-driver catalog signer does not match verification.json.'
 }
+$expectedCatalogThumbprint = [string]$verification.catalogThumbprint
+$currentCatalogThumbprint = [string]$catalogSignature.SignerCertificate.Thumbprint
+if ($expectedCatalogThumbprint -notmatch '^[0-9A-Fa-f]{40}$' -or
+    $currentCatalogThumbprint -ine $expectedCatalogThumbprint) {
+  throw 'Staged virtual-driver catalog thumbprint does not match verification.json.'
+}
 
 $deviceHelper = Join-Path $PSScriptRoot 'voxveil-virtual-device.exe'
 if (-not (Test-Path $deviceHelper -PathType Leaf)) {
