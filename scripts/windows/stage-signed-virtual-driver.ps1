@@ -35,7 +35,18 @@ function Assert-StagedHash {
 $package = [IO.Path]::GetFullPath($PackageDir)
 $destination = [IO.Path]::GetFullPath($Destination)
 $repoRoot = [IO.Path]::GetFullPath((Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path)
+$distRoot = [IO.Path]::GetFullPath((Join-Path $repoRoot 'dist'))
 $submissionRoot = [IO.Path]::GetFullPath((Join-Path $repoRoot 'native\windows\driver\out'))
+
+$distPrefix = if ($distRoot.EndsWith([IO.Path]::DirectorySeparatorChar.ToString())) {
+  $distRoot
+} else {
+  $distRoot + [IO.Path]::DirectorySeparatorChar
+}
+if ($destination -ine $distRoot -and
+    -not $destination.StartsWith($distPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+  throw 'Signed virtual-driver staging destination must be under the repository dist tree.'
+}
 
 if ($destination -eq $package -or
     $destination.StartsWith($package + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase) -or
