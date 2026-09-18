@@ -55,6 +55,15 @@ test('controlled fixture recipes require enough metadata to reproduce the mix', 
   }
 });
 
+test('controlled manifests require aligned quantitative reference files', () => {
+  const schema = JSON.parse(read(schemaPath));
+  const referenceVariant = (schema.properties?.referenceFiles?.oneOf ?? []).find((variant) => variant?.type === 'object');
+  assert.ok(referenceVariant, 'referenceFiles must define an object variant');
+  assert.deepEqual(new Set(referenceVariant.required ?? []), new Set(['vocal', 'accompaniment']));
+  const controlledClause = (schema.allOf ?? []).find((clause) => clause?.if?.properties?.tier?.const === 'controlled');
+  assert.ok(new Set(controlledClause?.then?.required ?? []).has('referenceFiles'));
+});
+
 test('fixture-corpus policy points local manifests at the schema', () => {
   const corpus = read('docs/testing/classic-dsp-fixture-corpus.md');
   assert.match(corpus, /classic-dsp-fixture-manifest\.schema\.json/);

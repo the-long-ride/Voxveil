@@ -32,5 +32,9 @@ test('Tier-A builder records a deterministic non-normalizing mix recipe and hash
   assert.match(script, /mixRecipe\s*=\s*\[ordered\]@\{/i);
   assert.match(script, /normalization\s*=\s*'none'/i);
   assert.match(script, /fixtureSha256\s*=\s*\$fixtureSha256/i);
+  assert.match(script, /vocal-reference\.f32/i);
+  assert.match(script, /accompaniment-reference\.f32/i);
+  assert.match(script, /referenceFiles\s*=\s*\[ordered\]@\{/i);
+  assert.match(script, /Controlled reference alignment mismatch/i);
   assert.match(script, /Use -Force to replace/i);
 });
