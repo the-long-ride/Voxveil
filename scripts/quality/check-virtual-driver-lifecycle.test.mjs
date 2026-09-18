@@ -25,7 +25,7 @@ test('signed virtual driver stager rehashes copied files before writing verifica
   const text = read('scripts/windows/stage-signed-virtual-driver.ps1');
   const copy = text.search(/Copy-Item/i);
   const stagedHash = text.indexOf('Assert-StagedHash -Path $stagedInf', copy);
-  const manifest = text.search(/verification\.json/i);
+  const manifest = text.indexOf("Set-Content (Join-Path $destination 'verification.json')", stagedHash);
   assert.ok(copy >= 0, 'stager must copy verified package members');
   assert.ok(stagedHash > copy, 'stager must validate destination hashes after copying');
   assert.ok(manifest > stagedHash, 'verification manifest must be written only after destination hashes pass');
