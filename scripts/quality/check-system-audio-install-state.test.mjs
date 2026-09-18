@@ -609,3 +609,27 @@ test('elevated launcher keeps the installer script read-locked between hash veri
   assert.match(systemAudioLauncher, /ComputeHash\([^)]*scriptLock/i);
   assert.match(systemAudioLauncher, /scriptLock\.Dispose\(\)/i);
 });
+
+
+test('production UAC path binds staged APO files to build-time package hashes', () => {
+  for (const name of [
+    'VOXVEIL_APO_INF_SHA256',
+    'VOXVEIL_APO_DLL_SHA256',
+    'VOXVEIL_APO_CATALOG_SHA256',
+    'VOXVEIL_APO_EXTENSION_INF_SHA256',
+    'VOXVEIL_APO_EXTENSION_CATALOG_SHA256',
+  ]) {
+    assert.match(systemAudioLauncher, new RegExp(name));
+  }
+  for (const parameter of [
+    'ExpectedApoInfSha256',
+    'ExpectedApoDllSha256',
+    'ExpectedApoCatalogSha256',
+    'ExpectedExtensionInfSha256',
+    'ExpectedExtensionCatalogSha256',
+  ]) {
+    assert.match(systemAudioLauncher, new RegExp(parameter));
+    assert.match(installer, new RegExp(parameter));
+  }
+  assert.match(installer, /production APO manifest does not match the package embedded at build time/i);
+});
