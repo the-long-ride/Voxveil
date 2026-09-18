@@ -201,6 +201,7 @@ $previousManagedEndpointId = $null
 $previousBindingMode = $null
 $previousDevelopmentCertificateThumbprint = $null
 $developmentCertificateThumbprint = $null
+$legacyRuntimeAttached = $false
 if (Test-Path $statePath -PathType Leaf) {
   $previousState = Get-Content $statePath -Raw | ConvertFrom-Json
   $recordedInfNames = @($previousState.installedInfNames)
@@ -216,6 +217,14 @@ if (Test-Path $statePath -PathType Leaf) {
   $previousBindingMode = [string](Get-OptionalProperty $previousState 'bindingMode')
   if ($previousBindingMode -notin @('capx-extension', 'legacy-runtime-interface', 'legacy-reference')) {
     throw "install-state.json has unknown bindingMode '$previousBindingMode'; state was kept for recovery."
+  }
+  $previousLegacyRuntimeAttachedProperty = $previousState.PSObject.Properties['legacyRuntimeAttached']
+  if ($previousBindingMode -eq 'legacy-runtime-interface') {
+    $legacyRuntimeAttached = if ($previousLegacyRuntimeAttachedProperty) {
+      [bool]$previousLegacyRuntimeAttachedProperty.Value
+    } else {
+      $true
+    }
   }
   $previousDevelopmentCertificateThumbprint = [string](Get-OptionalProperty $previousState 'developmentCertificateThumbprint')
   if ($previousDevelopmentCertificateThumbprint -and $previousDevelopmentCertificateThumbprint -notmatch '^[0-9A-Fa-f]{40}\z') {
@@ -310,6 +319,7 @@ function Write-InstallStateSnapshot(
     pendingRebootBootMarker = $pendingRebootBootMarker
     audioServiceRestartRequired = $false
     developmentCertificateThumbprint = $developmentCertificateThumbprint
+    legacyRuntimeAttached = $legacyRuntimeAttached
     bindingPnpInstanceId = $bindingPnpInstanceId
     topologyInterfacePath = $topologyInterfacePath
     audioInterfacePath = $audioInterfacePath
@@ -455,6 +465,8 @@ try {
     if ($LASTEXITCODE -ne 0) {
       throw "Legacy runtime interface FX attachment failed (exit $LASTEXITCODE)."
     }
+    $legacyRuntimeAttached = $true
+    Write-InstallStateSnapshot
   }
 
   Write-Host 'Restarting Windows Audio so AudioDG rebuilds the endpoint graph...'
