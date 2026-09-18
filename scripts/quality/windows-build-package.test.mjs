@@ -77,3 +77,17 @@ test('Windows package output rejects junction or symlink ancestors before cleanu
   const removeOutput = buildScript.indexOf('Remove-Item $output -Recurse -Force -ErrorAction SilentlyContinue');
   assert.ok(reparseCheck >= 0 && removeOutput > reparseCheck, 'reparse-point preflight must precede recursive output cleanup');
 });
+
+
+test('Windows build embeds privileged helper hashes before compiling Tauri', () => {
+  const tauriBuild = buildScript.indexOf('npm run tauri -- build --no-bundle');
+  assert.ok(tauriBuild >= 0);
+  for (const name of [
+    'VOXVEIL_DISCOVERY_SHA256',
+    'VOXVEIL_CONTROL_SHA256',
+    'VOXVEIL_CONTROL_DLL_SHA256',
+  ]) {
+    const assignment = buildScript.indexOf(`$env:${name} =`);
+    assert.ok(assignment >= 0 && assignment < tauriBuild, `${name} must be embedded before Tauri build`);
+  }
+});
