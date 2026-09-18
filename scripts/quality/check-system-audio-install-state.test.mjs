@@ -385,3 +385,15 @@ test('APO installer refuses unfinished AudioSrv cleanup state before PnP mutatio
   assert.match(preflight, /audioServiceRestartRequired/i);
   assert.match(preflight, /Complete the prior Voxveil APO cleanup/i);
 });
+
+
+test('APO installer refuses persisted binding-mode transitions before package mutation', () => {
+  const bindingMode = installer.indexOf("$bindingMode = if (-not $TestSign)");
+  const firstPnp = installer.indexOf("pnputil.exe /add-driver (Join-Path $work 'VoxveilApo.inf') /install");
+  assert.ok(bindingMode >= 0 && firstPnp > bindingMode);
+
+  const preflight = installer.slice(bindingMode, firstPnp);
+  assert.match(preflight, /previousBindingMode/i);
+  assert.match(preflight, /\$bindingMode\s*-ine\s*\$previousBindingMode/i);
+  assert.match(preflight, /Uninstall the currently managed Voxveil APO state before changing binding mode/i);
+});
