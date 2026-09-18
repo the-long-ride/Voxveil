@@ -9,12 +9,10 @@ use crate::platform::ProcessingController;
 #[path = "system_audio_installer.rs"]
 mod system_audio_installer;
 #[cfg(target_os = "windows")]
-use system_audio_installer::{launch_system_audio_installer, InstallerLaunchOutcome};
+use system_audio_installer::{launch_system_audio_installer, sha256_hex, InstallerLaunchOutcome};
 
 #[cfg(target_os = "windows")]
 use serde::Serialize;
-#[cfg(target_os = "windows")]
-use sha2::{Digest, Sha256};
 #[cfg(target_os = "windows")]
 use voxveil_windows_audio::{SystemAudioEndpoint, SystemAudioEndpointStatus};
 
@@ -264,7 +262,7 @@ pub fn install_system_audio_component(
         }
         let json = serde_json::to_vec_pretty(&descriptor)
             .map_err(|error| format!("failed to serialize endpoint descriptor: {error}"))?;
-        let descriptor_sha256 = format!("{:x}", Sha256::digest(&json));
+        let descriptor_sha256 = sha256_hex(&json);
         let descriptor_path = create_temporary_descriptor(&json)?;
         let result =
             launch_system_audio_installer(&script, &descriptor_path, &descriptor_sha256);
