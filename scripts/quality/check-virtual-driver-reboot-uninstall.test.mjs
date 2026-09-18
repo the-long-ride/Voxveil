@@ -126,3 +126,21 @@ test('virtual driver uninstall checkpoints missing pending-reboot boot marker be
   assert.match(preflight, /Write-JsonStateAtomically\s+-State\s+\$state\s+-Path\s+\$statePath/i);
   assert.match(preflight, /Restart Windows before continuing Voxveil Virtual Audio lifecycle changes/i);
 });
+
+
+test('virtual driver uninstall recovers package-already-gone interruption through a reboot tombstone', () => {
+  const helper = uninstaller.indexOf("$deviceHelper = Join-Path $PSScriptRoot 'voxveil-virtual-device.exe'");
+  const identity = uninstaller.indexOf('Assert-PublishedInfIdentity $publishedInf $deviceInstanceId', helper);
+  assert.ok(helper >= 0 && identity > helper);
+
+  const recovery = uninstaller.slice(helper, identity);
+  assert.match(recovery, /Test-RecordedVirtualDriverPackagePresent\s+\$publishedInf/i);
+  assert.match(recovery, /if\s*\(\s*-not\s+\$packagePresentBeforeDelete\s*\)/i);
+  assert.match(recovery, /query\s+\$deviceInstanceId/i);
+  assert.match(recovery, /remove\s+\$deviceInstanceId/i);
+  assert.match(recovery, /pendingReboot\s*=\s*\$true/i);
+  assert.match(recovery, /pendingRebootBootMarker\s*=\s*\$currentBootMarker/i);
+  assert.match(recovery, /uninstallComplete\s*=\s*\$true/i);
+  assert.match(recovery, /Write-JsonStateAtomically\s+-State\s+\$state\s+-Path\s+\$statePath/i);
+  assert.match(recovery, /exit\s+3010/i);
+});
