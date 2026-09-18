@@ -318,9 +318,37 @@ function Resolve-EndpointDescriptor(
   }
 
   $helper = Join-Path $Root 'discover-system-audio-endpoints.ps1'
-  $helperLock = Open-TrustedReadLock $helper 'discover-system-audio-endpoints.ps1'
+  if (-not (Test-Path $helper -PathType Leaf)) {
+    throw "Trusted packaged helper is missing: discover-system-audio-endpoints.ps1 ($helper)"
+  }
+  $helperLock = [IO.File]::Open(
+    $helper,
+    [IO.FileMode]::Open,
+    [IO.FileAccess]::Read,
+    [IO.FileShare]::None
+  )
   try {
-    Assert-TrustedPackagedFile $helper $ExpectedDiscoverySha256 'discover-system-audio-endpoints.ps1'
+    $helperSha = [Security.Cryptography.SHA256]::Create()
+    try {
+      $actualHelperSha256 = ([BitConverter]::ToString($helperSha.ComputeHash($helperLock))).Replace('-', '').ToLowerInvariant()
+    }
+    finally {
+      $helperSha.Dispose()
+    }
+    if ($actualHelperSha256 -ine $ExpectedDiscoverySha256) {
+      throw 'Trusted packaged helper failed integrity verification: discover-system-audio-endpoints.ps1.'
+    }
+
+    $helperLock.Position = 0
+    $helperReader = [IO.StreamReader]::new($helperLock, [Text.Encoding]::UTF8, $true, 4096, $true)
+    try {
+      $helperText = $helperReader.ReadToEnd()
+    }
+    finally {
+      $helperReader.Dispose()
+    }
+    $helperBlock = [ScriptBlock]::Create($helperText)
+
     $request = ConvertTo-Json -InputObject @([pscustomobject]@{
       endpointId = [string]$descriptor.endpointId
       displayName = ''
@@ -328,16 +356,7 @@ function Resolve-EndpointDescriptor(
       runtimeDeviceId = [string]$descriptor.bindingPnpInstanceId
       runtimeAliasMatch = $runtimeBound
     }) -Compress
-    $systemDirectory = [Environment]::SystemDirectory
-    if (-not $systemDirectory) {
-      throw 'Windows system directory could not be resolved.'
-    }
-    $powershell = Join-Path $systemDirectory 'WindowsPowerShell\v1.0\powershell.exe'
-    if (-not (Test-Path $powershell -PathType Leaf)) {
-      throw "Windows PowerShell was not found at $powershell."
-    }
-    $output = $request | & $powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -File $helper
-    if ($LASTEXITCODE -ne 0) { throw 'device-changed: endpoint discovery failed during elevated revalidation.' }
+    $output = & $helperBlock -InputJson $request
   }
   finally {
     $helperLock.Dispose()
