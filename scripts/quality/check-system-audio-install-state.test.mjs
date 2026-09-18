@@ -522,7 +522,7 @@ test('UAC launcher anchors privileged installer script to bytes embedded in the 
   assert.match(systemAudioLauncher, /Sha256::digest/i);
   assert.match(systemAudioLauncher, /std::fs::read\(script\)/i);
   assert.match(systemAudioLauncher, /installer failed integrity verification/i);
-  assert.match(systemAudioLauncher, /Get-FileHash[\s\S]{0,120}\$script[\s\S]{0,80}SHA256/i);
+  assert.match(systemAudioLauncher, /ComputeHash\([^)]*scriptLock/i);
   assert.match(systemAudioLauncher, /integrity check failed/i);
   assert.match(systemAudioLauncher, /EncodedCommand/i);
   assert.doesNotMatch(
