@@ -15,7 +15,7 @@ test('Windows package checksum paths work in Windows PowerShell 5.1', () => {
 
 test('Windows package fails if a required system-audio script is missing', () => {
   const start = buildScript.indexOf('foreach ($script in @(');
-  const end = buildScript.indexOf('$signedApoDir =', start);
+  const end = buildScript.indexOf('if ($signedApoDir) {', start);
   const staging = start >= 0 && end > start ? buildScript.slice(start, end) : '';
 
   for (const script of [
