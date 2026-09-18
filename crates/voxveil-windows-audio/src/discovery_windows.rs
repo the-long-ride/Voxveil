@@ -58,6 +58,12 @@ struct ApoVerification {
     apo_catalog_sha256: String,
     extension_inf_sha256: String,
     extension_catalog_sha256: String,
+    apo_signer: String,
+    apo_thumbprint: String,
+    apo_catalog_signer: String,
+    apo_catalog_thumbprint: String,
+    extension_catalog_signer: String,
+    extension_catalog_thumbprint: String,
     extension_id: String,
     capx_context: String,
 }
@@ -237,6 +243,10 @@ fn is_sha256(value: &str) -> bool {
     value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
+fn is_certificate_thumbprint(value: &str) -> bool {
+    value.len() == 40 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
 fn verified_apo_stage_matches(directory: &Path) -> bool {
     let path = directory.join("apo-verification.json");
     let Ok(bytes) = std::fs::read(path) else { return false; };
@@ -248,6 +258,12 @@ fn verified_apo_stage_matches(directory: &Path) -> bool {
         && is_sha256(&verification.apo_catalog_sha256)
         && is_sha256(&verification.extension_inf_sha256)
         && is_sha256(&verification.extension_catalog_sha256)
+        && !verification.apo_signer.trim().is_empty()
+        && is_certificate_thumbprint(&verification.apo_thumbprint)
+        && !verification.apo_catalog_signer.trim().is_empty()
+        && is_certificate_thumbprint(&verification.apo_catalog_thumbprint)
+        && !verification.extension_catalog_signer.trim().is_empty()
+        && is_certificate_thumbprint(&verification.extension_catalog_thumbprint)
 }
 
 fn production_package_matches(
