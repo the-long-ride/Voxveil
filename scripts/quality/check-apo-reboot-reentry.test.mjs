@@ -22,3 +22,16 @@ test('APO reboot-required state blocks another install mutation until Windows ac
   assert.match(baseInstall, /Write-InstallStateSnapshot\s+-PendingReboot\s+\$true/i);
   assert.match(extensionInstall, /Write-InstallStateSnapshot\s+-PendingReboot\s+\$true/i);
 });
+
+
+test('APO install checkpoints missing pending-reboot boot marker before mutation', () => {
+  const stateLoad = installer.indexOf('$previousState = Get-Content $statePath -Raw | ConvertFrom-Json');
+  const firstPnp = installer.indexOf("pnputil.exe /add-driver (Join-Path $work 'VoxveilApo.inf') /install");
+  assert.ok(stateLoad >= 0 && firstPnp > stateLoad);
+
+  const preflight = installer.slice(stateLoad, firstPnp);
+  assert.match(preflight, /\$previousPendingReboot\s*-eq\s*\$true\s*-and\s*-not\s+\$previousBootMarker/i);
+  assert.match(preflight, /pendingRebootBootMarker\s*=\s*\$currentBootMarker/i);
+  assert.match(preflight, /Set-Content\s+\$statePath\s+-Encoding\s+utf8/i);
+  assert.match(preflight, /Restart Windows before continuing the Voxveil system-audio installation/i);
+});
