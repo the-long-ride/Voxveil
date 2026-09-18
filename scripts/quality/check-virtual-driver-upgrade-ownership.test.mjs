@@ -22,3 +22,29 @@ test('virtual driver installer refuses a different signed package before overwri
   assert.match(preflight, /\$verification\.catalogSha256/i);
   assert.match(preflight, /\$verification\.driverSha256/i);
 });
+
+
+test('virtual driver installer refuses untracked pre-existing Voxveil packages before devnode mutation', () => {
+  const inventory = installer.indexOf('$beforePublishedInfNames = @(Get-VoxveilPublishedInfNames)');
+  const ensureDevice = installer.indexOf('& $deviceHelper ensure $inf');
+  assert.ok(inventory >= 0 && ensureDevice > inventory, 'Driver Store inventory must be captured before devnode mutation');
+
+  const preflight = installer.slice(inventory, ensureDevice);
+  assert.match(preflight, /recordedPublishedInf/i);
+  assert.match(preflight, /unexpectedPublishedInfNames/i);
+  assert.match(preflight, /\$beforePublishedInfNames/i);
+  assert.match(preflight, /-ine\s+\$recordedPublishedInf/i);
+  assert.match(preflight, /untracked Voxveil Virtual Audio/i);
+  assert.match(preflight, /throw/i);
+});
+
+test('virtual driver existing ownership state validates its published INF identity before repair', () => {
+  const stateLoad = installer.indexOf('$previousState = Get-Content $statePath -Raw | ConvertFrom-Json');
+  const inventory = installer.indexOf('$beforePublishedInfNames = @(Get-VoxveilPublishedInfNames)');
+  assert.ok(stateLoad >= 0 && inventory > stateLoad);
+
+  const preflight = installer.slice(stateLoad, inventory);
+  assert.match(preflight, /publishedInf/i);
+  assert.match(preflight, /\^oem\\d\+\\\.inf\$/i);
+  assert.match(preflight, /complete signed-package identity/i);
+});
