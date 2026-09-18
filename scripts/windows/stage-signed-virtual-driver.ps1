@@ -53,6 +53,9 @@ if ($LASTEXITCODE -ne 0) {
   throw 'Signed virtual driver verification failed.'
 }
 $verification = $verificationJson | ConvertFrom-Json
+$verifiedSigningPath = 'attestation-pilot'
+$releaseEvidenceSha256 = $null
+$evidencePath = $null
 
 if ($ReleaseChannel -eq 'Retail') {
   $evidencePath = Join-Path $package 'release-evidence.json'
@@ -71,6 +74,8 @@ if ($ReleaseChannel -eq 'Retail') {
       $evidence.driverSha256 -ne $verification.driverSha256) {
     throw 'Retail release evidence hashes do not match the verified driver package.'
   }
+  $verifiedSigningPath = [string]$evidence.signingPath
+  $releaseEvidenceSha256 = (Get-FileHash $evidencePath -Algorithm SHA256).Hash.ToLowerInvariant()
 }
 
 $infFiles = @(Get-ChildItem $package -File -Recurse -Filter '*.inf')
@@ -98,6 +103,9 @@ if ($null -ne $existingInstallStateBytes) {
 foreach ($file in @($inf, $cat, $sys)) {
   Copy-Item $file.FullName (Join-Path $destination $file.Name)
 }
+if ($evidencePath) {
+  Copy-Item $evidencePath (Join-Path $destination 'release-evidence.json')
+}
 
 $stagedInf = Join-Path $destination $inf.Name
 $stagedCat = Join-Path $destination $cat.Name
@@ -105,9 +113,14 @@ $stagedSys = Join-Path $destination $sys.Name
 Assert-StagedHash -Path $stagedInf -Expected $verification.infSha256 -Label 'INF'
 Assert-StagedHash -Path $stagedCat -Expected $verification.catalogSha256 -Label 'catalog'
 Assert-StagedHash -Path $stagedSys -Expected $verification.driverSha256 -Label 'driver'
+if ($evidencePath) {
+  Assert-StagedHash -Path (Join-Path $destination 'release-evidence.json') -Expected $releaseEvidenceSha256 -Label 'release evidence'
+}
 
 @{
   releaseChannel = $ReleaseChannel.ToLowerInvariant()
+  signingPath = $verifiedSigningPath
+  releaseEvidenceSha256 = $releaseEvidenceSha256
   architecture = $Architecture
   infSha256 = $verification.infSha256
   catalogSha256 = $verification.catalogSha256
