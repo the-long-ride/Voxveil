@@ -20,6 +20,8 @@
 - Windows Tier 1 relay, Tier 2 signed virtual-driver staging/lifecycle, and Tier 3 signed APO/CAPX source paths with scoped package ownership, reboot tombstones, post-operation Driver Store verification, and untracked-package rejection.
 - APO management is fail-closed to one endpoint-scoped install state at a time until native telemetry can prove loaded instances per endpoint; UI installation remains explicit per endpoint rather than bulk.
 - APO lifecycle state now rejects malformed package/binding identities, migrates missing reboot markers fail-closed, scopes TestSign certificate ownership across retries/uninstall, and resumes a failed final `AudioSrv` restart before cleanup can complete or a new install can begin.
+- APO and virtual-driver ownership checkpoints now use same-directory atomic JSON replacement; interrupted/ambiguous package deletions conservatively create reboot recovery state and require post-restart absence proof instead of silently discarding ownership.
+- Retail virtual-driver staging retains the validated `release-evidence.json`, records its SHA-256 plus signing path in `verification.json`, and revalidates that evidence at install time.
 
 ## Deliberately not claimed complete
 
