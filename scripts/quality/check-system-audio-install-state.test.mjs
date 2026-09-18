@@ -247,7 +247,7 @@ test('APO installer refuses untracked pre-existing Voxveil packages before PnP m
 
 test('APO installer refuses a second different managed endpoint before PnP mutation', () => {
   const stateLoad = installer.indexOf('$previousState = Get-Content $statePath -Raw | ConvertFrom-Json');
-  const descriptorResolve = installer.indexOf('$binding = Resolve-EndpointDescriptor $EndpointDescriptor $root');
+  const descriptorResolve = installer.indexOf('$binding = Resolve-EndpointDescriptor');
   const baseInstall = installer.indexOf("pnputil.exe /add-driver (Join-Path $work 'VoxveilApo.inf') /install");
   assert.ok(stateLoad >= 0 && descriptorResolve > stateLoad && baseInstall > descriptorResolve);
 
@@ -493,10 +493,9 @@ test('elevated APO descriptor handoff is bound to the exact serialized bytes wit
 
   assert.match(installer, /\[ValidatePattern\('\^\[0-9A-Fa-f\]\{64\}\$'\)\]/i);
   assert.match(installer, /\$EndpointDescriptorSha256/i);
-  const resolver = installer.slice(
-    installer.indexOf('function Resolve-EndpointDescriptor'),
-    installer.indexOf('Assert-Administrator'),
-  );
+  const resolverStart = installer.indexOf('function Resolve-EndpointDescriptor');
+  const resolverEnd = installer.indexOf('\nAssert-Administrator\n', resolverStart);
+  const resolver = installer.slice(resolverStart, resolverEnd);
   assert.match(resolver, /ReadAllBytes\(\$DescriptorPath\)/i);
   assert.match(resolver, /Security\.Cryptography\.SHA256\]::Create\(\)/i);
   assert.match(resolver, /ComputeHash\(\$descriptorBytes\)/i);
@@ -562,10 +561,9 @@ test('production elevation uses the absolute Windows PowerShell executable', () 
   assert.doesNotMatch(systemAudioLauncher, /Command::new\("powershell\.exe"\)/i);
   assert.doesNotMatch(systemAudioLauncher, /Start-Process\s+-FilePath\s+'powershell\.exe'/i);
 
-  const resolver = installer.slice(
-    installer.indexOf('function Resolve-EndpointDescriptor'),
-    installer.indexOf('Assert-Administrator'),
-  );
+  const resolverStart = installer.indexOf('function Resolve-EndpointDescriptor');
+  const resolverEnd = installer.indexOf('\nAssert-Administrator\n', resolverStart);
+  const resolver = installer.slice(resolverStart, resolverEnd);
   assert.match(resolver, /WindowsPowerShell\\v1\.0\\powershell\.exe/i);
   assert.doesNotMatch(resolver, /&\s+powershell\.exe/i);
 });
