@@ -53,8 +53,12 @@ test('driver project references only pinned generic SysVAD source plus Voxveil-o
 test('directly compiled pinned SysVAD sources preserve warning compatibility without disabling warnings-as-errors', () => {
   const text = read('native/windows/driver/VoxveilVirtualAudio.vcxproj');
   assert.match(text, /<TreatWarningAsError>true<\/TreatWarningAsError>/i);
-  assert.match(text, /<DisableSpecificWarnings>[^<]*\b4296\b[^<]*\b4595\b[^<]*%\(DisableSpecificWarnings\)[^<]*<\/DisableSpecificWarnings>/i);
-  assert.match(text, /zero capture endpoints[\s\S]*C4296/i);
+  assert.match(text, /<DisableSpecificWarnings>[^<]*\b4595\b[^<]*%\(DisableSpecificWarnings\)[^<]*<\/DisableSpecificWarnings>/i);
+  assert.match(
+    text,
+    /adapter\.cpp"[\s\S]*zero capture endpoints[\s\S]*C4296[\s\S]*<AdditionalOptions>\/wd4296 %\(AdditionalOptions\)<\/AdditionalOptions>/i,
+  );
+  assert.equal((text.match(/\/wd4296/g) ?? []).length, 1);
 });
 
 test('virtual driver project carries Voxveil sound-driver version resources and filters', () => {
