@@ -108,3 +108,12 @@ test('virtual driver pins a concrete KMDF version and rejects unresolved INF tok
   assert.match(project, /<KMDF_VERSION_MINOR>15<\/KMDF_VERSION_MINOR>/i);
   assert.match(validator, /unresolved WDK template token/i);
 });
+
+
+test('retail virtual-driver staging retains validated qualification evidence', () => {
+  const text = readFileSync('scripts/windows/stage-signed-virtual-driver.ps1', 'utf8');
+  assert.match(text, /release-evidence\.json/i);
+  assert.match(text, /Copy-Item\s+\$evidencePath\s+\(Join-Path\s+\$destination\s+'release-evidence\.json'\)/i);
+  assert.match(text, /signingPath\s*=\s*\$verifiedSigningPath/i);
+  assert.match(text, /releaseEvidenceSha256\s*=\s*\$releaseEvidenceSha256/i);
+});
