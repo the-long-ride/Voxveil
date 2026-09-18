@@ -45,7 +45,15 @@ fn open_with_explorer(target: &str, description: &str) -> Result<(), String> {
     use std::os::windows::process::CommandExt;
 
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-    std::process::Command::new("explorer.exe")
+    let system_directory = voxveil_windows_audio::windows_system_directory()?;
+    let windows_directory = system_directory
+        .parent()
+        .ok_or_else(|| "Windows system directory has no parent Windows directory.".to_string())?;
+    let explorer = windows_directory.join("explorer.exe");
+    if !explorer.is_file() {
+        return Err(format!("Windows Explorer was not found at {}.", explorer.display()));
+    }
+    std::process::Command::new(explorer)
         .arg(target)
         .creation_flags(CREATE_NO_WINDOW)
         .spawn()
