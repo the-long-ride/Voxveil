@@ -57,9 +57,10 @@ test('completed uninstall absence check is scoped and supports package-less roll
   const helper = uninstaller.slice(helperStart, helperEnd);
 
   assert.match(helper, /Get-WindowsDriver\s+-Online/i);
-  assert.match(helper, /Win32_PnPSignedDriver/i);
+  assert.match(helper, /query\s+\$deviceInstanceId/i);
+  assert.match(helper, /Get-HelperValue[\s\S]*'exists'/i);
+  assert.doesNotMatch(helper, /Win32_PnPSignedDriver/i);
   assert.match(helper, /VoxveilVirtualAudio\.inf/i);
-  assert.match(helper, /Voxveil Virtual Audio/i);
   assert.match(helper, /return/i, 'package-less reboot tombstones must be clearable after the boot changes');
 });
 
