@@ -655,3 +655,12 @@ test('elevated APO installer pins privileged Windows executables to the OS syste
   assert.match(preflight, /Set-Alias\s+-Name\s+\$commandName\s+-Value\s+\$commandPath\s+-Scope\s+Script/i);
   assert.match(preflight, /-Option\s+ReadOnly/i);
 });
+
+
+test('elevated APO uninstaller pins PnPUtil to the OS system directory', () => {
+  const deleteDriver = uninstaller.indexOf('pnputil.exe /delete-driver $inf /uninstall /force');
+  assert.ok(deleteDriver >= 0);
+  const preflight = uninstaller.slice(0, deleteDriver);
+  assert.match(preflight, /\[Environment\]::SystemDirectory/i);
+  assert.match(preflight, /Set-Alias\s+-Name\s+'pnputil\.exe'\s+-Value\s+\$pnputilPath\s+-Scope\s+Script\s+-Option\s+ReadOnly/i);
+});
