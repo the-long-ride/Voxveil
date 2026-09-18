@@ -139,7 +139,7 @@ $env:VOXVEIL_SIGNED_DRIVER_RELEASE_CHANNEL = 'Retail'
 npm run build:windows
 ```
 
-If `VOXVEIL_SIGNED_DRIVER_RELEASE_CHANNEL` is omitted while `VOXVEIL_SIGNED_DRIVER_DIR` is set, `build-windows.ps1` deliberately defaults to `Retail`, forcing the stronger evidence gate rather than silently accepting a pilot package. Retail staging copies the validated `release-evidence.json` into the staged driver directory, re-hashes that copy, and records both its SHA-256 and the validated `signingPath` in `verification.json`; the installer revalidates those fields before any devnode/PnP mutation.
+If `VOXVEIL_SIGNED_DRIVER_RELEASE_CHANNEL` is omitted while `VOXVEIL_SIGNED_DRIVER_DIR` is set, `build-windows.ps1` deliberately defaults to `Retail`, forcing the stronger evidence gate rather than silently accepting a pilot package. Retail staging copies the validated `release-evidence.json` into the staged driver directory, re-hashes that copy, and records both its SHA-256 and the validated `signingPath` in `verification.json`; the installer revalidates those fields before any devnode/PnP mutation. Restaging preserves `virtual-driver-install-state.json` in place, refuses unexpected destination entries before cleanup, removes only known staging artifacts, and never uses an in-memory delete/restore window for lifecycle ownership. Windows package output is confined to the repository `dist/` tree before recursive cleanup.
 
 ## Reboot-required lifecycle
 
