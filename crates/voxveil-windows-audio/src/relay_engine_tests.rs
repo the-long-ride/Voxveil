@@ -1,6 +1,4 @@
 use super::*;
-use std::time::{Duration, Instant};
-
 #[test]
 fn running_state_is_required_for_ready() {
     assert!(!RelayRuntimeState::Starting.is_running());
@@ -61,11 +59,8 @@ fn normal_worker_return_cannot_leave_backend_running() {
     let mut handle = RelayHandle::spawn_with_worker(spec, 50, |_spec, _level, _commands, state| {
         *state.lock().unwrap() = RelayRuntimeState::Running;
     }).unwrap();
-    let deadline = Instant::now() + Duration::from_secs(1);
-    while Instant::now() < deadline {
-        if handle.state() == RelayRuntimeState::Stopped { break; }
-        thread::sleep(Duration::from_millis(5));
-    }
+    let worker = handle.worker.take().expect("relay worker must exist");
+    worker.join().expect("relay wrapper should catch worker panics");
     assert_eq!(handle.state(), RelayRuntimeState::Stopped);
     handle.stop().unwrap();
 }
@@ -77,11 +72,8 @@ fn worker_panic_cannot_leave_backend_running() {
         *state.lock().unwrap() = RelayRuntimeState::Running;
         panic!("simulated relay panic");
     }).unwrap();
-    let deadline = Instant::now() + Duration::from_secs(1);
-    while Instant::now() < deadline {
-        if matches!(handle.state(), RelayRuntimeState::Faulted(_)) { break; }
-        thread::sleep(Duration::from_millis(5));
-    }
+    let worker = handle.worker.take().expect("relay worker must exist");
+    worker.join().expect("relay wrapper should catch worker panics");
     assert!(matches!(handle.state(), RelayRuntimeState::Faulted(_)));
     handle.stop().unwrap();
 }
