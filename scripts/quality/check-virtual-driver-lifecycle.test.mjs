@@ -268,3 +268,11 @@ test('virtual-driver lifecycle pins PowerShell module discovery to the OS module
     assert.match(text, /\$env:PSModulePath\s*=\s*\$trustedModulePath/i);
   }
 });
+
+
+test('virtual-driver uninstall derives the INF directory from the OS system directory', () => {
+  const text = uninstaller();
+  assert.match(text, /\$trustedWindowsDirectory\s*=\s*Split-Path\s+-Parent\s+\$trustedSystemDirectoryForModules/i);
+  assert.match(text, /Join-Path\s+\$trustedWindowsDirectory\s+"INF\\\$PublishedInf"/i);
+  assert.doesNotMatch(text, /\$env:(?:windir|SystemRoot)/i);
+});
