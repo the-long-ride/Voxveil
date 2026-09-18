@@ -62,3 +62,18 @@ test('completed uninstall absence check is scoped and supports package-less roll
   assert.match(helper, /Voxveil Virtual Audio/i);
   assert.match(helper, /return/i, 'package-less reboot tombstones must be clearable after the boot changes');
 });
+
+
+test('virtual driver install proves completed uninstall absence after reboot before new mutation', () => {
+  assert.match(installer, /function\s+Assert-CompletedUninstallAbsent/i);
+
+  const stateLoad = installer.indexOf('$previousState = Get-Content $statePath -Raw | ConvertFrom-Json');
+  const sameBootGuard = installer.indexOf('Restart Windows before continuing the Voxveil virtual-driver installation.');
+  const absenceCheck = installer.indexOf('Assert-CompletedUninstallAbsent $previousState', sameBootGuard);
+  const ensureDevice = installer.indexOf('& $deviceHelper ensure $inf');
+
+  assert.ok(stateLoad >= 0, 'installer must load persisted lifecycle state');
+  assert.ok(sameBootGuard > stateLoad, 'same-boot restart guard must run after state load');
+  assert.ok(absenceCheck > sameBootGuard, 'post-reboot absence proof must run after the same-boot guard');
+  assert.ok(ensureDevice > absenceCheck, 'completed-uninstall absence must be proved before creating or reusing the devnode');
+});
