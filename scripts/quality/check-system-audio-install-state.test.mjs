@@ -266,3 +266,34 @@ test('APO endpoint management remains explicit and single-endpoint until telemet
     assert.match(text, /uninstall/i);
   }
 });
+
+
+test('APO lifecycle rejects malformed recorded package identities instead of silently filtering them', () => {
+  const installStateLoad = installer.indexOf('$previousState = Get-Content $statePath -Raw | ConvertFrom-Json');
+  const installPnp = installer.indexOf("pnputil.exe /add-driver (Join-Path $work 'VoxveilApo.inf') /install");
+  const installPreflight = installer.slice(installStateLoad, installPnp);
+  assert.match(installPreflight, /invalidRecordedInfNames/i);
+  assert.match(installPreflight, /Malformed APO\/Extension package identity/i);
+
+  const uninstallStateLoad = uninstaller.indexOf('$state = Get-Content $statePath -Raw | ConvertFrom-Json');
+  const uninstallPnp = uninstaller.indexOf('pnputil.exe /delete-driver $inf /uninstall /force');
+  const uninstallPreflight = uninstaller.slice(uninstallStateLoad, uninstallPnp);
+  assert.match(uninstallPreflight, /invalidRecordedInfNames/i);
+  assert.match(uninstallPreflight, /Malformed APO\/Extension package identity/i);
+});
+
+test('APO lifecycle rejects unknown persisted binding mode before package mutation', () => {
+  const modesPattern = /'capx-extension'\s*,\s*'legacy-runtime-interface'\s*,\s*'legacy-reference'/i;
+
+  const installStateLoad = installer.indexOf('$previousState = Get-Content $statePath -Raw | ConvertFrom-Json');
+  const installPnp = installer.indexOf("pnputil.exe /add-driver (Join-Path $work 'VoxveilApo.inf') /install");
+  const installPreflight = installer.slice(installStateLoad, installPnp);
+  assert.match(installPreflight, modesPattern);
+  assert.match(installPreflight, /unknown bindingMode/i);
+
+  const uninstallStateLoad = uninstaller.indexOf('$state = Get-Content $statePath -Raw | ConvertFrom-Json');
+  const uninstallPnp = uninstaller.indexOf('pnputil.exe /delete-driver $inf /uninstall /force');
+  const uninstallPreflight = uninstaller.slice(uninstallStateLoad, uninstallPnp);
+  assert.match(uninstallPreflight, modesPattern);
+  assert.match(uninstallPreflight, /unknown bindingMode/i);
+});
