@@ -89,7 +89,10 @@ The componentized APO installer and Tier 2 virtual driver can coexist. Their pac
 | APO uninstall with first-party virtual driver installed | virtual driver remains installed and `Voxveil Input` remains available |
 | APO uninstall returns PnPUtil `3010` | the successfully deleted INF is removed from `installedInfNames` but retained separately as `pendingRemovedInfName`; the remaining `installedInfNames` are persisted in `install-state.json`; after restart, rerun uninstall and prove the pending removed INF is absent from Driver Store before clearing that identity or deleting any remaining recorded package |
 | Missing/old install state with no recorded APO INF names | uninstaller removes no provider-wide driver packages; manual cleanup is required instead of guessing |
-| Successful APO uninstall | recorded install state is removed and AudioSrv rebuilds without stale Voxveil APO registration |
+| TestSign development install/retry | exact generated certificate thumbprint is persisted and reused; no additional development certificate is created while owned state remains |
+| TestSign development uninstall | recorded certificate is removed from `LocalMachine\\My`, `Root`, and `TrustedPublisher` only after owned APO packages are gone |
+| Final package removed but `AudioSrv` restart fails | keep `install-state.json` with `audioServiceRestartRequired=true`; rerun uninstall retries the restart before certificate/state cleanup, and new install is blocked meanwhile |
+| Successful APO uninstall | recorded install state is removed only after AudioSrv rebuilds without stale Voxveil APO registration and any scoped TestSign certificate cleanup succeeds |
 
 For every `3010` case, record which package operation requested the restart, the exact `installedInfNames` state before reboot, any `pendingRemovedInfName`, the post-restart rerun result, and the final AudioDG/readiness or uninstall outcome. After restart, record the Driver Store absence proof for the pending removed INF before its identity is cleared. A `3010` result is successful completion requiring restart, not a hard package failure.
 
