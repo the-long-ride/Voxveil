@@ -22,7 +22,9 @@
 - APO lifecycle state now rejects malformed package/binding identities, migrates missing reboot markers fail-closed, scopes TestSign certificate ownership across retries/uninstall, and resumes a failed final `AudioSrv` restart before cleanup can complete or a new install can begin.
 - APO and virtual-driver ownership checkpoints now use same-directory atomic JSON replacement; interrupted/ambiguous package deletions conservatively create reboot recovery state and require post-restart absence proof instead of silently discarding ownership.
 - Retail virtual-driver staging retains the validated `release-evidence.json`, records its SHA-256 plus signing path in `verification.json`, and revalidates that evidence at install time.
-- Signed virtual-driver restaging preserves lifecycle state in place, rejects unexpected destination entries before cleanup, and Windows packaging confines destructive output cleanup to the repository `dist/` tree.
+- Signed virtual-driver restaging preserves lifecycle state in place, rejects unexpected destination entries before cleanup, and signed staging/package cleanup is confined to architecture-specific strict descendants of `dist/windows-x64/` or `dist/windows-arm64/` with junction/symlink ancestor rejection.
+- Production APO/virtual package provenance now carries exact Microsoft signer subjects plus certificate thumbprints into staged manifests and revalidates them before privileged mutation; endpoint discovery rejects incomplete APO signer provenance.
+- Production APO elevation now hashes the exact endpoint descriptor across UAC, anchors the installer script to bytes embedded in Tauri, embeds build-time SHA-256 identities for privileged discovery/control helpers, rechecks those hashes after elevation, and pins Windows PowerShell to its absolute System32 path.
 
 ## Deliberately not claimed complete
 
