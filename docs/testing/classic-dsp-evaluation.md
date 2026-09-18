@@ -91,6 +91,18 @@ The raw renderer removes the processor's fixed startup latency and flushes its t
 
 Record SHA-256 values for the rendered profile outputs in the same evaluation evidence as the input fixture hash.
 
+
+For a licensed local fixture, the repository helper performs the preparation, both profile renders, latency-compensated byte-count check, finite-sample check, SHA-256 recording, WAV conversion, and basic peak/RMS/mid-side/correlation measurements in one command:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/evaluation/render-classic-dsp-fixture.ps1 `
+  -Input .\.local-evaluation\classic-dsp\sources\<source-audio> `
+  -FixtureId <fixture-id> `
+  -SampleRate 44100
+```
+
+Use `-SampleRate 48000` for an independent native 48 kHz fixture. The helper writes only under the ignored `.local-evaluation/classic-dsp/{fixtures,renders,measurements}/` workspace. Its JSON evidence deliberately records `subjectiveReview.status = "pending"`; objective rendering/hashes do not constitute listening acceptance, Windows runtime validation, or release qualification.
+
 ## Listening protocol
 
 Level-match before judging quality. Do not treat a quieter result as automatically better vocal reduction.
