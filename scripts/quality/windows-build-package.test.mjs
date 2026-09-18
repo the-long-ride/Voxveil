@@ -73,7 +73,7 @@ test('Windows package output rejects junction or symlink ancestors before cleanu
   assert.match(buildScript, /function\s+Assert-NoReparsePointInPath/i);
   assert.match(buildScript, /Get-Item\s+-LiteralPath\s+\$current\s+-Force/i);
   assert.match(buildScript, /FileAttributes\]::ReparsePoint/i);
-  const reparseCheck = buildScript.indexOf('Assert-NoReparsePointInPath');
+  const reparseCheck = buildScript.indexOf('Assert-NoReparsePointInPath -Path $output -Boundary $repoPath');
   const removeOutput = buildScript.indexOf('Remove-Item $output -Recurse -Force -ErrorAction SilentlyContinue');
   assert.ok(reparseCheck >= 0 && removeOutput > reparseCheck, 'reparse-point preflight must precede recursive output cleanup');
 });
