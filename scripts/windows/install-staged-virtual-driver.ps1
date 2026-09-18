@@ -221,7 +221,14 @@ if (Test-Path $statePath -PathType Leaf) {
     Assert-CompletedUninstallAbsent $previousState
   } else {
     $publishedInfProperty = $previousState.PSObject.Properties['publishedInf']
-    if (-not $publishedInfProperty -or [string]$publishedInfProperty.Value -notmatch '^oem\d+\.inf    foreach ($recordedHash in @($previousInfSha256, $previousCatalogSha256, $previousDriverSha256)) {
+    if (-not $publishedInfProperty -or [string]$publishedInfProperty.Value -notmatch '^oem\d+\.inf$') {
+      throw 'Existing virtual-driver install state does not contain a complete signed-package identity, including its publishedInf ownership. Uninstall the recorded Voxveil Virtual Audio package before installing again.'
+    }
+    $recordedPublishedInf = [string]$publishedInfProperty.Value
+    $previousInfSha256 = [string]$previousState.infSha256
+    $previousCatalogSha256 = [string]$previousState.catalogSha256
+    $previousDriverSha256 = [string]$previousState.driverSha256
+    foreach ($recordedHash in @($previousInfSha256, $previousCatalogSha256, $previousDriverSha256)) {
       if ($recordedHash -notmatch '^[0-9A-Fa-f]{64}$') {
         throw 'Existing virtual-driver install state does not contain a complete signed-package identity. Uninstall the recorded Voxveil Virtual Audio package before installing again.'
       }
