@@ -145,3 +145,19 @@ test('production APO installer revalidates staged Microsoft signer identities be
   assert.match(block, /extensionCatalogSigner/i);
   assert.match(block, /signer does not match apo-verification\.json/i);
 });
+
+
+test('signed APO provenance carries exact signer certificate thumbprints through install preflight', () => {
+  const verifier = read('scripts/windows/verify-signed-apo-package.ps1');
+  const stager = read('scripts/windows/stage-signed-apo-package.ps1');
+  const installer = read('scripts/windows/install-system-audio-component.ps1');
+
+  for (const field of ['apoThumbprint', 'apoCatalogThumbprint', 'extensionCatalogThumbprint']) {
+    assert.match(verifier, new RegExp(field, 'i'));
+    assert.match(stager, new RegExp(field, 'i'));
+    assert.match(installer, new RegExp(field, 'i'));
+  }
+  assert.match(verifier, /SignerCertificate\.Thumbprint/i);
+  assert.match(installer, /SignerCertificate\.Thumbprint/i);
+  assert.match(installer, /signer thumbprint does not match apo-verification\.json/i);
+});
