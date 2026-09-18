@@ -95,6 +95,11 @@ $pdb = @($files | Where-Object Extension -ieq '.pdb')
 if ($inf.Count -ne 1) { throw "Package must contain exactly one INF; found $($inf.Count)." }
 if ($cat.Count -ne 1) { throw "Package must contain exactly one catalog; found $($cat.Count)." }
 if ($sys.Count -ne 1) { throw "Package must contain exactly one SYS; found $($sys.Count)." }
+if ($inf[0].Name -ine 'VoxveilVirtualAudio.inf' -or
+    $cat[0].Name -ine 'VoxveilVirtualAudio.cat' -or
+    $sys[0].Name -ine 'VoxveilVirtualAudio.sys') {
+  throw "Virtual driver package must use the canonical package filenames VoxveilVirtualAudio.inf, VoxveilVirtualAudio.cat, and VoxveilVirtualAudio.sys."
+}
 if ($SubmissionPackage -and $pdb.Count -ne 1) {
   throw "Attestation submission package must contain exactly one matching PDB; found $($pdb.Count)."
 }
