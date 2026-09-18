@@ -19,6 +19,7 @@
 - Manual ten-variant build matrix, tagged release workflow, SHA-256 artifact metadata, and release SBOM generation.
 - Windows Tier 1 relay, Tier 2 signed virtual-driver staging/lifecycle, and Tier 3 signed APO/CAPX source paths with scoped package ownership, reboot tombstones, post-operation Driver Store verification, and untracked-package rejection.
 - APO management is fail-closed to one endpoint-scoped install state at a time until native telemetry can prove loaded instances per endpoint; UI installation remains explicit per endpoint rather than bulk.
+- APO lifecycle state now rejects malformed package/binding identities, migrates missing reboot markers fail-closed, scopes TestSign certificate ownership across retries/uninstall, and resumes a failed final `AudioSrv` restart before cleanup can complete or a new install can begin.
 
 ## Deliberately not claimed complete
 
