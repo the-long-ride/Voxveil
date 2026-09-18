@@ -14,6 +14,7 @@ if (-not (Test-Path $trustedModulePath -PathType Container)) {
   throw "Trusted Windows PowerShell module directory was not found: $trustedModulePath"
 }
 $env:PSModulePath = $trustedModulePath
+$trustedWindowsDirectory = Split-Path -Parent $trustedSystemDirectoryForModules
 Set-StrictMode -Version Latest
 $TopologyGuid = '{DDA54A40-1E4C-11D1-A050-405705C10000}'
 $AudioGuid = '{6994AD04-93EF-11D0-A3CC-00A0C9223196}'
@@ -234,7 +235,7 @@ foreach ($endpoint in $coreEndpoints) {
     continue
   }
 
-  $infPath = Join-Path $env:windir ('INF\' + $metadata.DriverInf)
+  $infPath = Join-Path $trustedWindowsDirectory ('INF\' + $metadata.DriverInf)
   $topology = @(Get-TopologyReferences $infPath $metadata.HardwareIds $runtimeAliasMatch)
   if ($topology.Count -gt 1) {
     $detail = 'Multiple same-device interface reference strings matched; Voxveil will not guess.'
