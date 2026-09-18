@@ -185,6 +185,10 @@ Write-Host 'Recorded Voxveil componentized APO packages removed.'
     throw "Malformed APO/Extension package identity in install-state.json: $($invalidRecordedInfNames -join ', '). State was kept for recovery."
   }
   $infNames = @($recordedInfNames)
+  $bindingMode = [string]$state.bindingMode
+  if ($bindingMode -notin @('capx-extension', 'legacy-runtime-interface', 'legacy-reference')) {
+    throw "install-state.json has unknown bindingMode '$bindingMode'; state was kept for recovery."
+  }
   $pendingProperty = $state.PSObject.Properties['pendingReboot']
   $bootMarkerProperty = $state.PSObject.Properties['pendingRebootBootMarker']
   $pendingRemovedProperty = $state.PSObject.Properties['pendingRemovedInfName']
