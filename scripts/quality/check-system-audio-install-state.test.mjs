@@ -530,3 +530,27 @@ test('UAC launcher anchors privileged installer script to bytes embedded in the 
     /Start-Process[\s\S]{0,500}'-File',\$scriptArg/i,
   );
 });
+
+
+test('production UAC path binds discovery and control helpers to build-time SHA-256 values', () => {
+  for (const name of [
+    'VOXVEIL_DISCOVERY_SHA256',
+    'VOXVEIL_CONTROL_SHA256',
+    'VOXVEIL_CONTROL_DLL_SHA256',
+  ]) {
+    assert.match(systemAudioLauncher, new RegExp(name));
+  }
+  assert.match(systemAudioLauncher, /option_env!/);
+  assert.match(systemAudioLauncher, /verify_trusted_packaged_file/i);
+  assert.match(systemAudioLauncher, /DiscoveryHelperSha256/i);
+  assert.match(systemAudioLauncher, /ControlHelperSha256/i);
+  assert.match(systemAudioLauncher, /ControlDllSha256/i);
+
+  assert.match(installer, /DiscoveryHelperSha256/i);
+  assert.match(installer, /ControlHelperSha256/i);
+  assert.match(installer, /ControlDllSha256/i);
+  assert.match(installer, /Assert-TrustedPackagedFile/i);
+  assert.match(installer, /discover-system-audio-endpoints\.ps1/i);
+  assert.match(installer, /voxveil-control\.exe/i);
+  assert.match(installer, /VoxveilControl\.dll/i);
+});
