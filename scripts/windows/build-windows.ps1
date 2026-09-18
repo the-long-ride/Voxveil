@@ -106,8 +106,8 @@ function Assert-SafeOutputDirectory(
   if ($outputFull -ieq $volumeRoot -or (Test-DirectoryContains $outputFull $repoFull)) {
     throw 'Windows package output must not be a filesystem root, the repository root, or an ancestor of the repository.'
   }
-  if ((Test-DirectoryContains $repoFull $outputFull) -and -not (Test-DirectoryContains $distFull $outputFull)) {
-    throw 'Windows package output directory inside the repository must be under dist.'
+  if (-not (Test-DirectoryContains $distFull $outputFull)) {
+    throw 'Windows package output directory must be under the repository dist tree.'
   }
 
   foreach ($signedInput in $SignedInputDirectories) {
