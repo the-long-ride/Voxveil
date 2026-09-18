@@ -641,3 +641,17 @@ test('production UAC path binds staged APO files to build-time package hashes', 
   }
   assert.match(installer, /production APO manifest does not match the package embedded at build time/i);
 });
+
+
+test('elevated APO installer pins privileged Windows executables to the OS system directory', () => {
+  const admin = installer.indexOf('Assert-Administrator');
+  const firstPnp = installer.indexOf("pnputil.exe /add-driver (Join-Path $work 'VoxveilApo.inf') /install");
+  assert.ok(admin >= 0 && firstPnp > admin);
+  const preflight = installer.slice(admin, firstPnp);
+  assert.match(preflight, /\[Environment\]::SystemDirectory/i);
+  for (const name of ['pnputil.exe', 'certutil.exe', 'bcdedit.exe']) {
+    assert.match(preflight, new RegExp(name.replace('.', '\\.')));
+  }
+  assert.match(preflight, /Set-Alias\s+-Name\s+\$commandName\s+-Value\s+\$commandPath\s+-Scope\s+Script/i);
+  assert.match(preflight, /-Option\s+ReadOnly/i);
+});
