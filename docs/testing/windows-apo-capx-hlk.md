@@ -81,7 +81,8 @@ The componentized APO installer and Tier 2 virtual driver can coexist. Their pac
 | Check | Expected |
 | --- | --- |
 | Production APO package staged through verifier | `apo-verification.json` exists and hashes match the five signed APO/Extension artifacts immediately before installation |
-| Legacy runtime-interface development install | uninstall calls `detach-effects` on the exact stored topology/audio interface paths before deleting APO packages |
+| Legacy runtime-interface development install | persist whether `attach-effects` actually succeeded; uninstall calls `detach-effects` only for recorded attachment ownership, checkpoints `legacyRuntimeAttached=false`, then deletes APO packages |
+| TestSign failure before runtime attachment | uninstall skips `detach-effects` and continues scoped package/certificate cleanup instead of treating binding mode alone as proof of attachment |
 | APO install while `VoxveilVirtualAudio` is already installed | `install-state.json.installedInfNames` contains only the APO/Extension packages added or previously owned by the APO installer |
 | Different endpoint requested while endpoint-scoped APO install state exists | reject before any PnP mutation, even when the previous endpoint state is partial/non-ready; uninstall the managed APO state/packages first |
 | Multiple installable playback endpoints are present | expose explicit per-endpoint install actions only; do not bulk-install because `loaded>=1` is process-wide and cannot prove which newly targeted endpoint loaded |
