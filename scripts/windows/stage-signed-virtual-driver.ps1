@@ -160,6 +160,7 @@ if ($evidencePath) {
   catalogSha256 = $verification.catalogSha256
   driverSha256 = $verification.driverSha256
   catalogSigner = $verification.catalogSigner
+  catalogThumbprint = $verification.catalogThumbprint
 } | ConvertTo-Json -Depth 3 | Set-Content (Join-Path $destination 'verification.json') -Encoding utf8
 
 Write-Host "Staged verified $ReleaseChannel virtual driver package: $destination"
