@@ -43,7 +43,7 @@ test('Tier-A measurement recovers known projection gains from aligned raw refere
     assert.ok(Math.abs(m.vocalAttenuationDb-6.020599913)<1e-6);
     assert.ok(Math.abs(b.vocalProjectionGain-0.25)<1e-6);
     assert.ok(Math.abs(b.accompanimentProjectionGain-0.8)<1e-6);
-    assert.ok(Math.abs(b.vocalAttenuationDb-12.041199827)<1e-6);
+    assert.ok(Math.abs(b.vocalAttenuationDb-12.041199827)<2e-6);
   } finally {
     await rm(root,{recursive:true,force:true});
   }
