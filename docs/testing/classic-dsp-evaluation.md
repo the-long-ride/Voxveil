@@ -120,6 +120,21 @@ For each profile record:
 
 Use blind or randomized A/B order when practical. Controlled fixtures may be included in listening, but release-quality judgments about production artifacts must also include approved Tier B natural mixes.
 
+After listening, record the review through the scoped evidence updater instead of hand-editing the JSON:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/evaluation/record-classic-dsp-listening.ps1 `
+  -Evidence .\.local-evaluation\classic-dsp\measurements\<fixture>-44100-render-evidence.json `
+  -Decision accepted `
+  -MusicPreservation '<level-matched listening notes>' `
+  -Balanced '<level-matched listening notes>' `
+  -ReviewMethod 'randomized A/B on the same output chain' `
+  -Notes '<optional cross-profile notes>'
+```
+
+The recorder only edits JSON under the ignored `measurements/` directory, requires notes for both profiles plus an explicit `accepted` or `rejected` decision, timestamps the review, and refuses to overwrite a completed review unless `-Force` is supplied. The decision applies only to that fixture/listening record; it is not a repository-wide release verdict.
+
+
 ## Measurement protocol
 
 Use Tier A controlled fixtures for quantitative comparisons where the source components and mix recipe are known. Measure at minimum:
@@ -160,10 +175,25 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/evaluation/colle
   -Vocal 0 `
   -SourceEndpoint '<source endpoint>' `
   -PhysicalOutput '<physical output>' `
+  -WorkloadState processing `
   -CpuSampleSeconds 10
 ```
 
-The collector writes only under the ignored `.local-evaluation/classic-dsp/measurements/` workspace. It records Windows build/architecture, CPU model and logical-core count, Secure Boot query state, the current BCD `testsigning` value when present, route/profile metadata, and an optional normalized process-CPU sample. It intentionally leaves dropout count and end-to-end latency as `null` with `status: "pending"`; those require an actual observed run and an explicit latency measurement method. Run it separately for each required sample-rate/profile route.
+The collector writes only under the ignored `.local-evaluation/classic-dsp/measurements/` workspace. It records Windows build/architecture, CPU model and logical-core count, Secure Boot query state, the current BCD `testsigning` value when present, route/profile metadata, the declared `idle`/`processing` workload state, and an optional normalized process-CPU sample. Capture separate CPU samples for idle and processing when both are part of the acceptance record. It intentionally leaves dropout count and end-to-end latency as `null` with `status: "pending"`; those require an actual observed run and an explicit latency measurement method. Run it separately for each required sample-rate/profile route.
+
+After the observed run and latency measurement are complete, finalize the same runtime-evidence JSON with the repository-owned recorder:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/evaluation/record-windows-runtime-measurement.ps1 `
+  -Evidence .\.local-evaluation\classic-dsp\measurements\windows-runtime-44100-music-preservation-<timestamp>.json `
+  -DropoutCount 0 `
+  -EndToEndLatencyMs <measured-ms> `
+  -LatencyMethod '<measurement method>' `
+  -Notes '<optional run notes>'
+```
+
+This updater requires an observed non-negative dropout count, measured latency, and a non-empty method; it timestamps completion and refuses to overwrite a completed measurement unless `-Force` is supplied. Do not use `0` as a placeholder for an unmeasured value.
+
 
 ## Result template
 

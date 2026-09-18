@@ -15,6 +15,9 @@ param(
   [string]$PhysicalOutput = '',
   [string]$ProcessName = 'Voxveil',
 
+  [ValidateSet('idle', 'processing', 'unspecified')]
+  [string]$WorkloadState = 'unspecified',
+
   [ValidateRange(0, 60)]
   [int]$CpuSampleSeconds = 0
 )
@@ -84,6 +87,7 @@ $cpuSample = [ordered]@{
   status = 'not-requested'
   processName = $ProcessName
   sampleSeconds = $CpuSampleSeconds
+  workloadState = $WorkloadState
   startProcessCount = 0
   matchedProcessCount = 0
   normalizedPercent = $null
@@ -190,5 +194,5 @@ Write-Host "Windows build: $($os.BuildNumber)"
 Write-Host "Logical processors: $logicalProcessors"
 Write-Host "Secure Boot status: $($secureBoot.status)"
 Write-Host "TESTSIGNING parsed value: $testSigningEnabled"
-Write-Host "CPU sample status: $($cpuSample.status)"
+Write-Host "CPU sample status: $($cpuSample.status) ($WorkloadState)"
 Write-Host "Evidence: $evidencePath"
