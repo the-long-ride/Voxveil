@@ -8,6 +8,18 @@ param(
   [ValidatePattern('^[0-9A-Fa-f]{64}$')]
   [string]$EndpointDescriptorSha256,
 
+  [Parameter(ParameterSetName = 'Descriptor', Mandatory = $true)]
+  [ValidatePattern('^[0-9A-Fa-f]{64}$')]
+  [string]$DiscoveryHelperSha256,
+
+  [Parameter(ParameterSetName = 'Descriptor', Mandatory = $true)]
+  [ValidatePattern('^[0-9A-Fa-f]{64}$')]
+  [string]$ControlHelperSha256,
+
+  [Parameter(ParameterSetName = 'Descriptor', Mandatory = $true)]
+  [ValidatePattern('^[0-9A-Fa-f]{64}$')]
+  [string]$ControlDllSha256,
+
   [Parameter(ParameterSetName = 'Manual', Mandatory = $true)]
   [ValidateNotNullOrEmpty()]
   [string]$HardwareId,
@@ -120,6 +132,23 @@ function Get-VoxveilPublishedInfNames {
     Sort-Object -Unique)
 }
 
+function Assert-TrustedPackagedFile(
+  [string]$Path,
+  [string]$ExpectedSha256,
+  [string]$Description
+) {
+  if (-not (Test-Path $Path -PathType Leaf)) {
+    throw "Trusted packaged helper is missing: $Description ($Path)"
+  }
+  if ($ExpectedSha256 -notmatch '^[0-9A-Fa-f]{64}$') {
+    throw "Trusted packaged helper SHA-256 is invalid: $Description."
+  }
+  $actual = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+  if ($actual -ne $ExpectedSha256.ToLowerInvariant()) {
+    throw "Trusted packaged helper failed integrity verification: $Description."
+  }
+}
+
 function Assert-StagedFileHash([string]$Path, [string]$ExpectedSha256, [string]$Description) {
   if (-not (Test-Path $Path -PathType Leaf)) {
     throw "Verified production APO artifact is missing: $Description ($Path)"
@@ -209,6 +238,7 @@ function Assert-StagedProductionApo([string]$Root) {
 function Resolve-EndpointDescriptor(
   [string]$DescriptorPath,
   [string]$ExpectedSha256,
+  [string]$ExpectedDiscoverySha256,
   [string]$Root
 ) {
   if (-not (Test-Path $DescriptorPath -PathType Leaf)) {
@@ -245,9 +275,7 @@ function Resolve-EndpointDescriptor(
   }
 
   $helper = Join-Path $Root 'discover-system-audio-endpoints.ps1'
-  if (-not (Test-Path $helper -PathType Leaf)) {
-    throw "Required endpoint discovery helper not found: $helper"
-  }
+  Assert-TrustedPackagedFile $helper $ExpectedDiscoverySha256 'discover-system-audio-endpoints.ps1'
   $request = ConvertTo-Json -InputObject @([pscustomobject]@{
     endpointId = [string]$descriptor.endpointId
     displayName = ''
@@ -386,7 +414,11 @@ $topologyInterfacePath = $null
 $audioInterfacePath = $null
 $runtimeBound = $false
 if ($PSCmdlet.ParameterSetName -eq 'Descriptor') {
-  $binding = Resolve-EndpointDescriptor $EndpointDescriptor $EndpointDescriptorSha256 $root
+  $binding = Resolve-EndpointDescriptor `
+    $EndpointDescriptor `
+    $EndpointDescriptorSha256 `
+    $DiscoveryHelperSha256 `
+    $root
   $selectedEndpointId = $binding.EndpointId
   if ($previousManagedEndpointId -and $selectedEndpointId -ine $previousManagedEndpointId) {
     throw "Uninstall the currently managed Voxveil APO endpoint '$previousManagedEndpointId' before installing a different playback endpoint '$selectedEndpointId'. Endpoint ownership/readiness is tracked for one managed APO endpoint at a time."
@@ -404,6 +436,11 @@ $apoDll = Join-Path $root 'VoxveilApo.dll'
 $template = Join-Path $root 'VoxveilApoExtension.inf.template'
 $generator = Join-Path $root 'new-apo-extension-inf.ps1'
 $control = Join-Path $root 'voxveil-control.exe'
+$controlDll = Join-Path $root 'VoxveilControl.dll'
+if (-not $TestSign) {
+  Assert-TrustedPackagedFile $control $ControlHelperSha256 'voxveil-control.exe'
+  Assert-TrustedPackagedFile $controlDll $ControlDllSha256 'VoxveilControl.dll'
+}
 $useLegacyRuntimeAttachment = $TestSign -and $runtimeBound
 $bindingMode = if (-not $TestSign) {
   'capx-extension'
