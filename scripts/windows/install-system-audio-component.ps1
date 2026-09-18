@@ -211,6 +211,7 @@ if (Test-Path $statePath -PathType Leaf) {
   $previousPendingReboot = Get-OptionalProperty $previousState 'pendingReboot'
   $previousBootMarker = [string](Get-OptionalProperty $previousState 'pendingRebootBootMarker')
   $previousPendingRemovedInfName = [string](Get-OptionalProperty $previousState 'pendingRemovedInfName')
+  $previousAudioServiceRestartRequired = Get-OptionalProperty $previousState 'audioServiceRestartRequired'
   $previousBindingMode = [string](Get-OptionalProperty $previousState 'bindingMode')
   if ($previousBindingMode -notin @('capx-extension', 'legacy-runtime-interface', 'legacy-reference')) {
     throw "install-state.json has unknown bindingMode '$previousBindingMode'; state was kept for recovery."
@@ -220,6 +221,9 @@ if (Test-Path $statePath -PathType Leaf) {
     throw 'install-state.json contains an invalid developmentCertificateThumbprint; state was kept for recovery.'
   }
   $developmentCertificateThumbprint = $previousDevelopmentCertificateThumbprint
+  if ($previousAudioServiceRestartRequired -eq $true) {
+    throw 'Complete the prior Voxveil APO cleanup before installing again; AudioSrv restart is still required.'
+  }
   $previousEndpointId = [string](Get-OptionalProperty $previousState 'endpointId')
   if ($previousEndpointId -and $previousBindingMode -ne 'legacy-reference') {
     $previousManagedEndpointId = $previousEndpointId
@@ -300,6 +304,7 @@ function Write-InstallStateSnapshot(
     bindingReady = $BindingReady
     pendingReboot = $PendingReboot
     pendingRebootBootMarker = $pendingRebootBootMarker
+    audioServiceRestartRequired = $false
     developmentCertificateThumbprint = $developmentCertificateThumbprint
     bindingPnpInstanceId = $bindingPnpInstanceId
     topologyInterfacePath = $topologyInterfacePath
