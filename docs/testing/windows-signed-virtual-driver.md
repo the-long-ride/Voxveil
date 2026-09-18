@@ -57,7 +57,7 @@ $env:VOXVEIL_SIGNED_DRIVER_RELEASE_CHANNEL = 'Retail'
 npm run build:windows
 ```
 
-Verify `dist/windows-x64/Voxveil/system-audio/virtual-driver/` contains only the staged INF/CAT/SYS plus `verification.json`, and that the package also contains:
+Verify `dist/windows-x64/Voxveil/system-audio/virtual-driver/` contains the staged INF/CAT/SYS plus `verification.json`; Retail staging must also retain the validated `release-evidence.json` whose SHA-256 is recorded in `verification.json`. Then verify the package also contains:
 
 ```text
 system-audio/voxveil-virtual-device.exe
