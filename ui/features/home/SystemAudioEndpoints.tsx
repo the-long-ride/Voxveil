@@ -18,7 +18,6 @@ export interface SystemAudioEndpointsProps {
   error: string | null;
   onRefresh: () => void;
   onInstall: (endpointId: string) => void;
-  onInstallAll: () => void;
   onSelectPhysicalOutput: (endpointId: string) => void;
   onOpenSoundSettings: () => void;
   onGetVbCable: () => void;
@@ -58,13 +57,11 @@ export function SystemAudioEndpoints({
   error,
   onRefresh,
   onInstall,
-  onInstallAll,
   onSelectPhysicalOutput,
   onOpenSoundSettings,
   onGetVbCable,
 }: SystemAudioEndpointsProps) {
   const { t } = useTranslation();
-  const installableCount = endpoints.filter((endpoint) => endpoint.status === 'installable').length;
   const label = backendLabel(backendKind);
   const missingVbCable = backendStatus === 'component-required' && backendKind !== 'apo';
   const usingRelay = backendKind === 'vb-cable-relay' || backendKind === 'voxveil-cable-relay';
@@ -77,11 +74,6 @@ export function SystemAudioEndpoints({
           <span>{t('systemAudio.description')}</span>
         </div>
         <div className="system-audio-actions">
-          {installableCount >= 2 && (
-            <button className="action-button is-subtle" type="button" disabled={Boolean(installBusyId)} onClick={onInstallAll}>
-              {t('systemAudio.installAll')}
-            </button>
-          )}
           <button className="action-button is-subtle" type="button" disabled={busy || Boolean(installBusyId)} onClick={onRefresh}>
             {t(busy ? 'systemAudio.refreshing' : 'systemAudio.refresh')}
           </button>
