@@ -555,15 +555,19 @@ test('production UAC path binds discovery and control helpers to build-time SHA-
 });
 
 
-test('production elevation uses the absolute Windows PowerShell executable', () => {
-  assert.match(systemAudioLauncher, /SystemRoot/i);
+test('production elevation resolves Windows PowerShell from the OS system directory', () => {
+  assert.match(systemAudioLauncher, /GetSystemDirectoryW/i);
+  assert.match(systemAudioLauncher, /windows_sys::Win32::System::SystemInformation/i);
   assert.match(systemAudioLauncher, /WindowsPowerShell[\\/]v1\.0[\\/]powershell\.exe/i);
+  assert.doesNotMatch(systemAudioLauncher, /SystemRoot/i);
   assert.doesNotMatch(systemAudioLauncher, /Command::new\("powershell\.exe"\)/i);
   assert.doesNotMatch(systemAudioLauncher, /Start-Process\s+-FilePath\s+'powershell\.exe'/i);
 
   const resolverStart = installer.indexOf('function Resolve-EndpointDescriptor');
   const resolverEnd = installer.indexOf('\nAssert-Administrator\n', resolverStart);
   const resolver = installer.slice(resolverStart, resolverEnd);
+  assert.match(resolver, /\[Environment\]::SystemDirectory/i);
   assert.match(resolver, /WindowsPowerShell\\v1\.0\\powershell\.exe/i);
+  assert.doesNotMatch(resolver, /\$env:(?:SystemRoot|windir)/i);
   assert.doesNotMatch(resolver, /&\s+powershell\.exe/i);
 });
