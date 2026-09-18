@@ -397,3 +397,32 @@ test('APO installer refuses persisted binding-mode transitions before package mu
   assert.match(preflight, /\$bindingMode\s*-ine\s*\$previousBindingMode/i);
   assert.match(preflight, /Uninstall the currently managed Voxveil APO state before changing binding mode/i);
 });
+
+
+test('legacy runtime FX attachment is checkpointed separately from binding mode', () => {
+  assert.match(installer, /legacyRuntimeAttached/i);
+  assert.match(installer, /legacyRuntimeAttached\s*=\s*\$legacyRuntimeAttached/i);
+
+  const attach = installer.indexOf('& $control attach-effects');
+  const markAttached = installer.indexOf('$legacyRuntimeAttached = $true', attach);
+  const attachedSnapshot = installer.indexOf('Write-InstallStateSnapshot', markAttached);
+  assert.ok(attach >= 0, 'legacy attach mutation must exist');
+  assert.ok(markAttached > attach, 'legacy attachment ownership must be marked only after attach succeeds');
+  assert.ok(attachedSnapshot > markAttached, 'successful legacy attachment must be checkpointed immediately');
+
+  const detach = uninstaller.indexOf('& $control detach-effects');
+  const clearAttached = uninstaller.indexOf('$state.legacyRuntimeAttached = $false', detach);
+  const detachSnapshot = uninstaller.indexOf('Set-Content $statePath -Encoding utf8', clearAttached);
+  const firstDelete = uninstaller.indexOf('pnputil.exe /delete-driver $inf /uninstall /force');
+  assert.match(uninstaller, /legacyRuntimeAttached/i);
+  assert.ok(detach >= 0 && clearAttached > detach, 'legacy detach success must clear attachment ownership');
+  assert.ok(detachSnapshot > clearAttached && firstDelete > detachSnapshot, 'cleared attachment state must persist before package deletion');
+});
+
+test('legacy runtime uninstall skips detach when install never reached attachment', () => {
+  const detachCondition = uninstaller.slice(
+    uninstaller.indexOf('if ($state -and'),
+    uninstaller.indexOf('& $control detach-effects'),
+  );
+  assert.match(detachCondition, /legacyRuntimeAttached/i);
+});
