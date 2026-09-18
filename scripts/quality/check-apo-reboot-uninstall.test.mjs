@@ -14,8 +14,10 @@ test('APO uninstall checkpoints successful 3010 deletion before requiring reboot
   const removeCurrent = tail.search(/\$infNames\s*=\s*@\(\$infNames\s*\|\s*Where-Object\s*\{\s*\$_\s*-ine\s*\$inf\s*\}\)/i);
   const checkpoint = tail.search(/\$state\.installedInfNames\s*=\s*@\(\$infNames\)/i);
   const pendingRemoved = tail.search(/\$state\.pendingRemovedInfName\s*=\s*\$inf/i);
-  const stateWrite = tail.search(/Set-Content\s+\$statePath\s+-Encoding\s+utf8/i);
-  const rebootCheck = tail.search(/if\s*\(\s*\$pnputilExitCode\s*-eq\s*3010\s*\)/i);
+  const stateWriteRelative = tail.slice(pendingRemoved).search(/Set-Content\s+\$statePath\s+-Encoding\s+utf8/i);
+  const stateWrite = stateWriteRelative >= 0 ? pendingRemoved + stateWriteRelative : -1;
+  const rebootCheckRelative = tail.slice(stateWrite).search(/if\s*\(\s*\$pnputilExitCode\s*-eq\s*3010\s*\)/i);
+  const rebootCheck = rebootCheckRelative >= 0 ? stateWrite + rebootCheckRelative : -1;
   const rebootExit = tail.search(/exit\s+3010/i);
 
   assert.ok(captureExit >= 0, 'PnPUtil delete exit code must be captured');
