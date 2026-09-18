@@ -46,5 +46,9 @@ test('virtual driver existing ownership state validates its published INF identi
   const preflight = installer.slice(stateLoad, inventory);
   assert.match(preflight, /publishedInf/i);
   assert.match(preflight, /\^oem\\d\+\\\.inf\$/i);
+  assert.match(preflight, /\$recordedPublishedInf\s*=\s*\[string\]\$publishedInfProperty\.Value/i);
+  assert.match(preflight, /\$previousInfSha256\s*=\s*\[string\]\$previousState\.infSha256/i);
+  assert.match(preflight, /\$previousCatalogSha256\s*=\s*\[string\]\$previousState\.catalogSha256/i);
+  assert.match(preflight, /\$previousDriverSha256\s*=\s*\[string\]\$previousState\.driverSha256/i);
   assert.match(preflight, /complete signed-package identity/i);
 });
