@@ -105,8 +105,8 @@ PnPUtil exit code `3010` is successful completion requiring a Windows restart, n
 
 - during base APO or Extension installation, ownership is snapshotted with `bindingReady=false` before `3010` is propagated; AudioDG restart/load validation is not run and the UI reports `reboot-required`;
 - restart Windows and rerun the endpoint installation. Only a later successful `loaded>=1` verification may write `bindingReady=true`;
-- during uninstall, a package that returns `3010` is removed from `installedInfNames`, the remaining `installedInfNames` are persisted to `install-state.json`, and the script exits before attempting additional package deletions;
-- after restart, rerun uninstall so any remaining recorded package can be revalidated and deleted. Do not delete or broaden the state manually.
+- during uninstall, a package that returns `3010` is removed from `installedInfNames`, the remaining `installedInfNames` are persisted to `install-state.json`, and the just-removed published INF is retained separately as `pendingRemovedInfName` before the script exits without attempting additional package deletions;
+- after restart, rerun uninstall. The script must perform scoped post-reboot absence validation for `pendingRemovedInfName` in Driver Store before clearing that identity, then it may revalidate and delete any remaining recorded package. Do not delete or broaden the state manually.
 
 Any other nonzero PnPUtil result remains a hard failure and preserves the recorded package ownership for recovery.
 
