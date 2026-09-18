@@ -1,5 +1,7 @@
 [CmdletBinding()]
-param()
+param(
+  [string]$InputJson
+)
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
@@ -159,12 +161,16 @@ function Get-OptionalProperty($Object, [string]$Name) {
   return $null
 }
 
-$inputJson = [Console]::In.ReadToEnd()
+$inputJson = if ($PSBoundParameters.ContainsKey('InputJson')) {
+  $InputJson
+} else {
+  [Console]::In.ReadToEnd()
+}
 $trimmedInput = $inputJson.Trim()
 if (-not $trimmedInput) { throw 'Expected Core Audio endpoint JSON on stdin.' }
 if ($trimmedInput -match '^\[\s*\]$') {
   Write-Output '[]'
-  exit 0
+  return
 }
 $parsedEndpoints = ConvertFrom-Json $inputJson
 $coreEndpoints = [Collections.Generic.List[object]]::new()
