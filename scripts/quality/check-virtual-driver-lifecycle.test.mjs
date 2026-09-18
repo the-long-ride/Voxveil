@@ -256,3 +256,15 @@ test('virtual-driver lifecycle pins PnPUtil to the OS system directory', () => {
     );
   }
 });
+
+
+test('virtual-driver lifecycle pins PowerShell module discovery to the OS module directory', () => {
+  for (const [label, text] of [
+    ['installer', installer()],
+    ['uninstaller', uninstaller()],
+  ]) {
+    assert.match(text, /\[Environment\]::SystemDirectory/i, `${label} must resolve the OS system directory`);
+    assert.match(text, /WindowsPowerShell\\v1\.0\\Modules/i);
+    assert.match(text, /\$env:PSModulePath\s*=\s*\$trustedModulePath/i);
+  }
+});
