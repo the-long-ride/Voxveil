@@ -208,7 +208,11 @@ test('APO uninstaller refreshes Driver Store ownership before propagating hard d
   const hardBlock = tail.slice(hardFailure, staleSuccessGuard);
   assert.match(hardBlock, /if\s*\(\s*-not\s+\$packageStillPresent\s*\)/i);
   assert.match(hardBlock, /\$state\.installedInfNames\s*=\s*@\(\$infNames\)/i);
+  assert.match(hardBlock, /\$state\.pendingRemovedInfName\s*=\s*\$inf/i);
+  assert.match(hardBlock, /\$state\.pendingReboot\s*=\s*\$true/i);
+  assert.match(hardBlock, /\$state\.pendingRebootBootMarker\s*=\s*\$currentBootMarker/i);
   assert.match(hardBlock, /Write-JsonStateAtomically\s+-State\s+\$state\s+-Path\s+\$statePath/i);
+  assert.match(hardBlock, /exit\s+3010/i);
 });
 
 test('APO uninstaller fails closed when PnPUtil reports success but the recorded package remains', () => {
