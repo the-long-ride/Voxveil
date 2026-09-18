@@ -208,7 +208,7 @@ test('APO uninstaller refreshes Driver Store ownership before propagating hard d
   const hardBlock = tail.slice(hardFailure, staleSuccessGuard);
   assert.match(hardBlock, /if\s*\(\s*-not\s+\$packageStillPresent\s*\)/i);
   assert.match(hardBlock, /\$state\.installedInfNames\s*=\s*@\(\$infNames\)/i);
-  assert.match(hardBlock, /Set-Content\s+\$statePath\s+-Encoding\s+utf8/i);
+  assert.match(hardBlock, /Write-JsonStateAtomically\s+-State\s+\$state\s+-Path\s+\$statePath/i);
 });
 
 test('APO uninstaller fails closed when PnPUtil reports success but the recorded package remains', () => {
@@ -370,11 +370,11 @@ test('APO uninstall retries a required AudioSrv restart after packages are alrea
 
   const deleteTail = uninstaller.slice(packageDelete, finalRestart);
   assert.match(deleteTail, /audioServiceRestartRequired\s*=\s*\(\$infNames\.Count\s*-eq\s*0\)/i);
-  assert.match(deleteTail, /Set-Content\s+\$statePath\s+-Encoding\s+utf8/i);
+  assert.match(deleteTail, /Write-JsonStateAtomically\s+-State\s+\$state\s+-Path\s+\$statePath/i);
 
   const finalTail = uninstaller.slice(finalRestart, certificateCleanup);
   assert.match(finalTail, /audioServiceRestartRequired\s*=\s*\$false/i);
-  assert.match(finalTail, /Set-Content\s+\$statePath\s+-Encoding\s+utf8/i);
+  assert.match(finalTail, /Write-JsonStateAtomically\s+-State\s+\$state\s+-Path\s+\$statePath/i);
 });
 
 
@@ -412,7 +412,7 @@ test('legacy runtime FX attachment is checkpointed separately from binding mode'
 
   const detach = uninstaller.indexOf('& $control detach-effects');
   const clearAttached = uninstaller.indexOf('$state.legacyRuntimeAttached = $false', detach);
-  const detachSnapshot = uninstaller.indexOf('Set-Content $statePath -Encoding utf8', clearAttached);
+  const detachSnapshot = uninstaller.indexOf('Write-JsonStateAtomically -State $state -Path $statePath', clearAttached);
   const firstDelete = uninstaller.indexOf('pnputil.exe /delete-driver $inf /uninstall /force');
   assert.match(uninstaller, /legacyRuntimeAttached/i);
   assert.ok(detach >= 0 && clearAttached > detach, 'legacy detach success must clear attachment ownership');
