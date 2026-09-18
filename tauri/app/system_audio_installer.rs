@@ -35,11 +35,8 @@ fn sha256_hex(bytes: &[u8]) -> String {
 fn windows_powershell_path() -> Result<PathBuf, String> {
     let system_root = std::env::var_os("SystemRoot")
         .ok_or_else(|| "SystemRoot is unavailable; cannot locate Windows PowerShell.".to_string())?;
-    let path = PathBuf::from(system_root)
-        .join("System32")
-        .join("WindowsPowerShell")
-        .join("v1.0")
-        .join("powershell.exe");
+    let path =
+        PathBuf::from(system_root).join(r"System32\WindowsPowerShell\v1.0\powershell.exe");
     if !path.is_file() {
         return Err(format!("Windows PowerShell was not found at {}.", path.display()));
     }
