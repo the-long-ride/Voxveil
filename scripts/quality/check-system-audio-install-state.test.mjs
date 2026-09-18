@@ -122,7 +122,7 @@ test('APO uninstaller checkpoints remaining package ownership after each success
 
   const deleteDriver = uninstaller.indexOf('pnputil.exe /delete-driver $inf /uninstall /force');
   const checkpoint = uninstaller.indexOf('$state.installedInfNames = @($infNames)');
-  const finalStateRemoval = uninstaller.indexOf('Remove-Item $statePath -Force -ErrorAction SilentlyContinue');
+  const finalStateRemoval = uninstaller.lastIndexOf('Remove-Item $statePath -Force -ErrorAction SilentlyContinue');
   assert.ok(deleteDriver >= 0, 'scoped APO package deletion must exist');
   assert.ok(checkpoint > deleteDriver, 'remaining ownership must be checkpointed only after a successful deletion');
   assert.ok(finalStateRemoval > checkpoint, 'install state must survive until every recorded package is deleted');
@@ -369,7 +369,7 @@ test('APO uninstall retries a required AudioSrv restart after packages are alrea
   assert.match(zeroBlock, /audioServiceRestartRequired\s*=\s*\$false/i);
 
   const deleteTail = uninstaller.slice(packageDelete, finalRestart);
-  assert.match(deleteTail, /audioServiceRestartRequired\s*=\s*\$true/i);
+  assert.match(deleteTail, /audioServiceRestartRequired\s*=\s*\(\$infNames\.Count\s*-eq\s*0\)/i);
   assert.match(deleteTail, /Set-Content\s+\$statePath\s+-Encoding\s+utf8/i);
 
   const finalTail = uninstaller.slice(finalRestart, certificateCleanup);
