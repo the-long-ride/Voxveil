@@ -62,3 +62,27 @@ test('virtual-driver uninstaller aggregates helper restart with PnPUtil restart 
   assert.match(uninstaller, /uninstallComplete\s*=\s*\$true/i);
   assert.match(uninstaller, /pendingRebootBootMarker\s*=\s*\$currentBootMarker/i);
 });
+
+
+test('SetupAPI helper exposes a non-mutating exact-device query for reboot tombstone validation', () => {
+  assert.match(helper, /int\s+QueryCommand/i);
+  assert.match(helper, /SetupDiOpenDeviceInfoW/i);
+  assert.match(helper, /HasExactHardwareId/i);
+  assert.match(helper, /exists=/i);
+  assert.match(helper, /query\s+<device-instance-id>/i);
+
+  const queryBranch = helper.search(/_wcsicmp\(command\.c_str\(\),\s*L"query"\)/i);
+  assert.ok(queryBranch >= 0, 'helper CLI must route the query command');
+});
+
+test('virtual-driver install and uninstall absence checks use SetupAPI query instead of signed-driver binding visibility', () => {
+  const installHelper = installer.match(/function\s+Assert-CompletedUninstallAbsent[^\{]*\{([\s\S]*?)\n\}/i);
+  const uninstallHelper = uninstaller.match(/function\s+Assert-CompletedUninstallAbsent[^\{]*\{([\s\S]*?)\n\}/i);
+  assert.ok(installHelper && uninstallHelper, 'both lifecycle entrypoints must define completed-uninstall absence validation');
+
+  for (const body of [installHelper[1], uninstallHelper[1]]) {
+    assert.match(body, /query\s+\$deviceInstanceId/i);
+    assert.match(body, /Get-HelperValue[\s\S]*'exists'/i);
+    assert.doesNotMatch(body, /Win32_PnPSignedDriver/i);
+  }
+});
