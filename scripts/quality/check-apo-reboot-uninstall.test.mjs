@@ -14,7 +14,7 @@ test('APO uninstall checkpoints successful 3010 deletion before requiring reboot
   const removeCurrent = tail.search(/\$infNames\s*=\s*@\(\$infNames\s*\|\s*Where-Object\s*\{\s*\$_\s*-ine\s*\$inf\s*\}\)/i);
   const checkpoint = tail.search(/\$state\.installedInfNames\s*=\s*@\(\$infNames\)/i);
   const pendingRemoved = tail.search(/\$state\.pendingRemovedInfName\s*=\s*\$inf/i);
-  const stateWriteRelative = tail.slice(pendingRemoved).search(/Set-Content\s+\$statePath\s+-Encoding\s+utf8/i);
+  const stateWriteRelative = tail.slice(pendingRemoved).search(/Write-JsonStateAtomically\s+-State\s+\$state\s+-Path\s+\$statePath/i);
   const stateWrite = stateWriteRelative >= 0 ? pendingRemoved + stateWriteRelative : -1;
   const rebootCheckRelative = tail.slice(stateWrite).search(/if\s*\(\s*\$pnputilExitCode\s*-eq\s*3010\s*\)/i);
   const rebootCheck = rebootCheckRelative >= 0 ? stateWrite + rebootCheckRelative : -1;
@@ -46,7 +46,7 @@ test('APO uninstall blocks same-boot continuation after reboot-required deletion
   const tail = text.slice(deleteDriver);
   const markPending = tail.search(/\$state\.pendingReboot\s*=\s*\$true/i);
   const markBoot = tail.search(/\$state\.pendingRebootBootMarker\s*=\s*\$currentBootMarker/i);
-  const stateWriteRelative = tail.slice(markBoot).search(/Set-Content\s+\$statePath\s+-Encoding\s+utf8/i);
+  const stateWriteRelative = tail.slice(markBoot).search(/Write-JsonStateAtomically\s+-State\s+\$state\s+-Path\s+\$statePath/i);
   const stateWrite = stateWriteRelative >= 0 ? markBoot + stateWriteRelative : -1;
   const rebootExit = tail.search(/exit\s+3010/i);
   assert.ok(markPending >= 0, '3010 cleanup state must remain pending reboot');
@@ -95,6 +95,6 @@ test('APO uninstall checkpoints missing pending-reboot boot marker before cleanu
   const preflight = text.slice(stateLoad, firstMutation);
   assert.match(preflight, /\$pendingReboot\s*-and\s*-not\s+\$pendingBootMarker/i);
   assert.match(preflight, /pendingRebootBootMarker\s*=\s*\$currentBootMarker/i);
-  assert.match(preflight, /Set-Content\s+\$statePath\s+-Encoding\s+utf8/i);
+  assert.match(preflight, /Write-JsonStateAtomically\s+-State\s+\$state\s+-Path\s+\$statePath/i);
   assert.match(preflight, /Restart Windows before continuing Voxveil APO package cleanup/i);
 });
