@@ -98,8 +98,12 @@ test('virtual driver uninstall refreshes exact Driver Store presence before prop
   assert.ok(lifecycle > 0, 'hard failure recovery must finish before successful/reboot-required handling');
   const hardBlock = hardTail.slice(0, lifecycle);
   assert.match(hardBlock, /if\s*\(\s*-not\s+\$packageStillPresent\s*\)/i);
-  assert.match(hardBlock, /Remove-Item\s+\$statePath\s+-Force/i);
+  assert.match(hardBlock, /pendingReboot\s*=\s*\$true/i);
+  assert.match(hardBlock, /pendingRebootBootMarker\s*=\s*\$currentBootMarker/i);
   assert.match(hardBlock, /uninstallComplete\s*=\s*\$true/i);
+  assert.match(hardBlock, /Write-JsonStateAtomically\s+-State\s+\$state\s+-Path\s+\$statePath/i);
+  assert.match(hardBlock, /exit\s+3010/i);
+  assert.doesNotMatch(hardBlock, /Remove-Item\s+\$statePath\s+-Force/i);
 });
 
 test('virtual driver uninstall fails closed when PnPUtil reports success but package remains', () => {
