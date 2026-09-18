@@ -20,6 +20,26 @@ param(
   [ValidatePattern('^[0-9A-Fa-f]{64}$')]
   [string]$ControlDllSha256,
 
+  [Parameter(ParameterSetName = 'Descriptor', Mandatory = $true)]
+  [ValidatePattern('^[0-9A-Fa-f]{64}$')]
+  [string]$ExpectedApoInfSha256,
+
+  [Parameter(ParameterSetName = 'Descriptor', Mandatory = $true)]
+  [ValidatePattern('^[0-9A-Fa-f]{64}$')]
+  [string]$ExpectedApoDllSha256,
+
+  [Parameter(ParameterSetName = 'Descriptor', Mandatory = $true)]
+  [ValidatePattern('^[0-9A-Fa-f]{64}$')]
+  [string]$ExpectedApoCatalogSha256,
+
+  [Parameter(ParameterSetName = 'Descriptor', Mandatory = $true)]
+  [ValidatePattern('^[0-9A-Fa-f]{64}$')]
+  [string]$ExpectedExtensionInfSha256,
+
+  [Parameter(ParameterSetName = 'Descriptor', Mandatory = $true)]
+  [ValidatePattern('^[0-9A-Fa-f]{64}$')]
+  [string]$ExpectedExtensionCatalogSha256,
+
   [Parameter(ParameterSetName = 'Manual', Mandatory = $true)]
   [ValidateNotNullOrEmpty()]
   [string]$HardwareId,
@@ -215,6 +235,13 @@ function Assert-StagedProductionApo([string]$Root) {
   }
   if ([string]$verification.capxContext -ine '63E268CE-4CBC-48E0-BEB6-55103316F477') {
     throw 'apo-verification.json does not match the committed Voxveil CAPX property context.'
+  }
+  if ([string]$verification.apoInfSha256 -ine $ExpectedApoInfSha256 -or
+      [string]$verification.apoDllSha256 -ine $ExpectedApoDllSha256 -or
+      [string]$verification.apoCatalogSha256 -ine $ExpectedApoCatalogSha256 -or
+      [string]$verification.extensionInfSha256 -ine $ExpectedExtensionInfSha256 -or
+      [string]$verification.extensionCatalogSha256 -ine $ExpectedExtensionCatalogSha256) {
+    throw 'Production APO manifest does not match the package embedded at build time.'
   }
 
   $artifacts = @(
