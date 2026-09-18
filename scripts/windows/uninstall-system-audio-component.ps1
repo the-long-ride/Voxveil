@@ -113,6 +113,16 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
   throw 'Run this script from an elevated PowerShell (Run as administrator).'
 }
 
+$trustedSystemDirectory = [Environment]::SystemDirectory
+if (-not $trustedSystemDirectory) {
+  throw 'Windows system directory could not be resolved for PnPUtil.'
+}
+$pnputilPath = Join-Path $trustedSystemDirectory 'pnputil.exe'
+if (-not (Test-Path $pnputilPath -PathType Leaf)) {
+  throw "PnPUtil was not found at $pnputilPath."
+}
+Set-Alias -Name 'pnputil.exe' -Value $pnputilPath -Scope Script -Option ReadOnly
+
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $statePath = Join-Path $root 'install-state.json'
 $control = Join-Path $root 'voxveil-control.exe'
