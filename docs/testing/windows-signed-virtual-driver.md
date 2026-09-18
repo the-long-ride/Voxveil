@@ -83,6 +83,9 @@ If PnPUtil returns `3010`, the package operation succeeded but Windows requires 
 - [ ] The helper reports exactly one Voxveil root devnode.
 - [ ] PnPUtil succeeds without enabling test mode, or returns only documented reboot-required `3010` followed by restart/resume validation.
 - [ ] On `3010`, `virtual-driver-install-state.json` records the exact `deviceInstanceId`, `publishedInf`, `pendingReboot=true`, and current boot marker before restart.
+- [ ] Lifecycle state checkpoints replace the prior JSON atomically from a same-directory temporary file.
+- [ ] If cleanup is interrupted after package deletion but before state persistence, rerun detects the already-absent package, verifies/removes only the exact recorded devnode, writes an uninstall-complete reboot tombstone, and clears it only after restart plus absence proof.
+- [ ] If PnPUtil returns a hard non-3010 code but the exact recorded package is already absent afterward, the same conservative reboot-tombstone recovery is used instead of discarding state.
 - [ ] A same-boot install retry is rejected before any devnode or PnP mutation.
 - [ ] After restart, rerun installation and prove the exact recorded devnode is bound to the exact Voxveil published INF before continuing.
 - [ ] `virtual-driver-install-state.json` contains one `deviceInstanceId` and one `oemN.inf` `publishedInf`.
