@@ -197,6 +197,28 @@ $env:VOXVEIL_DISCOVERY_SHA256 = Get-Sha256Hex $trustedDiscoveryHelper
 $env:VOXVEIL_CONTROL_SHA256 = Get-Sha256Hex $trustedControlHelper
 $env:VOXVEIL_CONTROL_DLL_SHA256 = Get-Sha256Hex $trustedControlDll
 
+$signedApoDir = $env:VOXVEIL_SIGNED_APO_DIR
+$apoTrustEnvNames = @(
+  'VOXVEIL_APO_INF_SHA256',
+  'VOXVEIL_APO_DLL_SHA256',
+  'VOXVEIL_APO_CATALOG_SHA256',
+  'VOXVEIL_APO_EXTENSION_INF_SHA256',
+  'VOXVEIL_APO_EXTENSION_CATALOG_SHA256'
+)
+foreach ($name in $apoTrustEnvNames) {
+  Set-Item -Path "Env:$name" -Value $null
+}
+if ($signedApoDir) {
+  $apoVerifier = Join-Path $PSScriptRoot 'verify-signed-apo-package.ps1'
+  $verifiedApoJson = (& $apoVerifier -PackageDir $signedApoDir | Out-String)
+  $verifiedApo = $verifiedApoJson | ConvertFrom-Json
+  $env:VOXVEIL_APO_INF_SHA256 = [string]$verifiedApo.apoInfSha256
+  $env:VOXVEIL_APO_DLL_SHA256 = [string]$verifiedApo.apoDllSha256
+  $env:VOXVEIL_APO_CATALOG_SHA256 = [string]$verifiedApo.apoCatalogSha256
+  $env:VOXVEIL_APO_EXTENSION_INF_SHA256 = [string]$verifiedApo.extensionInfSha256
+  $env:VOXVEIL_APO_EXTENSION_CATALOG_SHA256 = [string]$verifiedApo.extensionCatalogSha256
+}
+
 Write-Host 'Building Voxveil Tauri executable...'
 npm run tauri -- build --no-bundle
 if ($LASTEXITCODE -ne 0) { throw "Tauri build failed with exit code $LASTEXITCODE" }
@@ -222,7 +244,6 @@ if (-not $OutputDirectory) {
 $output = [IO.Path]::GetFullPath($OutputDirectory)
 $repoPath = [IO.Path]::GetFullPath($repo.Path)
 $distRoot = [IO.Path]::GetFullPath((Join-Path $repoPath 'dist\windows-x64'))
-$signedApoDir = $env:VOXVEIL_SIGNED_APO_DIR
 $signedDriverDir = $env:VOXVEIL_SIGNED_DRIVER_DIR
 Assert-SafeOutputDirectory `
   -Output $output `
