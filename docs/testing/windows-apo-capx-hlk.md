@@ -85,11 +85,11 @@ The componentized APO installer and Tier 2 virtual driver can coexist. Their pac
 | APO install while `VoxveilVirtualAudio` is already installed | `install-state.json.installedInfNames` contains only the APO/Extension packages added or previously owned by the APO installer |
 | APO install returns PnPUtil `3010` | `install-state.json` remains scoped to the exact owned APO/Extension packages with `bindingReady=false`; record the restart-required result, restart Windows, rerun endpoint installation, and do not accept APO `ready` until a later `loaded>=1` verification succeeds |
 | APO uninstall with first-party virtual driver installed | virtual driver remains installed and `Voxveil Input` remains available |
-| APO uninstall returns PnPUtil `3010` | the successfully deleted INF is removed from `installedInfNames`; the remaining `installedInfNames` are persisted in `install-state.json`; restart Windows and rerun uninstall so each remaining recorded package is revalidated before deletion |
+| APO uninstall returns PnPUtil `3010` | the successfully deleted INF is removed from `installedInfNames` but retained separately as `pendingRemovedInfName`; the remaining `installedInfNames` are persisted in `install-state.json`; after restart, rerun uninstall and prove the pending removed INF is absent from Driver Store before clearing that identity or deleting any remaining recorded package |
 | Missing/old install state with no recorded APO INF names | uninstaller removes no provider-wide driver packages; manual cleanup is required instead of guessing |
 | Successful APO uninstall | recorded install state is removed and AudioSrv rebuilds without stale Voxveil APO registration |
 
-For every `3010` case, record which package operation requested the restart, the exact `installedInfNames` state before reboot, the post-restart rerun result, and the final AudioDG/readiness or uninstall outcome. A `3010` result is successful completion requiring restart, not a hard package failure.
+For every `3010` case, record which package operation requested the restart, the exact `installedInfNames` state before reboot, any `pendingRemovedInfName`, the post-restart rerun result, and the final AudioDG/readiness or uninstall outcome. After restart, record the Driver Store absence proof for the pending removed INF before its identity is cleared. A `3010` result is successful completion requiring restart, not a hard package failure.
 
 ## Endpoint and hardware matrix
 
