@@ -230,6 +230,11 @@ if (Test-Path $statePath -PathType Leaf) {
   if ($previousDevelopmentCertificateThumbprint -and $previousDevelopmentCertificateThumbprint -notmatch '^[0-9A-Fa-f]{40}\z') {
     throw 'install-state.json contains an invalid developmentCertificateThumbprint; state was kept for recovery.'
   }
+  if ($previousBindingMode -in @('legacy-runtime-interface', 'legacy-reference') -and
+      $previousInstalledInfNames.Count -gt 0 -and
+      -not $previousDevelopmentCertificateThumbprint) {
+    throw 'Existing legacy TestSign certificate ownership is unknown. Uninstall the recorded APO packages before installing again; do not generate or delete an untracked development certificate automatically.'
+  }
   $developmentCertificateThumbprint = $previousDevelopmentCertificateThumbprint
   if ($previousAudioServiceRestartRequired -eq $true) {
     throw 'Complete the prior Voxveil APO cleanup before installing again; AudioSrv restart is still required.'
