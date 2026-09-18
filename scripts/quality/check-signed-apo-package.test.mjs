@@ -127,3 +127,21 @@ test('signed APO staging rejects source and destination overlap in either direct
   assert.match(text, /Test-DirectoryOverlap/i);
   assert.match(text, /must not overlap the source package directory/i);
 });
+
+
+test('production APO installer revalidates staged Microsoft signer identities before PnP mutation', () => {
+  const text = read('scripts/windows/install-system-audio-component.ps1');
+  const preflight = text.indexOf('function Assert-StagedProductionApo');
+  const firstPnp = text.indexOf("pnputil.exe /add-driver (Join-Path $work 'VoxveilApo.inf') /install");
+  assert.ok(preflight >= 0 && firstPnp > preflight);
+
+  const block = text.slice(preflight, firstPnp);
+  assert.match(block, /function\s+Assert-StagedMicrosoftSigner/i);
+  assert.match(block, /Get-AuthenticodeSignature/i);
+  assert.match(block, /SignerCertificate\.Subject/i);
+  assert.match(block, /Microsoft/i);
+  assert.match(block, /apoSigner/i);
+  assert.match(block, /apoCatalogSigner/i);
+  assert.match(block, /extensionCatalogSigner/i);
+  assert.match(block, /signer does not match apo-verification\.json/i);
+});
