@@ -283,7 +283,11 @@ function Resolve-EndpointDescriptor(
     runtimeDeviceId = [string]$descriptor.bindingPnpInstanceId
     runtimeAliasMatch = $runtimeBound
   }) -Compress
-  $output = $request | & powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File $helper
+  $powershell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+  if (-not (Test-Path $powershell -PathType Leaf)) {
+    throw "Windows PowerShell was not found at $powershell."
+  }
+  $output = $request | & $powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -File $helper
   if ($LASTEXITCODE -ne 0) { throw 'device-changed: endpoint discovery failed during elevated revalidation.' }
   $parsedResolved = ConvertFrom-Json ($output -join [Environment]::NewLine)
   $resolvedItems = [Collections.Generic.List[object]]::new()
