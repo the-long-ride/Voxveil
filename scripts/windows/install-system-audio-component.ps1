@@ -132,22 +132,30 @@ function Assert-StagedFileHash([string]$Path, [string]$ExpectedSha256, [string]$
 function Assert-StagedMicrosoftSigner(
   [string]$Path,
   [string]$ExpectedSigner,
+  [string]$ExpectedThumbprint,
   [string]$Description
 ) {
   if (-not $ExpectedSigner) {
     throw "apo-verification.json is missing the expected signer for $Description."
+  }
+  if ($ExpectedThumbprint -notmatch '^[0-9A-Fa-f]{40}$') {
+    throw "apo-verification.json contains an invalid signer thumbprint for $Description."
   }
   $signature = Get-AuthenticodeSignature $Path
   if ($signature.Status -ne 'Valid' -or -not $signature.SignerCertificate) {
     throw "Verified production APO artifact no longer has a valid Authenticode signature: $Description."
   }
   $subject = [string]$signature.SignerCertificate.Subject
+  $thumbprint = [string]$signature.SignerCertificate.Thumbprint
   $identity = $subject + ' ' + [string]$signature.SignerCertificate.Issuer
   if ($identity -notmatch '(?i)Microsoft') {
     throw "Verified production APO artifact is not currently identified as Microsoft-signed: $Description."
   }
   if ($subject -ine $ExpectedSigner) {
     throw "Verified production APO artifact signer does not match apo-verification.json: $Description."
+  }
+  if ($thumbprint -ine $ExpectedThumbprint) {
+    throw "Verified production APO artifact signer thumbprint does not match apo-verification.json: $Description."
   }
 }
 
@@ -178,14 +186,17 @@ function Assert-StagedProductionApo([string]$Root) {
   Assert-StagedMicrosoftSigner `
     (Join-Path $Root 'VoxveilApo.dll') `
     ([string]$verification.apoSigner) `
+    ([string]$verification.apoThumbprint) `
     'VoxveilApo.dll'
   Assert-StagedMicrosoftSigner `
     (Join-Path $Root 'VoxveilApo.cat') `
     ([string]$verification.apoCatalogSigner) `
+    ([string]$verification.apoCatalogThumbprint) `
     'VoxveilApo.cat'
   Assert-StagedMicrosoftSigner `
     (Join-Path $Root 'VoxveilApoExtension.cat') `
     ([string]$verification.extensionCatalogSigner) `
+    ([string]$verification.extensionCatalogThumbprint) `
     'VoxveilApoExtension.cat'
 
   return $verification
