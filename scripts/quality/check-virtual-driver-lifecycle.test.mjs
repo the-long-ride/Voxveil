@@ -239,3 +239,20 @@ test('virtual-driver install binds current catalog certificate thumbprint to ver
   assert.match(text, /SignerCertificate\.Thumbprint/i);
   assert.match(text, /catalog thumbprint does not match verification\.json/i);
 });
+
+
+test('virtual-driver lifecycle pins PnPUtil to the OS system directory', () => {
+  for (const [label, text] of [
+    ['installer', installer()],
+    ['uninstaller', uninstaller()],
+  ]) {
+    const firstPnp = text.indexOf('pnputil.exe /');
+    assert.ok(firstPnp >= 0, `${label} must invoke PnPUtil`);
+    const preflight = text.slice(0, firstPnp);
+    assert.match(preflight, /\[Environment\]::SystemDirectory/i);
+    assert.match(
+      preflight,
+      /Set-Alias\s+-Name\s+'pnputil\.exe'\s+-Value\s+\$pnputilPath\s+-Scope\s+Script\s+-Option\s+ReadOnly/i,
+    );
+  }
+});
