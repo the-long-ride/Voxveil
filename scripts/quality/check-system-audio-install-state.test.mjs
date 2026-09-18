@@ -332,11 +332,23 @@ test('APO lifecycle validates recorded development certificate thumbprint before
   const installPnp = installer.indexOf("pnputil.exe /add-driver (Join-Path $work 'VoxveilApo.inf') /install");
   const installPreflight = installer.slice(installStateLoad, installPnp);
   assert.match(installPreflight, /previousDevelopmentCertificateThumbprint/i);
-  assert.match(installPreflight, /\^\[0-9A-Fa-f\]\{40\}\$/i);
+  assert.match(installPreflight, /\^\[0-9A-Fa-f\]\{40\}\\z/i);
 
   const uninstallStateLoad = uninstaller.indexOf('$state = Get-Content $statePath -Raw | ConvertFrom-Json');
   const uninstallPnp = uninstaller.indexOf('pnputil.exe /delete-driver $inf /uninstall /force');
   const uninstallPreflight = uninstaller.slice(uninstallStateLoad, uninstallPnp);
   assert.match(uninstallPreflight, /developmentCertificateThumbprint/i);
-  assert.match(uninstallPreflight, /\^\[0-9A-Fa-f\]\{40\}\$/i);
+  assert.match(uninstallPreflight, /\^\[0-9A-Fa-f\]\{40\}\\z/i);
+});
+
+
+test('TestSign certificate ownership is checkpointed before trust-store or PnP mutation', () => {
+  const certCreate = installer.indexOf('$certificate = New-SelfSignedCertificate');
+  const ownershipSnapshot = installer.indexOf('Write-InstallStateSnapshot', certCreate);
+  const rootTrust = installer.indexOf('certutil.exe -addstore -f Root', certCreate);
+  const firstPnp = installer.indexOf("pnputil.exe /add-driver (Join-Path $work 'VoxveilApo.inf') /install");
+  assert.ok(certCreate >= 0, 'TestSign certificate creation must exist');
+  assert.ok(ownershipSnapshot > certCreate, 'new development certificate ownership must be persisted after creation');
+  assert.ok(rootTrust > ownershipSnapshot, 'certificate ownership must be recoverable before trust-store mutation can fail');
+  assert.ok(firstPnp > rootTrust, 'package mutation must follow scoped certificate ownership persistence');
 });
