@@ -20,7 +20,7 @@ test('virtual driver uninstall treats package or devnode restart as successful r
 
   const rebootTail = tail.slice(combinedReboot);
   const tombstone = rebootTail.search(/uninstallComplete\s*=\s*\$true/i);
-  const stateWrite = rebootTail.search(/Set-Content\s+\$statePath\s+-Encoding\s+utf8/i);
+  const stateWrite = rebootTail.search(/Write-JsonStateAtomically\s+-State\s+\$state\s+-Path\s+\$statePath/i);
   const rebootExit = rebootTail.search(/exit\s+3010/i);
   assert.ok(tombstone >= 0, 'successful removal requiring restart must checkpoint an uninstall-complete tombstone');
   assert.ok(stateWrite > tombstone, 'reboot tombstone must be persisted before restart propagation');
@@ -123,6 +123,6 @@ test('virtual driver uninstall checkpoints missing pending-reboot boot marker be
   const preflight = uninstaller.slice(stateLoad, identityCheck);
   assert.match(preflight, /\$pendingReboot\s*-and\s*-not\s+\$pendingBootMarker/i);
   assert.match(preflight, /pendingRebootBootMarker\s*=\s*\$currentBootMarker/i);
-  assert.match(preflight, /Set-Content\s+\$statePath\s+-Encoding\s+utf8/i);
+  assert.match(preflight, /Write-JsonStateAtomically\s+-State\s+\$state\s+-Path\s+\$statePath/i);
   assert.match(preflight, /Restart Windows before continuing Voxveil Virtual Audio lifecycle changes/i);
 });
