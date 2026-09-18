@@ -76,3 +76,18 @@ if ($patchedCount -ne 8) {
 
 [IO.File]::WriteAllLines($target, [string[]]$output, [Text.UTF8Encoding]::new($false))
 Write-Host "Applied Voxveil non-sideband compatibility guards to $patchedCount pinned SysVAD engine-node branches."
+
+$adapter = Join-Path $root 'adapter.cpp'
+if (-not (Test-Path $adapter -PathType Leaf)) {
+  throw "Pinned SysVAD adapter compatibility target is missing: $adapter"
+}
+$adapterText = [IO.File]::ReadAllText($adapter)
+$captureLoop = 'for(ULONG i = 0; i < g_cCaptureEndpoints; ++i, ++ppAeMiniports)'
+$compatibleCaptureLoop = 'for(ULONG i = 0; i != g_cCaptureEndpoints; ++i, ++ppAeMiniports)'
+$captureLoopCount = ([regex]::Matches($adapterText, [regex]::Escape($captureLoop))).Count
+if ($captureLoopCount -ne 1) {
+  throw "Pinned SysVAD compatibility patch expected exactly 1 generic capture loop, found $captureLoopCount."
+}
+$adapterText = $adapterText.Replace($captureLoop, $compatibleCaptureLoop)
+[IO.File]::WriteAllText($adapter, $adapterText, [Text.UTF8Encoding]::new($false))
+Write-Host 'Applied Voxveil zero-capture compatibility comparison to pinned SysVAD adapter.cpp.'

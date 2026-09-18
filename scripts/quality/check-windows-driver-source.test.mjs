@@ -51,14 +51,14 @@ test('driver project references only pinned generic SysVAD source plus Voxveil-o
 });
 
 test('directly compiled pinned SysVAD sources preserve warning compatibility without disabling warnings-as-errors', () => {
-  const text = read('native/windows/driver/VoxveilVirtualAudio.vcxproj');
-  assert.match(text, /<TreatWarningAsError>true<\/TreatWarningAsError>/i);
-  assert.match(text, /<DisableSpecificWarnings>[^<]*\b4595\b[^<]*%\(DisableSpecificWarnings\)[^<]*<\/DisableSpecificWarnings>/i);
-  assert.match(
-    text,
-    /adapter\.cpp"[\s\S]*zero capture endpoints[\s\S]*C4296[\s\S]*<AdditionalOptions>\/wd4296 %\(AdditionalOptions\)<\/AdditionalOptions>/i,
-  );
-  assert.equal((text.match(/\/wd4296/g) ?? []).length, 1);
+  const project = read('native/windows/driver/VoxveilVirtualAudio.vcxproj');
+  const patcher = read('scripts/windows/patch-sysvad-source.ps1');
+  assert.match(project, /<TreatWarningAsError>true<\/TreatWarningAsError>/i);
+  assert.match(project, /<DisableSpecificWarnings>[^<]*\b4595\b[^<]*%\(DisableSpecificWarnings\)[^<]*<\/DisableSpecificWarnings>/i);
+  assert.doesNotMatch(project, /4296|\/wd4296/i);
+  assert.match(patcher, /for\(ULONG i = 0; i < g_cCaptureEndpoints; \+\+i, \+\+ppAeMiniports\)/i);
+  assert.match(patcher, /for\(ULONG i = 0; i != g_cCaptureEndpoints; \+\+i, \+\+ppAeMiniports\)/i);
+  assert.match(patcher, /expected exactly 1 generic capture loop/i);
 });
 
 test('virtual driver project carries Voxveil sound-driver version resources and filters', () => {
@@ -123,6 +123,7 @@ test('materialized SysVAD applies only the reviewed non-sideband engine-node com
   assert.match(importer, /Copy-Item\s+\$Source\s+\$Destination[\s\S]*&\s*\$CompatibilityPatcher\s+-SysvadRoot\s+\$Destination/i);
   assert.match(patcher, /MiniportAudioEngineNode\.cpp/i);
   assert.match(patcher, /expected exactly 8 sideband volume\/mute branches/i);
+  assert.match(patcher, /expected exactly 1 generic capture loop/i);
   assert.match(patcher, /SYSVAD_BTH_BYPASS[\s\S]*SYSVAD_USB_SIDEBAND/i);
   assert.doesNotMatch(project, /SYSVAD_BTH_BYPASS|SYSVAD_USB_SIDEBAND/i);
 });

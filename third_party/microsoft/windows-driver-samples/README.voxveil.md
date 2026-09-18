@@ -14,3 +14,6 @@ The materialized directory is disposable build input and may be deleted/recreate
 
 
 After the exact upstream commit and `audio/sysvad` tree are verified, the importer runs `scripts/windows/patch-sysvad-source.ps1` against only the disposable materialized copy. The patcher adds preprocessor guards around the eight upstream volume/mute branches in `EndpointsCommon/MiniportAudioEngineNode.cpp` that reference sideband-only members. This lets Voxveil compile its render-only endpoint without defining `SYSVAD_BTH_BYPASS` or `SYSVAD_USB_SIDEBAND`, so Bluetooth/USB sideband runtime paths remain excluded. The pinned commit and tree continue to identify the unmodified Microsoft source; the post-import guard patch is a Voxveil build adaptation.
+
+
+The same post-import adaptation rewrites the single generic SysVAD capture-loop comparison in `adapter.cpp` from `i < g_cCaptureEndpoints` to `i != g_cCaptureEndpoints`. Voxveil fixes `g_cCaptureEndpoints` at zero, so both forms execute zero iterations; the rewritten form avoids MSVC C4296 without disabling that warning for the project.

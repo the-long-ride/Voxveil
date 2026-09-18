@@ -89,10 +89,7 @@
   </ItemDefinitionGroup>
 
   <ItemGroup>
-    <ClCompile Include="..\..\..\third_party\microsoft\windows-driver-samples\audio\sysvad\adapter.cpp">
-      <!-- Voxveil intentionally exposes zero capture endpoints; SysVAD's generic unsigned capture loop triggers C4296. -->
-      <AdditionalOptions>/wd4296 %(AdditionalOptions)</AdditionalOptions>
-    </ClCompile>
+    <ClCompile Include="..\..\..\third_party\microsoft\windows-driver-samples\audio\sysvad\adapter.cpp" />
     <ClCompile Include="..\..\..\third_party\microsoft\windows-driver-samples\audio\sysvad\basetopo.cpp" />
     <ClCompile Include="..\..\..\third_party\microsoft\windows-driver-samples\audio\sysvad\common.cpp" />
     <ClCompile Include="..\..\..\third_party\microsoft\windows-driver-samples\audio\sysvad\hw.cpp" />
