@@ -1,6 +1,9 @@
 name: Manual Build
 
 on:
+  push:
+    branches:
+      - feat/windows-signed-audio-paths
   workflow_dispatch:
     inputs:
       windows:
@@ -25,7 +28,7 @@ permissions:
 jobs:
   windows:
     name: Windows x64
-    if: ${{ inputs.windows }}
+    if: ${{ github.event_name == 'push' || inputs.windows }}
     runs-on: windows-2022
     timeout-minutes: 120
     steps:
