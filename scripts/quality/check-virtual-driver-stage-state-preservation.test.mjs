@@ -27,3 +27,23 @@ test('signed virtual-driver staging rejects overlapping source and destination t
   assert.match(stager, /\$package\.StartsWith\(\$destination\s*\+\s*\[IO\.Path\]::DirectorySeparatorChar/i);
   assert.match(stager, /must not overlap the source package directory/i);
 });
+
+
+test('signed virtual-driver restaging refuses unexpected destination entries before cleanup', () => {
+  assert.match(stager, /allowedDestinationNames/i);
+  assert.match(stager, /unexpectedDestinationEntries/i);
+  for (const name of [
+    'virtual-driver-install-state.json',
+    'VoxveilVirtualAudio.inf',
+    'VoxveilVirtualAudio.cat',
+    'VoxveilVirtualAudio.sys',
+    'verification.json',
+    'release-evidence.json',
+  ]) {
+    assert.match(stager, new RegExp(name.replaceAll('.', '\\.')));
+  }
+  const unexpectedGuard = stager.indexOf('$unexpectedDestinationEntries');
+  const cleanup = stager.indexOf('Get-ChildItem $destination -Force', unexpectedGuard + 1);
+  assert.ok(unexpectedGuard >= 0 && cleanup > unexpectedGuard, 'unexpected entries must be rejected before destination cleanup');
+  assert.match(stager.slice(unexpectedGuard, cleanup), /refusing destructive restaging/i);
+});
