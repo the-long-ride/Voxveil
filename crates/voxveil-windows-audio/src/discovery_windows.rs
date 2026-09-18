@@ -10,7 +10,7 @@ use super::{SystemAudioEndpoint, SystemAudioEndpointStatus, capx_extension_inf_m
 use crate::binding::{RuntimeBindingKind, classify_runtime_binding, fallback_device_matches_runtime};
 use crate::device::EndpointDescriptor;
 use crate::device_interfaces::{CandidateSelection, TopologyCandidate, enumerate_topology_interfaces, select_topology_candidate};
-use crate::topology::resolve_adapter_device_id;
+use crate::topology::{resolve_adapter_device_id, windows_system_directory};
 
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 const EXPECTED_EXTENSION_ID: &str = "1D81E93D-AB81-473B-9E5E-94FAE8D2377F";
@@ -207,7 +207,11 @@ fn run_fallback_helper(
     }
     let json = serde_json::to_vec(input)
         .map_err(|error| format!("failed to serialize Windows endpoints: {error}"))?;
-    let mut command = Command::new("powershell.exe");
+    let powershell = windows_system_directory()?.join(r"WindowsPowerShell\v1.0\powershell.exe");
+    if !powershell.is_file() {
+        return Err(format!("Windows PowerShell was not found at {}.", powershell.display()));
+    }
+    let mut command = Command::new(&powershell);
     command
         .args(["-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File"])
         .arg(helper)
