@@ -124,9 +124,11 @@ if (Test-Path $statePath) {
   $pendingProperty = $state.PSObject.Properties['pendingReboot']
   $bootMarkerProperty = $state.PSObject.Properties['pendingRebootBootMarker']
   $pendingRemovedProperty = $state.PSObject.Properties['pendingRemovedInfName']
+  $audioRestartProperty = $state.PSObject.Properties['audioServiceRestartRequired']
   $pendingReboot = $pendingProperty -and [bool]$pendingProperty.Value
   $pendingBootMarker = if ($bootMarkerProperty) { [string]$bootMarkerProperty.Value } else { '' }
   $pendingRemovedInfName = if ($pendingRemovedProperty) { [string]$pendingRemovedProperty.Value } else { '' }
+  $audioServiceRestartRequired = $audioRestartProperty -and [bool]$audioRestartProperty.Value
   if ($pendingReboot -and -not $pendingBootMarker) {
     if ($bootMarkerProperty) {
       $state.pendingRebootBootMarker = $currentBootMarker
@@ -147,6 +149,9 @@ if (Test-Path $statePath) {
   }
   if (-not $pendingRemovedProperty) {
     $state | Add-Member -NotePropertyName pendingRemovedInfName -NotePropertyValue $null
+  }
+  if (-not $audioRestartProperty) {
+    $state | Add-Member -NotePropertyName audioServiceRestartRequired -NotePropertyValue $false
   }
   if ($pendingRemovedInfName) {
     Assert-PendingRemovedApoInfAbsent $pendingRemovedInfName
@@ -177,6 +182,11 @@ if ($state -and [string]$state.bindingMode -eq 'legacy-runtime-interface') {
 }
 
 if ($infNames.Count -eq 0) {
+  if ($audioServiceRestartRequired) {
+    Restart-Service Audiosrv -Force
+    $state.audioServiceRestartRequired = $false
+    $state | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
+  }
   Remove-RecordedDevelopmentCertificate $developmentCertificateThumbprint
   Remove-Item $statePath -Force -ErrorAction SilentlyContinue
   Write-Host 'No APO/Extension package identities were recorded; no driver packages were removed to avoid deleting other Voxveil components.'
@@ -196,6 +206,7 @@ foreach ($inf in @($infNames)) {
       $state.pendingRemovedInfName = $null
       $state.pendingReboot = $false
       $state.pendingRebootBootMarker = $null
+      $state.audioServiceRestartRequired = ($infNames.Count -eq 0)
       $state | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
     }
     throw "PnPUtil failed to remove $inf (exit $pnputilExitCode). Driver Store ownership was refreshed and install-state.json was kept for recovery."
@@ -210,10 +221,12 @@ foreach ($inf in @($infNames)) {
     $state.pendingRemovedInfName = $inf
     $state.pendingReboot = $true
     $state.pendingRebootBootMarker = $currentBootMarker
+    $state.audioServiceRestartRequired = $false
   } else {
     $state.pendingRemovedInfName = $null
     $state.pendingReboot = $false
     $state.pendingRebootBootMarker = $null
+    $state.audioServiceRestartRequired = ($infNames.Count -eq 0)
   }
   $state | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
 
@@ -223,7 +236,11 @@ foreach ($inf in @($infNames)) {
   }
 }
 
-Restart-Service Audiosrv -Force
+if ($state.audioServiceRestartRequired) {
+  Restart-Service Audiosrv -Force
+  $state.audioServiceRestartRequired = $false
+  $state | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
+}
 Remove-RecordedDevelopmentCertificate $developmentCertificateThumbprint
 Remove-Item $statePath -Force -ErrorAction SilentlyContinue
 Write-Host 'Recorded Voxveil componentized APO packages removed.'
