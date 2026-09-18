@@ -26,6 +26,24 @@ $OutRoot = Join-Path $DriverRoot "out\$Architecture"
 $Submission = Join-Path $OutRoot 'submission'
 $SysvadImporter = Join-Path $PSScriptRoot 'import-sysvad-source.ps1'
 
+function Get-Sha256 {
+  param([Parameter(Mandatory = $true)][string]$Path)
+
+  $stream = [IO.File]::OpenRead($Path)
+  try {
+    $hasher = [System.Security.Cryptography.SHA256]::Create()
+    try {
+      return ([BitConverter]::ToString($hasher.ComputeHash($stream))).Replace('-', '').ToLowerInvariant()
+    }
+    finally {
+      $hasher.Dispose()
+    }
+  }
+  finally {
+    $stream.Dispose()
+  }
+}
+
 function Get-TrustedProgramFilesX86 {
   $path = [Environment]::GetFolderPath([Environment+SpecialFolder]::ProgramFilesX86)
   if (-not $path -or -not (Test-Path $path -PathType Container)) {
@@ -152,4 +170,34 @@ if ($LASTEXITCODE -ne 0) {
   throw "Virtual driver package validation failed with exit code $LASTEXITCODE."
 }
 
+$git = Get-Command git.exe -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $git) {
+  throw 'git.exe is required to bind the unsigned submission manifest to the exact Voxveil commit.'
+}
+$voxveilCommit = (& $git.Source -C $RepoRoot rev-parse HEAD).Trim().ToLowerInvariant()
+if ($LASTEXITCODE -ne 0 -or $voxveilCommit -notmatch '^[a-f0-9]{40}$') {
+  throw 'Could not resolve the exact Voxveil commit for the unsigned submission manifest.'
+}
+
+$submissionManifestPath = Join-Path $Submission 'submission-manifest.json'
+$submissionManifest = [ordered]@{
+  schemaVersion = 1
+  voxveilCommit = $voxveilCommit
+  architecture = $Architecture
+  configuration = $Configuration
+  windowsDriverSamplesRevision = $PinnedRevision
+  sysvadTreeSha = $PinnedSysvadTree
+  infSha256 = Get-Sha256 (Join-Path $Submission 'VoxveilVirtualAudio.inf')
+  catalogSha256 = Get-Sha256 (Join-Path $Submission 'VoxveilVirtualAudio.cat')
+  driverSha256 = Get-Sha256 (Join-Path $Submission 'VoxveilVirtualAudio.sys')
+  pdbSha256 = Get-Sha256 (Join-Path $Submission 'VoxveilVirtualAudio.pdb')
+}
+$submissionManifestJson = $submissionManifest | ConvertTo-Json -Depth 3
+[IO.File]::WriteAllText(
+  $submissionManifestPath,
+  $submissionManifestJson + [Environment]::NewLine,
+  [Text.UTF8Encoding]::new($false)
+)
+
+Write-Host "Unsigned submission manifest: $submissionManifestPath"
 Write-Host "Unsigned virtual-driver submission package staged at $Submission"

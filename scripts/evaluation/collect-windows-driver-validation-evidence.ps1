@@ -6,6 +6,10 @@ param(
   [ValidateNotNullOrEmpty()]
   [string]$PackageDir,
 
+  [Parameter(Mandatory = $true)]
+  [ValidateNotNullOrEmpty()]
+  [string]$SubmissionManifest,
+
   [ValidateSet('x64', 'ARM64')]
   [string]$Architecture = 'x64',
 
@@ -57,6 +61,44 @@ if (-not (Test-Path -LiteralPath $package -PathType Container)) {
   throw "Returned signed package directory was not found: $package"
 }
 
+$submissionManifestPath = [IO.Path]::GetFullPath($SubmissionManifest)
+if (-not (Test-Path -LiteralPath $submissionManifestPath -PathType Leaf)) {
+  throw "Unsigned submission manifest was not found: $submissionManifestPath"
+}
+$submission = Get-Content -LiteralPath $submissionManifestPath -Raw | ConvertFrom-Json
+$allowedSubmissionFields = @(
+  'schemaVersion',
+  'voxveilCommit',
+  'architecture',
+  'configuration',
+  'windowsDriverSamplesRevision',
+  'sysvadTreeSha',
+  'infSha256',
+  'catalogSha256',
+  'driverSha256',
+  'pdbSha256'
+)
+$unexpectedSubmissionFields = @(
+  $submission.PSObject.Properties.Name | Where-Object { $allowedSubmissionFields -inotcontains $_ }
+)
+if ($unexpectedSubmissionFields.Count -gt 0) {
+  throw "Unsigned submission manifest contains undocumented fields: $($unexpectedSubmissionFields -join ', ')."
+}
+if ($submission.schemaVersion -ne 1 -or
+    $submission.voxveilCommit -ne $currentCommit -or
+    $submission.architecture -ne $Architecture -or
+    $submission.configuration -ne 'Release' -or
+    $submission.windowsDriverSamplesRevision -ne '67d81f217bc01edf7a4320e4911c11065635acfa' -or
+    $submission.sysvadTreeSha -ne '6fa502f5bfb3de1395a6c9ffe71e322fd9e28926') {
+  throw 'Unsigned submission manifest identity does not match the exact release checkout/architecture/pinned SysVAD provenance.'
+}
+foreach ($hashField in @('infSha256', 'catalogSha256', 'driverSha256', 'pdbSha256')) {
+  if ([string]$submission.$hashField -notmatch '^[a-f0-9]{64}$') {
+    throw "Unsigned submission manifest contains an invalid $hashField."
+  }
+}
+$submissionManifestSha256 = Get-Sha256 $submissionManifestPath
+
 $verifier = Join-Path $repoRoot 'scripts\windows\verify-signed-virtual-driver.ps1'
 if (-not (Test-Path -LiteralPath $verifier -PathType Leaf)) {
   throw "Signed-driver verifier was not found: $verifier"
@@ -66,6 +108,10 @@ if ($LASTEXITCODE -ne 0) {
   throw 'Microsoft-signed virtual driver verification failed.'
 }
 $verification = $verificationJson | ConvertFrom-Json
+if ($submission.infSha256 -ne $verification.infSha256 -or
+    $submission.driverSha256 -ne $verification.driverSha256) {
+  throw 'Returned Microsoft-signed package INF/SYS do not match the exact unsigned submission manifest.'
+}
 
 $releaseEvidence = $null
 $releaseEvidenceSha256 = $null
@@ -179,6 +225,9 @@ $evidence = [ordered]@{
     catalogSigner = $verification.catalogSigner
     catalogThumbprint = $verification.catalogThumbprint
     releaseEvidenceSha256 = $releaseEvidenceSha256
+    submissionManifestSha256 = $submissionManifestSha256
+    unsignedCatalogSha256 = $submission.catalogSha256
+    unsignedPdbSha256 = $submission.pdbSha256
     signingPath = if ($releaseEvidence) { [string]$releaseEvidence.signingPath } else { 'attestation-pilot' }
   }
   machine = [ordered]@{

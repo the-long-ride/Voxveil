@@ -11,6 +11,12 @@ test('signed-driver validation collector binds evidence to exact checkout and Mi
   assert.match(script, /verify-signed-virtual-driver\.ps1/i);
   assert.match(script, /Microsoft-signed virtual driver verification failed/i);
   assert.match(script, /catalogThumbprint/i);
+  assert.match(script, /SubmissionManifest/i);
+  assert.match(script, /submission-manifest/i);
+  assert.match(script, /Returned Microsoft-signed package INF\/SYS do not match/i);
+  assert.match(script, /windowsDriverSamplesRevision/i);
+  assert.match(script, /sysvadTreeSha/i);
+  assert.match(script, /submissionManifestSha256/i);
 });
 
 test('signed-driver validation collector fails closed on release machine requirements', () => {

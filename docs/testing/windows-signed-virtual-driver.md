@@ -32,10 +32,13 @@ For a machine-readable local snapshot that binds the exact Voxveil checkout, ret
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/evaluation/collect-windows-driver-validation-evidence.ps1 `
   -PackageDir <returned-package> `
+  -SubmissionManifest <downloaded-unsigned-artifact>\submission-manifest.json `
   -Architecture x64 `
   -ReleaseChannel Pilot `
   -VoxveilCommit <40-hex-exact-commit>
 ```
+
+The exact-SHA unsigned artifact also contains `submission-manifest.json`; retain that file outside the attestation CAB and pass it to the collector after Microsoft returns the signed package. The collector requires the manifest's exact commit, architecture, pinned SysVAD provenance, and INF/SYS hashes to match the current checkout and returned package, preventing an older signed package from being cited as the current submission.
 
 Use `-ReleaseChannel Retail` for a retail-qualified package. The collector fails closed unless the current checkout matches the supplied commit, signed-package verification succeeds, Windows is build 22621+, package/native architecture match, Secure Boot is enabled, and TESTSIGNING is off. Retail runs also revalidate `release-evidence.json` and its package hashes/signing path. Evidence stays under ignored `.local-evaluation/windows-driver/measurements/` and deliberately records no serial number, user/account identity, certificate private key, or Partner Center credential. Lifecycle observations remain `pending` until the real install/uninstall/reboot/repair/replacement matrix is executed.
 
