@@ -85,6 +85,8 @@ test('driver substitutes a no-op save-data implementation so audio is never pers
   assert.match(project, /voxveil_savedata\.cpp/i);
   assert.doesNotMatch(project, /\\savedata\.cpp/i);
   assert.doesNotMatch(saveData, /ZwCreateFile|ZwWriteFile|CreateFile|WriteFile/i);
+  assert.doesNotMatch(saveData, /PDEVICE_OBJECT\s+CSaveData::m_pDeviceObject\s*=/i);
+  assert.equal((saveData.match(/ULONG\s+CSaveData::m_ul(?:Offload)?StreamId\s*=\s*0/g) ?? []).length, 2);
 });
 
 test('driver replaces the SysVAD sample tone generator with an inert Voxveil implementation', () => {

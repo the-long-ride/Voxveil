@@ -5,7 +5,6 @@
 #include <sysvad.h>
 #include "savedata.h"
 
-PDEVICE_OBJECT CSaveData::m_pDeviceObject = nullptr;
 ULONG CSaveData::m_ulStreamId = 0;
 ULONG CSaveData::m_ulOffloadStreamId = 0;
 
