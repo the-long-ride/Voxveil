@@ -65,6 +65,22 @@ function Get-WindowsBootMarker {
   ([DateTime]$os.LastBootUpTime).ToUniversalTime().ToString('o')
 }
 
+function Write-JsonStateAtomically($State, [string]$Path) {
+  $directory = Split-Path -Parent $Path
+  $tempPath = Join-Path $directory ('.' + [IO.Path]::GetFileName($Path) + '.' + [Guid]::NewGuid().ToString('N') + '.tmp')
+  try {
+    $State | ConvertTo-Json -Depth 3 | Set-Content $tempPath -Encoding utf8
+    if (Test-Path $Path -PathType Leaf) {
+      [IO.File]::Replace($tempPath, $Path, $null)
+    } else {
+      [IO.File]::Move($tempPath, $Path)
+    }
+  }
+  finally {
+    Remove-Item $tempPath -Force -ErrorAction SilentlyContinue
+  }
+}
+
 function Remove-RecordedDevelopmentCertificate([string]$Thumbprint) {
   if (-not $Thumbprint) {
     return
@@ -277,7 +293,7 @@ if (Test-Path $statePath -PathType Leaf) {
     } else {
       $previousState | Add-Member -NotePropertyName pendingRebootBootMarker -NotePropertyValue $currentBootMarker
     }
-    $previousState | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
+    Write-JsonStateAtomically -State $previousState -Path $statePath
     throw 'Restart Windows before continuing the Voxveil system-audio installation.'
   }
   if ($previousPendingReboot -eq $true -and $previousBootMarker -and $previousBootMarker -eq $currentBootMarker) {
@@ -342,7 +358,7 @@ function Write-InstallStateSnapshot(
   $installed = @($installed | Sort-Object -Unique)
   $pendingRebootBootMarker = if ($PendingReboot) { $currentBootMarker } else { $null }
 
-  @{
+  $snapshot = @{
     installedInfNames = @($installed)
     endpointId = $selectedEndpointId
     hardwareId = $HardwareId
@@ -357,7 +373,8 @@ function Write-InstallStateSnapshot(
     topologyInterfacePath = $topologyInterfacePath
     audioInterfacePath = $audioInterfacePath
     referenceString = $ReferenceString
-  } | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
+  }
+  Write-JsonStateAtomically -State $snapshot -Path $statePath
 }
 
 foreach ($required in @($apoInf, $apoDll)) {
