@@ -384,7 +384,8 @@ catch {
       }
     }
   } elseif ($newPublishedInf) {
-    Write-Warning "New driver-store package $newPublishedInf remains installed because the devnode could not be safely rolled back; manual cleanup may be required."
+    Write-VirtualDriverInstallState -PublishedInf $newPublishedInf
+    Write-Warning "New driver-store package $newPublishedInf remains installed because the devnode could not be safely rolled back; ownership state was kept for scoped recovery."
   } elseif ($rollbackHelperRebootRequired) {
     Write-VirtualDriverRebootTombstone
     Write-Warning 'Devnode rollback requires a Windows restart before retrying the Voxveil virtual-driver installation.'
