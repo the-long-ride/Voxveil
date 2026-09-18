@@ -229,9 +229,14 @@ $catalogSignature = Get-AuthenticodeSignature $cat
 if ($catalogSignature.Status -ne 'Valid' -or -not $catalogSignature.SignerCertificate) {
   throw 'Staged virtual-driver catalog does not have a valid Authenticode signature.'
 }
-$signerText = $catalogSignature.SignerCertificate.Subject + ' ' + $catalogSignature.SignerCertificate.Issuer
+$signerSubject = [string]$catalogSignature.SignerCertificate.Subject
+$signerText = $signerSubject + ' ' + [string]$catalogSignature.SignerCertificate.Issuer
 if ($signerText -notmatch '(?i)Microsoft') {
-  throw "Staged virtual-driver catalog signer is not identified as Microsoft: $($catalogSignature.SignerCertificate.Subject)"
+  throw "Staged virtual-driver catalog signer is not identified as Microsoft: $signerSubject"
+}
+$expectedCatalogSigner = [string]$verification.catalogSigner
+if (-not $expectedCatalogSigner -or $signerSubject -ine $expectedCatalogSigner) {
+  throw 'Staged virtual-driver catalog signer does not match verification.json.'
 }
 
 $deviceHelper = Join-Path $PSScriptRoot 'voxveil-virtual-device.exe'
