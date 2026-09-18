@@ -61,3 +61,16 @@ test('fixture-corpus policy points local manifests at the schema', () => {
   assert.match(corpus, /conform|schema/i);
   assert.match(corpus, /natural-mix[\s\S]{0,120}mixRecipe/i);
 });
+
+test('Tier B Commons candidate records verified metadata without claiming evaluated status', () => {
+  const corpus = read('docs/testing/classic-dsp-fixture-corpus.md');
+  const candidateStart = corpus.indexOf('The Muffin Man (performed by Sinclair Ukiri)');
+  assert.ok(candidateStart >= 0, 'Commons natural-mix candidate must be recorded');
+  const candidate = corpus.slice(candidateStart, candidateStart + 1800);
+  assert.match(candidate, /44\.1 kHz/i);
+  assert.match(candidate, /CC BY 4\.0/i);
+  assert.match(candidate, /approved-metadata/i);
+  assert.match(candidate, /0a2ff6ab77db7995c4a8b2ed868520bd80838574/i);
+  assert.match(candidate, /SHA-256/i);
+  assert.match(candidate, /not[^\n]{0,120}evaluated|before[^\n]{0,120}evaluated/i);
+});
