@@ -58,3 +58,12 @@ test('signed virtual-driver staging is confined below repository dist/windows-x6
   const cleanup = stager.indexOf('Get-ChildItem $destination -Force', destinationCreate);
   assert.ok(safety >= 0 && destinationCreate > safety && cleanup > safety, 'dist boundary must be checked before destination mutation');
 });
+
+
+test('signed virtual-driver staging rejects junction or symlink destination ancestors before cleanup', () => {
+  assert.match(stager, /function\s+Assert-NoReparsePointInPath/i);
+  assert.match(stager, /FileAttributes\]::ReparsePoint/i);
+  const check = stager.indexOf('Assert-NoReparsePointInPath');
+  const mutation = stager.indexOf('New-Item -ItemType Directory -Force -Path $destination');
+  assert.ok(check >= 0 && mutation > check, 'reparse-point preflight must precede staging mutation');
+});
