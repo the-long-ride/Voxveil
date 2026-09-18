@@ -147,6 +147,15 @@ $uninstallComplete = $uninstallCompleteProperty -and [bool]$uninstallCompletePro
 $pendingReboot = $pendingProperty -and [bool]$pendingProperty.Value
 $pendingBootMarker = if ($bootMarkerProperty) { [string]$bootMarkerProperty.Value } else { '' }
 
+if ($pendingReboot -and -not $pendingBootMarker) {
+  if ($bootMarkerProperty) {
+    $state.pendingRebootBootMarker = $currentBootMarker
+  } else {
+    $state | Add-Member -NotePropertyName pendingRebootBootMarker -NotePropertyValue $currentBootMarker
+  }
+  $state | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
+  throw 'Restart Windows before continuing Voxveil Virtual Audio lifecycle changes.'
+}
 if ($pendingReboot -and $pendingBootMarker -and $pendingBootMarker -eq $currentBootMarker) {
   throw 'Restart Windows before continuing Voxveil Virtual Audio lifecycle changes.'
 }
