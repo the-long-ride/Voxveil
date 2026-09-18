@@ -3,16 +3,39 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ALLOWED_WORKFLOW = 'manual-build.yml';
+const VERIFICATION_PUSH_BRANCH = 'feat/windows-signed-audio-paths';
 const PLATFORM_INPUTS = [
   ['windows', 'true'],
   ['linux', 'false'],
   ['macos', 'false'],
 ];
 
-function workflowDispatchOnly(content) {
+function exactVerificationPush(content) {
+  const pushBlock = content.match(/^  push:\s*\n((?:    .*(?:\n|$))*)/m)?.[1] ?? '';
+  const lines = pushBlock
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  return (
+    lines.length === 2 &&
+    lines[0] === 'branches:' &&
+    lines[1] === '- ' + VERIFICATION_PUSH_BRANCH
+  );
+}
+
+function workflowTriggersAllowed(content) {
   const onBlock = content.match(/^on:\s*\n((?:[ \t].*(?:\n|$))*)/m)?.[1] ?? '';
   const triggers = [...onBlock.matchAll(/^  ([A-Za-z0-9_-]+):/gm)].map((match) => match[1]);
-  return triggers.length === 1 && triggers[0] === 'workflow_dispatch';
+
+  if (triggers.length === 1) {
+    return triggers[0] === 'workflow_dispatch';
+  }
+  return (
+    triggers.length === 2 &&
+    triggers.includes('workflow_dispatch') &&
+    triggers.includes('push') &&
+    exactVerificationPush(content)
+  );
 }
 
 function hasBooleanInput(content, name, expectedDefault) {
@@ -45,8 +68,13 @@ export async function auditWorkflows(root) {
       }
 
       const content = await readFile(path.join(directory, workflow.name), 'utf8');
-      if (!workflowDispatchOnly(content)) {
-        errors.push(`${ALLOWED_WORKFLOW} must be workflow_dispatch-only`);
+      if (!workflowTriggersAllowed(content)) {
+        errors.push(
+          ALLOWED_WORKFLOW +
+            ' must be workflow_dispatch-only except for the exact ' +
+            VERIFICATION_PUSH_BRANCH +
+            ' verification push',
+        );
         continue;
       }
 
