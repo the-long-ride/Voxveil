@@ -113,27 +113,6 @@ export function useVoxveilState() {
     }
   }, [client, native, refreshNativeState, refreshSystemAudioEndpoints, systemAudioInstallBusyId]);
 
-  const installAllSystemAudioEndpoints = useCallback(async () => {
-    if (!native || systemAudioInstallBusyId) return;
-    const installable = systemAudioEndpoints.filter((endpoint) => endpoint.status === 'installable');
-    const failures: string[] = [];
-    for (const endpoint of installable) {
-      setSystemAudioInstallBusyId(endpoint.endpointId);
-      try {
-        const result = await client.installSystemAudioComponent(endpoint.endpointId);
-        if (result.outcome === 'reboot-required') {
-          failures.push(`${endpoint.displayName}: ${result.detail ?? 'Windows restart required before installation can continue.'}`);
-          break;
-        }
-      } catch (error) {
-        failures.push(`${endpoint.displayName}: ${errorMessage(error)}`);
-      }
-    }
-    setSystemAudioInstallBusyId(null);
-    setSystemAudioInstallError(failures.length ? failures.join('\n') : null);
-    await refreshNativeState();
-  }, [client, native, refreshNativeState, systemAudioEndpoints, systemAudioInstallBusyId]);
-
   const selectPhysicalOutput = useCallback(async (endpointId: string) => {
     if (!native) return;
     setSystemAudioInstallError(null);
@@ -211,7 +190,6 @@ export function useVoxveilState() {
     systemAudioInstallError,
     refreshSystemAudioEndpoints: () => { void refreshNativeState(); },
     installSystemAudioEndpoint: (endpointId: string) => { void installSystemAudioEndpoint(endpointId); },
-    installAllSystemAudioEndpoints: () => { void installAllSystemAudioEndpoints(); },
     selectPhysicalOutput: (endpointId: string) => { void selectPhysicalOutput(endpointId); },
     openWindowsSoundSettings: () => { void openWindowsSoundSettings(); },
     openVbCableDownload: () => { void openVbCableDownload(); },
