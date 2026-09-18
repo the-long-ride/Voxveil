@@ -36,13 +36,29 @@ test('virtual driver uninstall 3010 blocks same-boot reinstall and clears tombst
   const identityCheck = uninstaller.indexOf('Assert-PublishedInfIdentity $publishedInf $deviceInstanceId');
   const pendingGuard = uninstaller.indexOf('if ($pendingReboot -and $pendingBootMarker -and $pendingBootMarker -eq $currentBootMarker)');
   const completedGuard = uninstaller.indexOf('if ($uninstallComplete)');
+  const completedAbsenceCheck = uninstaller.indexOf('Assert-CompletedUninstallAbsent $state', completedGuard);
   const completedStateRemoval = uninstaller.indexOf('Remove-Item $statePath -Force', completedGuard);
   assert.ok(pendingGuard >= 0 && pendingGuard < completedGuard, 'any pending same-boot reboot must block uninstall mutation, including a pending install');
   assert.ok(completedGuard >= 0 && completedGuard < identityCheck, 'completed-uninstall reboot tombstone must be handled before stale package identity checks');
-  assert.ok(completedStateRemoval > completedGuard && completedStateRemoval < identityCheck, 'post-reboot tombstone cleanup must happen before package identity revalidation');
+  assert.ok(completedAbsenceCheck > completedGuard && completedAbsenceCheck < completedStateRemoval, 'post-reboot tombstone cleanup must prove the recorded removal is complete before discarding state');
+  assert.ok(completedStateRemoval > completedAbsenceCheck && completedStateRemoval < identityCheck, 'post-reboot tombstone cleanup must happen only after absence validation');
 
   const ensureDevice = installer.indexOf('& $deviceHelper ensure $inf');
   const sameBootGuard = installer.indexOf('Restart Windows before continuing the Voxveil virtual-driver installation.');
   assert.ok(ensureDevice >= 0, 'root devnode ensure mutation must exist');
   assert.ok(sameBootGuard >= 0 && sameBootGuard < ensureDevice, 'same-boot reinstall must fail before devnode mutation');
+});
+
+test('completed uninstall absence check is scoped and supports package-less rollback tombstones', () => {
+  assert.match(uninstaller, /function\s+Assert-CompletedUninstallAbsent/i);
+  const helperStart = uninstaller.search(/function\s+Assert-CompletedUninstallAbsent/i);
+  const helperEnd = uninstaller.indexOf('function Get-WindowsBootMarker', helperStart);
+  assert.ok(helperStart >= 0 && helperEnd > helperStart, 'absence helper must be defined before boot-marker logic');
+  const helper = uninstaller.slice(helperStart, helperEnd);
+
+  assert.match(helper, /Get-WindowsDriver\s+-Online/i);
+  assert.match(helper, /Win32_PnPSignedDriver/i);
+  assert.match(helper, /VoxveilVirtualAudio\.inf/i);
+  assert.match(helper, /Voxveil Virtual Audio/i);
+  assert.match(helper, /return/i, 'package-less reboot tombstones must be clearable after the boot changes');
 });
