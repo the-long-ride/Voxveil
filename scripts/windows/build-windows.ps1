@@ -65,6 +65,61 @@ function Get-Sha256Hex([string]$Path) {
   }
 }
 
+function Get-NormalizedDirectoryPath([string]$Path) {
+  $full = [IO.Path]::GetFullPath($Path)
+  $root = [IO.Path]::GetPathRoot($full)
+  if ($full -ieq $root) {
+    return $root
+  }
+  return $full.TrimEnd([char[]]@([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar))
+}
+
+function Test-DirectoryContains([string]$Parent, [string]$Child) {
+  $parentFull = Get-NormalizedDirectoryPath $Parent
+  $childFull = Get-NormalizedDirectoryPath $Child
+  if ($parentFull -ieq $childFull) {
+    return $true
+  }
+  $prefix = if ($parentFull.EndsWith([IO.Path]::DirectorySeparatorChar.ToString())) {
+    $parentFull
+  } else {
+    $parentFull + [IO.Path]::DirectorySeparatorChar
+  }
+  return $childFull.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)
+}
+
+function Test-DirectoryOverlap([string]$Left, [string]$Right) {
+  (Test-DirectoryContains $Left $Right) -or (Test-DirectoryContains $Right $Left)
+}
+
+function Assert-SafeOutputDirectory(
+  [string]$Output,
+  [string]$RepoPath,
+  [string]$DistRoot,
+  [string[]]$SignedInputDirectories
+) {
+  $outputFull = Get-NormalizedDirectoryPath $Output
+  $repoFull = Get-NormalizedDirectoryPath $RepoPath
+  $distFull = Get-NormalizedDirectoryPath $DistRoot
+  $volumeRoot = Get-NormalizedDirectoryPath ([IO.Path]::GetPathRoot($outputFull))
+
+  if ($outputFull -ieq $volumeRoot -or (Test-DirectoryContains $outputFull $repoFull)) {
+    throw 'Windows package output must not be a filesystem root, the repository root, or an ancestor of the repository.'
+  }
+  if ((Test-DirectoryContains $repoFull $outputFull) -and -not (Test-DirectoryContains $distFull $outputFull)) {
+    throw 'Windows package output directory inside the repository must be under dist.'
+  }
+
+  foreach ($signedInput in $SignedInputDirectories) {
+    if (-not $signedInput) {
+      continue
+    }
+    if (Test-DirectoryOverlap $outputFull $signedInput) {
+      throw "Windows package output must not overlap signed input directory: $signedInput"
+    }
+  }
+}
+
 $msbuild = Find-MSBuild
 Assert-Wdk
 
@@ -130,6 +185,16 @@ if (-not $OutputDirectory) {
   $OutputDirectory = Join-Path $repo 'dist\windows-x64\Voxveil'
 }
 $output = [IO.Path]::GetFullPath($OutputDirectory)
+$repoPath = [IO.Path]::GetFullPath($repo.Path)
+$distRoot = [IO.Path]::GetFullPath((Join-Path $repoPath 'dist'))
+$signedApoDir = $env:VOXVEIL_SIGNED_APO_DIR
+$signedDriverDir = $env:VOXVEIL_SIGNED_DRIVER_DIR
+Assert-SafeOutputDirectory `
+  -Output $output `
+  -RepoPath $repoPath `
+  -DistRoot $distRoot `
+  -SignedInputDirectories @($signedApoDir, $signedDriverDir)
+
 $systemAudio = Join-Path $output 'system-audio'
 Remove-Item $output -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $systemAudio | Out-Null
@@ -155,7 +220,6 @@ foreach ($script in @(
   Copy-Item $source $systemAudio
 }
 
-$signedApoDir = $env:VOXVEIL_SIGNED_APO_DIR
 if ($signedApoDir) {
   & (Join-Path $PSScriptRoot 'stage-signed-apo-package.ps1') `
     -PackageDir $signedApoDir `
@@ -163,7 +227,6 @@ if ($signedApoDir) {
   if ($LASTEXITCODE -ne 0) { throw 'Signed APO package staging failed.' }
 }
 
-$signedDriverDir = $env:VOXVEIL_SIGNED_DRIVER_DIR
 if ($signedDriverDir) {
   $releaseChannel = if ($env:VOXVEIL_SIGNED_DRIVER_RELEASE_CHANNEL) {
     $env:VOXVEIL_SIGNED_DRIVER_RELEASE_CHANNEL
