@@ -33,16 +33,7 @@ fn sha256_hex(bytes: &[u8]) -> String {
 }
 
 fn windows_powershell_path() -> Result<PathBuf, String> {
-    use windows_sys::Win32::System::SystemInformation::GetSystemDirectoryW;
-
-    let mut buffer = vec![0u16; 32_768];
-    let length = unsafe { GetSystemDirectoryW(buffer.as_mut_ptr(), buffer.len() as u32) } as usize;
-    if length == 0 || length >= buffer.len() {
-        return Err("Windows could not resolve the trusted system directory.".into());
-    }
-    buffer.truncate(length);
-    let system_directory = PathBuf::from(String::from_utf16(&buffer)
-        .map_err(|_| "Windows returned an invalid system-directory path.".to_string())?);
+    let system_directory = voxveil_windows_audio::windows_system_directory()?;
     let path = system_directory.join(r"WindowsPowerShell\v1.0\powershell.exe");
     if !path.is_file() {
         return Err(format!("Windows PowerShell was not found at {}.", path.display()));
