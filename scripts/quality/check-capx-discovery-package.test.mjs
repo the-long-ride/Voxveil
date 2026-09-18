@@ -27,3 +27,10 @@ test('runtime-interface quality contract distinguishes production CAPX from lega
   assert.match(runtimeContract, /\$TestSign/);
   assert.doesNotMatch(runtimeContract, /doesNotMatch\(extensionTemplate,\s*\/\^\\s\*AddInterface/);
 });
+
+
+test('non-elevated endpoint discovery uses the OS-resolved Windows PowerShell path', () => {
+  assert.match(discovery, /windows_system_directory/i);
+  assert.match(discovery, /WindowsPowerShell[\\/]v1\.0[\\/]powershell\.exe/i);
+  assert.doesNotMatch(discovery, /Command::new\("powershell\.exe"\)/i);
+});
