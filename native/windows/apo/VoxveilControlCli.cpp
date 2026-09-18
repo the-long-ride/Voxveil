@@ -26,6 +26,11 @@ constexpr wchar_t kModeDefault[] = L"{C18E2F7E-933D-4965-B7D1-1EEF228D2AF3}";
 constexpr wchar_t kModeMedia[] = L"{4780004E-7133-41D8-8C74-660DADD2C0EE}";
 constexpr wchar_t kModeMovie[] = L"{B26FEB0D-EC94-477C-9494-D1AB8E753F6E}";
 
+constexpr GUID kKsCategoryTopology{
+    0xdda54a40, 0x1e4c, 0x11d1, {0xa0, 0x50, 0x40, 0x57, 0x05, 0xc1, 0x00, 0x00}};
+constexpr GUID kKsCategoryAudio{
+    0x6994ad04, 0x93ef, 0x11d0, {0xa3, 0xcc, 0x00, 0xa0, 0xc9, 0x22, 0x31, 0x96}};
+
 std::filesystem::path ControlDllPath() {
     wchar_t buffer[MAX_PATH]{};
     const DWORD length = GetModuleFileNameW(nullptr, buffer, MAX_PATH);
@@ -65,6 +70,7 @@ int ReadDeviceInstanceId(HDEVINFO set, SP_DEVINFO_DATA& deviceInfo, std::wstring
 int OpenInterfaceFxKey(
     const wchar_t* expectedInstanceId,
     const wchar_t* interfacePath,
+    const GUID& expectedInterfaceClass,
     bool create,
     HKEY* fxKey) {
     *fxKey = nullptr;
@@ -79,6 +85,10 @@ int OpenInterfaceFxKey(
         const int error = static_cast<int>(GetLastError());
         SetupDiDestroyDeviceInfoList(set);
         return error;
+    }
+    if (!IsEqualGUID(interfaceData.InterfaceClassGuid, expectedInterfaceClass)) {
+        SetupDiDestroyDeviceInfoList(set);
+        return ERROR_INVALID_PARAMETER;
     }
 
     DWORD required = 0;
@@ -288,7 +298,12 @@ int MutateRuntimeInterfaces(
     const wchar_t* audioPath) {
     HKEY topologyKey = nullptr;
     HKEY audioKey = nullptr;
-    int result = OpenInterfaceFxKey(expectedInstanceId, topologyPath, attach, &topologyKey);
+    int result = OpenInterfaceFxKey(
+        expectedInstanceId,
+        topologyPath,
+        kKsCategoryTopology,
+        attach,
+        &topologyKey);
     if (!attach && result == ERROR_FILE_NOT_FOUND) {
         result = ERROR_SUCCESS;
     }
@@ -296,7 +311,12 @@ int MutateRuntimeInterfaces(
         return result;
     }
 
-    result = OpenInterfaceFxKey(expectedInstanceId, audioPath, attach, &audioKey);
+    result = OpenInterfaceFxKey(
+        expectedInstanceId,
+        audioPath,
+        kKsCategoryAudio,
+        attach,
+        &audioKey);
     if (!attach && result == ERROR_FILE_NOT_FOUND) {
         result = ERROR_SUCCESS;
     }
