@@ -67,7 +67,7 @@ function workflowTriggersAllowed(content) {
 }
 
 function hasBooleanInput(content, name, expectedDefault) {
-  const normalized = content.replaceAll('\r\n', '\n');
+  const normalized = content.replaceAll('\\r\\n', '\\n');
   const inputBlock = normalized.match(
     new RegExp(`^      ${name}:\\s*\\n((?:        .*(?:\\n|$))*)`, 'm'),
   )?.[1];
@@ -75,75 +75,7 @@ function hasBooleanInput(content, name, expectedDefault) {
 
   const hasBooleanType = /^        type:\s*boolean\s*$/m.test(inputBlock);
   const hasExpectedDefault = new RegExp(
-    `^        default:\\s*${expectedDefault}\\s*import { readFile, readdir } from 'node:fs/promises';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const ALLOWED_WORKFLOW = 'manual-build.yml';
-const VERIFICATION_PUSH_BRANCH = 'feat/windows-signed-audio-paths';
-const PLATFORM_INPUTS = [
-  ['windows', 'true'],
-  ['linux', 'false'],
-  ['macos', 'false'],
-];
-
-function workflowOnBlock(content) {
-  const lines = content.replaceAll('\r\n', '\n').split('\n');
-  const onIndex = lines.findIndex((line) => line.trimEnd() === 'on:');
-  if (onIndex < 0) return [];
-
-  const block = [];
-  for (let index = onIndex + 1; index < lines.length; index += 1) {
-    const line = lines[index];
-    if (line.trim() === '') {
-      if (block.length) break;
-      continue;
-    }
-    if (!line.startsWith(' ')) break;
-    block.push(line);
-  }
-  return block;
-}
-
-function workflowTriggers(content) {
-  return workflowOnBlock(content)
-    .filter((line) => /^  [A-Za-z0-9_-]+:\s*$/.test(line))
-    .map((line) => line.trim().slice(0, -1));
-}
-
-function exactVerificationPush(content) {
-  const block = workflowOnBlock(content);
-  const pushIndex = block.findIndex((line) => line.trim() === 'push:');
-  if (pushIndex < 0) return false;
-
-  const pushLines = [];
-  for (let index = pushIndex + 1; index < block.length; index += 1) {
-    const line = block[index];
-    if (/^  [A-Za-z0-9_-]+:\s*$/.test(line)) break;
-    pushLines.push(line.trim());
-  }
-  const meaningful = pushLines.filter(Boolean);
-  return (
-    meaningful.length === 2 &&
-    meaningful[0] === 'branches:' &&
-    meaningful[1] === '- ' + VERIFICATION_PUSH_BRANCH
-  );
-}
-
-function workflowTriggersAllowed(content) {
-  const triggers = workflowTriggers(content);
-  if (triggers.length === 1) {
-    return triggers[0] === 'workflow_dispatch';
-  }
-  return (
-    triggers.length === 2 &&
-    triggers.includes('workflow_dispatch') &&
-    triggers.includes('push') &&
-    exactVerificationPush(content)
-  );
-}
-
-,
+    `^        default:\\s*${expectedDefault}\\s*$`,
     'm',
   ).test(inputBlock);
   return hasBooleanType && hasExpectedDefault;
