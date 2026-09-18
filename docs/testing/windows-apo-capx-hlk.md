@@ -76,7 +76,7 @@ For each transition, verify there is exactly one Voxveil processing path and no 
 
 ## Install/uninstall ownership matrix
 
-The componentized APO installer and Tier 2 virtual driver can coexist. Their package ownership must remain independent.
+The componentized APO installer and Tier 2 virtual driver can coexist. Their package ownership must remain independent. One install-state file manages exactly one APO endpoint at a time; changing the managed endpoint requires scoped uninstall first.
 
 | Check | Expected |
 | --- | --- |
