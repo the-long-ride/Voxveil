@@ -104,6 +104,7 @@ $currentBootMarker = Get-WindowsBootMarker
 $infNames = @()
 $state = $null
 $developmentCertificateThumbprint = $null
+$legacyCertificateOwnershipUnknown = $false
 
 if (Test-Path $statePath) {
   $state = Get-Content $statePath -Raw | ConvertFrom-Json
@@ -126,6 +127,13 @@ if (Test-Path $statePath) {
   $developmentCertificateThumbprint = [string]$state.developmentCertificateThumbprint
   if ($developmentCertificateThumbprint -and $developmentCertificateThumbprint -notmatch '^[0-9A-Fa-f]{40}\z') {
     throw 'install-state.json contains an invalid developmentCertificateThumbprint; state was kept for recovery.'
+  }
+  $legacyCertificateOwnershipUnknown = (
+    $bindingMode -in @('legacy-runtime-interface', 'legacy-reference') -and
+    -not $developmentCertificateThumbprint
+  )
+  if ($legacyCertificateOwnershipUnknown) {
+    Write-Warning 'Existing legacy TestSign certificate ownership is unknown. This uninstall will remove only recorded APO/Extension state; review old Voxveil Development APO certificates manually instead of deleting trust-store certificates by subject.'
   }
   $pendingProperty = $state.PSObject.Properties['pendingReboot']
   $bootMarkerProperty = $state.PSObject.Properties['pendingRebootBootMarker']
