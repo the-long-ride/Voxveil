@@ -117,6 +117,12 @@ if (Test-Path $statePath) {
   if ($bindingMode -notin @('capx-extension', 'legacy-runtime-interface', 'legacy-reference')) {
     throw "install-state.json has unknown bindingMode '$bindingMode'; state was kept for recovery."
   }
+  $legacyRuntimeAttachedProperty = $state.PSObject.Properties['legacyRuntimeAttached']
+  $legacyRuntimeAttached = if ($bindingMode -eq 'legacy-runtime-interface') {
+    if ($legacyRuntimeAttachedProperty) { [bool]$legacyRuntimeAttachedProperty.Value } else { $true }
+  } else {
+    $false
+  }
   $developmentCertificateThumbprint = [string]$state.developmentCertificateThumbprint
   if ($developmentCertificateThumbprint -and $developmentCertificateThumbprint -notmatch '^[0-9A-Fa-f]{40}\z') {
     throw 'install-state.json contains an invalid developmentCertificateThumbprint; state was kept for recovery.'
@@ -162,7 +168,7 @@ if (Test-Path $statePath) {
   }
 }
 
-if ($state -and [string]$state.bindingMode -eq 'legacy-runtime-interface') {
+if ($state -and [string]$state.bindingMode -eq 'legacy-runtime-interface' -and $legacyRuntimeAttached) {
   foreach ($name in @('bindingPnpInstanceId', 'topologyInterfacePath', 'audioInterfacePath')) {
     if (-not $state.$name) {
       throw "Cannot safely detach Voxveil runtime FX registration: install-state.json is missing $name."
@@ -179,6 +185,13 @@ if ($state -and [string]$state.bindingMode -eq 'legacy-runtime-interface') {
   if ($LASTEXITCODE -ne 0) {
     throw "Runtime interface FX detach failed (exit $LASTEXITCODE); driver packages were left installed to avoid a stale APO registration."
   }
+  if ($state.PSObject.Properties['legacyRuntimeAttached']) {
+    $state.legacyRuntimeAttached = $false
+  } else {
+    $state | Add-Member -NotePropertyName legacyRuntimeAttached -NotePropertyValue $false
+  }
+  $legacyRuntimeAttached = $false
+  $state | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
 }
 
 if ($infNames.Count -eq 0) {
