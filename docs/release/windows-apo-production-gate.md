@@ -72,7 +72,7 @@ VoxveilApoExtension.inf
 VoxveilApoExtension.cat
 ```
 
-Before a release build uses those files, `scripts/windows/verify-signed-apo-package.ps1` must verify both INF files, both Microsoft-trusted catalogs, each catalog's package membership, the fixed CLSID/CAPX/Extension identities, x64 APO architecture, and the APO DLL's Authenticode signature required by the INF `SignatureAttributes.PETrust` declaration. `scripts/windows/stage-signed-apo-package.ps1` copies only those verified files and records their hashes/signers in `apo-verification.json`.
+Before a release build uses those files, `scripts/windows/verify-signed-apo-package.ps1` must verify both INF files, both Microsoft-trusted catalogs, each catalog's package membership, the fixed CLSID/CAPX/Extension identities, x64 APO architecture, and the APO DLL's Authenticode signature required by the INF `SignatureAttributes.PETrust` declaration. `scripts/windows/stage-signed-apo-package.ps1` copies only those verified files and records their hashes plus exact signer subjects/thumbprints in `apo-verification.json`. Endpoint discovery requires that complete provenance before offering production installability, and the elevated installer revalidates the current signatures against the recorded subjects/thumbprints before PnP mutation.
 
 `apo-verification.json` is part of the production installation contract, not informational metadata. Endpoint discovery must not advertise a production APO package as installable without that staging marker. Immediately before PnP installation, the elevated installer must recompute SHA-256 for all five signed artifacts and require exact matches with the verifier manifest, in addition to rechecking the fixed CAPX/Extension identities and selected endpoint binding.
 
