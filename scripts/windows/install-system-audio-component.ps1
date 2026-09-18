@@ -58,6 +58,16 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+$trustedSystemDirectoryForModules = [Environment]::SystemDirectory
+if (-not $trustedSystemDirectoryForModules) {
+  throw 'Windows system directory could not be resolved for PowerShell module loading.'
+}
+$trustedModulePath = Join-Path $trustedSystemDirectoryForModules 'WindowsPowerShell\v1.0\Modules'
+if (-not (Test-Path $trustedModulePath -PathType Container)) {
+  throw "Trusted Windows PowerShell module directory was not found: $trustedModulePath"
+}
+$env:PSModulePath = $trustedModulePath
+
 function Assert-Administrator {
   $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
   $principal = [Security.Principal.WindowsPrincipal]::new($identity)
