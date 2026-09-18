@@ -1,18 +1,15 @@
 use std::collections::HashMap;
-use std::io::Write;
-use std::os::windows::process::CommandExt;
 use std::path::Path;
-use std::process::{Command, Stdio};
 
 use serde::{Deserialize, Serialize};
 
 use super::{SystemAudioEndpoint, SystemAudioEndpointStatus, capx_extension_inf_matches};
+use super::helper_windows::run_fallback_helper;
 use crate::binding::{RuntimeBindingKind, classify_runtime_binding, fallback_device_matches_runtime};
 use crate::device::EndpointDescriptor;
 use crate::device_interfaces::{CandidateSelection, TopologyCandidate, enumerate_topology_interfaces, select_topology_candidate};
-use crate::topology::{resolve_adapter_device_id, windows_system_directory};
+use crate::topology::resolve_adapter_device_id;
 
-const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 const EXPECTED_EXTENSION_ID: &str = "1D81E93D-AB81-473B-9E5E-94FAE8D2377F";
 const EXPECTED_CAPX_CONTEXT: &str = "63E268CE-4CBC-48E0-BEB6-55103316F477";
 
@@ -27,7 +24,7 @@ struct RuntimeResolution {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct InputEndpoint<'a> {
+pub(super) struct InputEndpoint<'a> {
     endpoint_id: &'a str,
     display_name: &'a str,
     is_default: bool,
@@ -37,7 +34,7 @@ struct InputEndpoint<'a> {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct ResolvedEndpoint {
+pub(super) struct ResolvedEndpoint {
     endpoint_id: String,
     binding_pnp_instance_id: Option<String>,
     adapter_name: Option<String>,
@@ -196,51 +193,6 @@ fn empty_runtime(kind: RuntimeBindingKind) -> RuntimeResolution {
         kind,
         alias_match: false,
     }
-}
-
-fn run_fallback_helper(
-    input: &[InputEndpoint<'_>],
-    helper: &Path,
-) -> Result<Vec<ResolvedEndpoint>, String> {
-    if !helper.is_file() {
-        return Ok(Vec::new());
-    }
-    let json = serde_json::to_vec(input)
-        .map_err(|error| format!("failed to serialize Windows endpoints: {error}"))?;
-    let powershell = windows_system_directory()?.join(r"WindowsPowerShell\v1.0\powershell.exe");
-    if !powershell.is_file() {
-        return Err(format!("Windows PowerShell was not found at {}.", powershell.display()));
-    }
-    let mut command = Command::new(&powershell);
-    command
-        .args(["-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File"])
-        .arg(helper)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .creation_flags(CREATE_NO_WINDOW);
-    let mut child = command
-        .spawn()
-        .map_err(|error| format!("failed to start Windows endpoint discovery: {error}"))?;
-    child
-        .stdin
-        .take()
-        .ok_or_else(|| "Windows endpoint discovery stdin was unavailable".to_string())?
-        .write_all(&json)
-        .map_err(|error| format!("failed to send endpoints to discovery helper: {error}"))?;
-    let output = child
-        .wait_with_output()
-        .map_err(|error| format!("failed to wait for Windows endpoint discovery: {error}"))?;
-    if !output.status.success() {
-        let error = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        return Err(if error.is_empty() {
-            format!("Windows endpoint discovery exited with {}", output.status)
-        } else {
-            error
-        });
-    }
-    serde_json::from_slice(&output.stdout)
-        .map_err(|error| format!("Windows endpoint discovery returned invalid JSON: {error}"))
 }
 
 fn is_sha256(value: &str) -> bool {

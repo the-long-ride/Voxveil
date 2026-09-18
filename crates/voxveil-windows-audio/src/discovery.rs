@@ -109,6 +109,9 @@ pub(crate) fn extension_inf_matches(
 }
 
 #[cfg(windows)]
+#[path = "discovery_helper_windows.rs"]
+mod helper_windows;
+#[cfg(windows)]
 #[path = "discovery_windows.rs"]
 mod windows;
 #[cfg(windows)]
