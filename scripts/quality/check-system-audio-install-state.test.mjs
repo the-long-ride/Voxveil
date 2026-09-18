@@ -595,10 +595,10 @@ test('production APO install locks trusted files from verification through privi
 });
 
 test('production APO PnP installs directly from the locked staged package instead of user temp copies', () => {
-  assert.match(installer, /\$apoInstallInf\s*=\s*if\s*\(\$TestSign\)/i);
-  assert.match(installer, /\$extensionInstallInf\s*=\s*if\s*\(\$TestSign\)/i);
-  assert.match(installer, /pnputil\.exe\s+\/add-driver\s+\$apoInstallInf\s+\/install/i);
-  assert.match(installer, /pnputil\.exe\s+\/add-driver\s+\$extensionInstallInf\s+\/install/i);
+  assert.match(installer, /\$work\s*=\s*if\s*\(\$TestSign\)[\s\S]*?else\s*\{\s*\$root\s*\}/i);
+  assert.match(installer, /if\s*\(\$TestSign\)\s*\{\s*New-Item\s+-ItemType\s+Directory/i);
+  assert.match(installer, /pnputil\.exe\s+\/add-driver\s+\(Join-Path\s+\$work\s+'VoxveilApo\.inf'\)\s+\/install/i);
+  assert.match(installer, /pnputil\.exe\s+\/add-driver\s+\$extensionInf\s+\/install/i);
   assert.doesNotMatch(installer, /Copy-Item\s+\$prebuiltExtension\s+\$extensionInf/i);
   assert.doesNotMatch(installer, /Copy-Item\s+\$apoCat,\s*\$extensionCat\s+-Destination\s+\$work/i);
 });
