@@ -98,13 +98,13 @@ For a licensed local fixture, the repository helper performs the preparation, bo
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/evaluation/render-classic-dsp-fixture.ps1 `
-  -Input .\.local-evaluation\classic-dsp\sources\<source-audio> `
+  -Input .\.local-evaluation\classic-dsp\fixtures\<fixture-id>.wav `
   -FixtureId <fixture-id> `
   -Tier controlled `
   -SampleRate 44100
 ```
 
-Use `-Tier natural-mix` for an approved natural production mix. The helper requires `ffprobe.exe` and rejects any source whose first audio stream does not already match the requested 44.1/48 kHz rate, so resampled material cannot be mislabeled as native-rate acceptance evidence. Use `-SampleRate 48000` only with an independent native 48 kHz source. The helper writes only under the ignored `.local-evaluation/classic-dsp/{fixtures,renders,measurements}/` workspace. Its JSON evidence records the tier and probed native sample rate and deliberately keeps `subjectiveReview.status = "pending"`; objective rendering/hashes do not constitute listening acceptance, Windows runtime validation, or release qualification.
+For an approved natural production mix, use `-Tier natural-mix` and point `-Input` at the acquired file under `.local-evaluation/classic-dsp/sources/`. The helper requires `ffprobe.exe` and rejects any source whose first audio stream does not already match the requested 44.1/48 kHz rate, so resampled material cannot be mislabeled as native-rate acceptance evidence. Use `-SampleRate 48000` only with an independent native 48 kHz source. The helper writes only under the ignored `.local-evaluation/classic-dsp/{fixtures,renders,measurements}/` workspace. Its JSON evidence records the tier and probed native sample rate and deliberately keeps `subjectiveReview.status = "pending"`; objective rendering/hashes do not constitute listening acceptance, Windows runtime validation, or release qualification.
 
 ## Listening protocol
 
