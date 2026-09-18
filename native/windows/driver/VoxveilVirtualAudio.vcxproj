@@ -71,7 +71,8 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
       <WarningLevel>Level4</WarningLevel>
       <TreatWarningAsError>true</TreatWarningAsError>
-      <DisableSpecificWarnings>4595;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <!-- Voxveil intentionally exposes zero capture endpoints; SysVAD's generic unsigned capture loop triggers C4296. -->
+      <DisableSpecificWarnings>4296;4595;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <ExceptionHandling>false</ExceptionHandling>
       <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)..\..\..\third_party\microsoft\windows-driver-samples\audio\sysvad;$(ProjectDir)..\..\..\third_party\microsoft\windows-driver-samples\audio\sysvad\EndpointsCommon;$(DDK_INC_PATH);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_USE_WAVERT_;_USE_IPortClsRuntimePower;_NEW_DELETE_OPERATORS_;_WIN32;UNICODE;_UNICODE;PC_IMPLEMENTATION;DEBUG_LEVEL=DEBUGLVL_TERSE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
