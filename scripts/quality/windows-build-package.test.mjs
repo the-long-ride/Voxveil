@@ -123,3 +123,21 @@ test('Windows build embeds exact verified production APO package hashes before c
     assert.ok(assignment >= 0 && assignment < tauriBuild, `${name} must be set before Tauri build`);
   }
 });
+
+
+test('Windows package rechecks final signed APO files against embedded build-time hashes', () => {
+  const tauriBuild = buildScript.indexOf('npm run tauri -- build --no-bundle');
+  const packageHashes = buildScript.indexOf('$hashFiles = Get-ChildItem $output -Recurse -File');
+  const finalPackage = buildScript.slice(tauriBuild, packageHashes);
+  for (const [file, envName] of [
+    ['VoxveilApo.inf', 'VOXVEIL_APO_INF_SHA256'],
+    ['VoxveilApo.dll', 'VOXVEIL_APO_DLL_SHA256'],
+    ['VoxveilApo.cat', 'VOXVEIL_APO_CATALOG_SHA256'],
+    ['VoxveilApoExtension.inf', 'VOXVEIL_APO_EXTENSION_INF_SHA256'],
+    ['VoxveilApoExtension.cat', 'VOXVEIL_APO_EXTENSION_CATALOG_SHA256'],
+  ]) {
+    assert.match(finalPackage, new RegExp(file.replaceAll('.', '\\.')));
+    assert.match(finalPackage, new RegExp(envName));
+  }
+  assert.match(finalPackage, /Packaged trusted file changed after Tauri trust anchors were compiled/i);
+});
