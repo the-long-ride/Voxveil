@@ -116,7 +116,7 @@ test('signed APO staging is confined below repository dist/windows-x64 before an
   assert.match(text, /Test-DirectoryContains/i);
   assert.match(text, /destination must be below the repository dist\\windows-x64 tree/i);
 
-  const safety = text.indexOf('destination must be under the repository dist tree');
+  const safety = text.indexOf('destination must be below the repository dist\\windows-x64 tree');
   const manifestRemoval = text.indexOf('Remove-Item $manifestPath -Force -ErrorAction SilentlyContinue');
   const copy = text.indexOf('Copy-Item $file.FullName');
   assert.ok(safety >= 0 && manifestRemoval > safety && copy > safety, 'destination safety must run before mutation');
