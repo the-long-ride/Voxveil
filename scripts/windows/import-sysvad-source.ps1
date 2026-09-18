@@ -14,6 +14,7 @@ $MetadataRoot = Join-Path $RepoRoot 'third_party\microsoft\windows-driver-sample
 $RevisionFile = Join-Path $MetadataRoot 'SOURCE_REVISION'
 $TreeShaFile = Join-Path $MetadataRoot 'SYSVAD_TREE_SHA'
 $Destination = Join-Path $MetadataRoot 'audio\sysvad'
+$CompatibilityPatcher = Join-Path $PSScriptRoot 'patch-sysvad-source.ps1'
 $WorkRoot = Join-Path $env:TEMP "voxveil-windows-driver-samples-$Revision"
 $Archive = Join-Path $env:TEMP "voxveil-sysvad-$Revision.zip"
 $Extract = Join-Path $env:TEMP "voxveil-sysvad-$Revision"
@@ -48,6 +49,9 @@ if ($Pinned -ne $Revision) {
 }
 if (-not (Test-Path $TreeShaFile -PathType Leaf)) {
   throw "Missing pinned SysVAD tree file: $TreeShaFile"
+}
+if (-not (Test-Path $CompatibilityPatcher -PathType Leaf)) {
+  throw "Missing reviewed SysVAD compatibility patcher: $CompatibilityPatcher"
 }
 $PinnedTree = (Get-Content $TreeShaFile -Raw).Trim()
 if ($PinnedTree -ne $SysvadTreeSha) {
@@ -124,6 +128,7 @@ try {
   }
 
   Copy-Item $Source $Destination -Recurse -Force
+  & $CompatibilityPatcher -SysvadRoot $Destination
 
   Get-ChildItem $Destination -Directory -Recurse -Force |
     Where-Object { $_.Name -in @('Debug', 'Release', '.vs', 'x64', 'ARM64') } |
@@ -147,7 +152,7 @@ try {
     throw "Imported binary/signing artifacts remain: $($bad.FullName -join ', ')"
   }
 
-  Write-Host "Materialized verified SysVAD source at $Destination"
+  Write-Host "Materialized verified and Voxveil-patched SysVAD source at $Destination"
 }
 finally {
   Remove-Item $WorkRoot -Recurse -Force -ErrorAction SilentlyContinue

@@ -108,6 +108,20 @@ test('SysVAD importer verifies the exact fetched commit and subtree before mater
   assert.doesNotMatch(text, /Invoke-WebRequest/i);
 });
 
+
+test('materialized SysVAD applies only the reviewed non-sideband engine-node compatibility patch', () => {
+  const importer = read('scripts/windows/import-sysvad-source.ps1');
+  const patcher = read('scripts/windows/patch-sysvad-source.ps1');
+  const project = read('native/windows/driver/VoxveilVirtualAudio.vcxproj');
+
+  assert.match(importer, /patch-sysvad-source\.ps1/i);
+  assert.match(importer, /Copy-Item\s+\$Source\s+\$Destination[\s\S]*&\s*\$CompatibilityPatcher\s+-SysvadRoot\s+\$Destination/i);
+  assert.match(patcher, /MiniportAudioEngineNode\.cpp/i);
+  assert.match(patcher, /expected exactly 8 sideband volume\/mute branches/i);
+  assert.match(patcher, /SYSVAD_BTH_BYPASS[\s\S]*SYSVAD_USB_SIDEBAND/i);
+  assert.doesNotMatch(project, /SYSVAD_BTH_BYPASS|SYSVAD_USB_SIDEBAND/i);
+});
+
 test('materialized SysVAD source stays generated-only and provenance documents the build-time contract', () => {
   const gitignore = read('.gitignore');
   const provenance = read('third_party/microsoft/windows-driver-samples/README.voxveil.md');
