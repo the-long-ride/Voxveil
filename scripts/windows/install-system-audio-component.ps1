@@ -65,6 +65,30 @@ function Get-WindowsBootMarker {
   ([DateTime]$os.LastBootUpTime).ToUniversalTime().ToString('o')
 }
 
+function Remove-RecordedDevelopmentCertificate([string]$Thumbprint) {
+  if (-not $Thumbprint) {
+    return
+  }
+  if ($Thumbprint -notmatch '^[0-9A-Fa-f]{40}\z') {
+    throw 'Development certificate thumbprint is invalid.'
+  }
+
+  foreach ($certificatePath in @(
+    "Cert:\LocalMachine\My\$Thumbprint",
+    "Cert:\LocalMachine\Root\$Thumbprint",
+    "Cert:\LocalMachine\TrustedPublisher\$Thumbprint"
+  )) {
+    if (-not (Test-Path $certificatePath -PathType Leaf)) {
+      continue
+    }
+    $certificate = Get-Item $certificatePath
+    if ([string]$certificate.Subject -notmatch '(^|,\s*)CN=Voxveil Development APO($|,)') {
+      throw "Development certificate $Thumbprint resolves to an unexpected subject in $certificatePath."
+    }
+    Remove-Item $certificatePath -Force
+  }
+}
+
 function Get-VoxveilPublishedInfNames {
   @(Get-WindowsDriver -Online |
     Where-Object {
@@ -201,6 +225,7 @@ $previousManagedEndpointId = $null
 $previousBindingMode = $null
 $previousDevelopmentCertificateThumbprint = $null
 $developmentCertificateThumbprint = $null
+$script:developmentCertificateOwnedByState = $false
 $legacyRuntimeAttached = $false
 if (Test-Path $statePath -PathType Leaf) {
   $previousState = Get-Content $statePath -Raw | ConvertFrom-Json
@@ -236,6 +261,9 @@ if (Test-Path $statePath -PathType Leaf) {
     throw 'Existing legacy TestSign certificate ownership is unknown. Uninstall the recorded APO packages before installing again; do not generate or delete an untracked development certificate automatically.'
   }
   $developmentCertificateThumbprint = $previousDevelopmentCertificateThumbprint
+  if ($previousDevelopmentCertificateThumbprint) {
+    $script:developmentCertificateOwnedByState = $true
+  }
   if ($previousAudioServiceRestartRequired -eq $true) {
     throw 'Complete the prior Voxveil APO cleanup before installing again; AudioSrv restart is still required.'
   }
@@ -384,6 +412,7 @@ try {
         -NotAfter (Get-Date).AddYears(2)
       $developmentCertificateThumbprint = [string]$certificate.Thumbprint
       Write-InstallStateSnapshot
+      $script:developmentCertificateOwnedByState = $true
     }
     if (-not $developmentCertificateThumbprint) {
       $developmentCertificateThumbprint = [string]$certificate.Thumbprint
@@ -499,5 +528,10 @@ try {
   }
 }
 finally {
+  if ($TestSign -and
+      $developmentCertificateThumbprint -and
+      -not $script:developmentCertificateOwnedByState) {
+    Remove-RecordedDevelopmentCertificate $developmentCertificateThumbprint
+  }
   Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
 }
