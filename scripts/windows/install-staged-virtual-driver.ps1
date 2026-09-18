@@ -132,6 +132,22 @@ function Get-WindowsBootMarker {
   ([DateTime]$os.LastBootUpTime).ToUniversalTime().ToString('o')
 }
 
+function Write-JsonStateAtomically($State, [string]$Path) {
+  $directory = Split-Path -Parent $Path
+  $tempPath = Join-Path $directory ('.' + [IO.Path]::GetFileName($Path) + '.' + [Guid]::NewGuid().ToString('N') + '.tmp')
+  try {
+    $State | ConvertTo-Json -Depth 3 | Set-Content $tempPath -Encoding utf8
+    if (Test-Path $Path -PathType Leaf) {
+      [IO.File]::Replace($tempPath, $Path, $null)
+    } else {
+      [IO.File]::Move($tempPath, $Path)
+    }
+  }
+  finally {
+    Remove-Item $tempPath -Force -ErrorAction SilentlyContinue
+  }
+}
+
 function Get-VoxveilPublishedInfNames {
   @(Get-WindowsDriver -Online |
     Where-Object {
@@ -219,7 +235,7 @@ if (Test-Path $statePath -PathType Leaf) {
     } else {
       $previousState | Add-Member -NotePropertyName pendingRebootBootMarker -NotePropertyValue $currentBootMarker
     }
-    $previousState | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
+    Write-JsonStateAtomically -State $previousState -Path $statePath
     throw 'Restart Windows before continuing the Voxveil virtual-driver installation.'
   }
   if ($previousPendingReboot -and $previousBootMarker -and $previousBootMarker -eq $currentBootMarker) {
@@ -230,7 +246,7 @@ if (Test-Path $statePath -PathType Leaf) {
     Assert-CompletedUninstallAbsent $previousState
   } else {
     $publishedInfProperty = $previousState.PSObject.Properties['publishedInf']
-    if (-not $publishedInfProperty -or [string]$publishedInfProperty.Value -notmatch '^oem\d+\.inf$') {
+    if (-not $publishedInfProperty -or [string]$publishedInfProperty.Value -notmatch '^oem\d+[.]inf\z') {
       throw 'Existing virtual-driver install state does not contain a complete signed-package identity, including its publishedInf ownership. Uninstall the recorded Voxveil Virtual Audio package before installing again.'
     }
     $recordedPublishedInf = [string]$publishedInfProperty.Value
@@ -266,7 +282,7 @@ function Write-VirtualDriverInstallState {
   }
 
   $pendingRebootBootMarker = if ($PendingReboot) { $currentBootMarker } else { $null }
-  @{
+  $snapshot = @{
     publishedInf = $PublishedInf
     deviceInstanceId = $deviceInstanceId
     releaseChannel = [string]$verification.releaseChannel
@@ -277,15 +293,17 @@ function Write-VirtualDriverInstallState {
     pendingReboot = $PendingReboot
     pendingRebootBootMarker = $pendingRebootBootMarker
     uninstallComplete = $UninstallComplete
-  } | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
+  }
+  Write-JsonStateAtomically -State $snapshot -Path $statePath
 }
 
 function Write-VirtualDriverRebootTombstone {
-  @{
+  $snapshot = @{
     pendingReboot = $true
     pendingRebootBootMarker = $currentBootMarker
     uninstallComplete = $true
-  } | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
+  }
+  Write-JsonStateAtomically -State $snapshot -Path $statePath
 }
 
 $beforePublishedInfNames = @(Get-VoxveilPublishedInfNames)
@@ -297,180 +315,6 @@ $unexpectedPublishedInfNames = if ($recordedPublishedInf) {
 if ($unexpectedPublishedInfNames.Count -gt 0) {
   throw "Driver Store contains untracked Voxveil Virtual Audio package(s): $($unexpectedPublishedInfNames -join ', '). Remove them explicitly before installation so package ownership remains scoped."
 }
-$newPublishedInf = $null
-$deviceCreated = $false
-try {
-  Write-Host "Preparing Root\VoxveilVirtualAudio devnode..."
-  $ensureOutput = @(& $deviceHelper ensure $inf)
-  if ($LASTEXITCODE -ne 0) {
-    throw "voxveil-virtual-device.exe failed to ensure the root devnode (exit $LASTEXITCODE)."
-  }
-  $deviceInstanceId = Get-HelperValue $ensureOutput 'instanceId'
-  $createdValue = Get-HelperValue $ensureOutput 'created'
-  $helperRebootValue = Get-HelperValue $ensureOutput 'rebootRequired'
-  if (-not $deviceInstanceId -or $deviceInstanceId -match '[\r\n]' -or
-      $createdValue -notin @('0', '1') -or $helperRebootValue -notin @('0', '1')) {
-    throw 'voxveil-virtual-device.exe returned invalid ensure metadata.'
-  }
-  $deviceCreated = $createdValue -eq '1'
-  $helperRebootRequired = $helperRebootValue -eq '1'
-
-  Write-Host "Installing verified Voxveil virtual driver ($($verification.releaseChannel), $($verification.architecture))..."
-  pnputil.exe /add-driver $inf /install | Out-Host
-  $pnputilExitCode = $LASTEXITCODE
-
-  $afterPublishedInfNames = @(Get-VoxveilPublishedInfNames)
-  $newPublishedInfNames = @($afterPublishedInfNames | Where-Object { $beforePublishedInfNames -inotcontains $_ })
-  if ($newPublishedInfNames.Count -gt 1) {
-    throw "PnPUtil added multiple new Voxveil driver-store packages unexpectedly: $($newPublishedInfNames -join ', ')."
-  }
-  if ($newPublishedInfNames.Count -eq 1) {
-    $newPublishedInf = [string]$newPublishedInfNames[0]
-  }
-
-  $installedDrivers = @(Get-CimInstance Win32_PnPSignedDriver |
-    Where-Object {
-      $_.DeviceID -ieq $deviceInstanceId -and
-      $_.DriverProviderName -eq 'Voxveil' -and
-      $_.DeviceName -eq 'Voxveil Virtual Audio' -and
-      $_.InfName -match '^oem\d+\.inf$'
-    })
-
-  if ($pnputilExitCode -ne 0) {
-    if ($pnputilExitCode -ne 3010) {
-      throw "PnPUtil failed to install VoxveilVirtualAudio.inf (exit $pnputilExitCode)."
-    }
-  }
-
-  $lifecycleRebootRequired = $helperRebootRequired -or $pnputilExitCode -eq 3010
-  if ($lifecycleRebootRequired) {
-    if ($newPublishedInf) {
-      $publishedInf = $newPublishedInf
-    } elseif ($installedDrivers.Count -eq 1) {
-      $publishedInf = [string]$installedDrivers[0].InfName
-    } else {
-      throw "Virtual-device or package installation requires a restart, but the exact Voxveil driver package could not be resolved safely (new packages=$($newPublishedInfNames.Count), bindings=$($installedDrivers.Count))."
-    }
-    Write-VirtualDriverInstallState -PublishedInf $publishedInf -PendingReboot $true
-    Write-Warning 'Voxveil Virtual Audio was staged successfully, but Windows requires a restart before the driver binding can be verified. Restart Windows before using or reinstalling the virtual driver.'
-    exit 3010
-  }
-
-  if ($installedDrivers.Count -ne 1) {
-    throw "Installed Voxveil Virtual Audio devnode could not be resolved to exactly one signed driver binding (found $($installedDrivers.Count))."
-  }
-  $publishedInf = [string]$installedDrivers[0].InfName
-  if ($newPublishedInf -and $publishedInf -ine $newPublishedInf) {
-    throw "Newly added driver-store package '$newPublishedInf' does not match the package bound to the Voxveil devnode '$publishedInf'."
-  }
-
-  Write-VirtualDriverInstallState -PublishedInf $publishedInf
-
-  Write-Host "Voxveil Virtual Audio installed as $publishedInf on $deviceInstanceId."
-  Write-Host 'Use Windows Sound settings to select Voxveil Input when the relay path is desired.'
-}
-catch {
-  $devnodeRollbackSucceeded = -not $deviceCreated
-  $rollbackHelperRebootRequired = $false
-  if ($deviceCreated -and $deviceInstanceId) {
-    Write-Warning "Rolling back newly created Voxveil devnode $deviceInstanceId after installation failure."
-    $rollbackRemoveOutput = @(& $deviceHelper remove $deviceInstanceId)
-    $rollbackRemoveExitCode = $LASTEXITCODE
-    $rollbackRemoveOutput | Out-Host
-    if ($rollbackRemoveExitCode -ne 0) {
-      Write-Warning "Devnode rollback failed with exit code $rollbackRemoveExitCode; manual cleanup may be required."
-    } else {
-      $rollbackRebootValue = Get-HelperValue $rollbackRemoveOutput 'rebootRequired'
-      if ($rollbackRebootValue -notin @('0', '1')) {
-        Write-Warning 'Devnode rollback returned invalid reboot metadata; package rollback was skipped to preserve ownership for manual cleanup.'
-      } else {
-        $rollbackHelperRebootRequired = $rollbackRebootValue -eq '1'
-        $devnodeRollbackSucceeded = $true
-      }
-    }
-  }
-
-  if ($devnodeRollbackSucceeded -and $newPublishedInf) {
-    Write-Warning "Rolling back newly added Voxveil driver-store package $newPublishedInf after installation failure."
-    pnputil.exe /delete-driver $newPublishedInf | Out-Host
-    $rollbackDeleteExitCode = $LASTEXITCODE
-    if ($rollbackDeleteExitCode -ne 0 -and $rollbackDeleteExitCode -ne 3010) {
-      Write-VirtualDriverInstallState -PublishedInf $newPublishedInf -PendingReboot $rollbackHelperRebootRequired
-      Write-Warning "Driver-store rollback failed for $newPublishedInf with exit code $rollbackDeleteExitCode; ownership state was kept for scoped recovery."
-    } else {
-      $rollbackLifecycleRebootRequired = $rollbackHelperRebootRequired -or $rollbackDeleteExitCode -eq 3010
-      if ($rollbackLifecycleRebootRequired) {
-        Write-VirtualDriverInstallState -PublishedInf $newPublishedInf -PendingReboot $true -UninstallComplete $true
-        Write-Warning "Rollback removed $newPublishedInf successfully, but Windows requires a restart before another Voxveil virtual-driver lifecycle mutation."
-      }
-    }
-  } elseif ($newPublishedInf) {
-    Write-VirtualDriverInstallState -PublishedInf $newPublishedInf
-    Write-Warning "New driver-store package $newPublishedInf remains installed because the devnode could not be safely rolled back; ownership state was kept for scoped recovery."
-  } elseif ($rollbackHelperRebootRequired) {
-    Write-VirtualDriverRebootTombstone
-    Write-Warning 'Devnode rollback requires a Windows restart before retrying the Voxveil virtual-driver installation.'
-  }
-  throw
-}) {
-      throw 'Existing virtual-driver install state does not contain a complete signed-package identity, including its publishedInf ownership. Uninstall the recorded Voxveil Virtual Audio package before installing again.'
-    }
-    $recordedPublishedInf = [string]$publishedInfProperty.Value
-    $previousInfSha256 = [string]$previousState.infSha256
-    $previousCatalogSha256 = [string]$previousState.catalogSha256
-    $previousDriverSha256 = [string]$previousState.driverSha256
-    foreach ($recordedHash in @($previousInfSha256, $previousCatalogSha256, $previousDriverSha256)) {
-      if ($recordedHash -notmatch '^[0-9A-Fa-f]{64}$') {
-        throw 'Existing virtual-driver install state does not contain a complete signed-package identity. Uninstall the recorded Voxveil Virtual Audio package before installing again.'
-      }
-    }
-    if ($previousInfSha256.ToLowerInvariant() -ne ([string]$verification.infSha256).ToLowerInvariant() -or
-        $previousCatalogSha256.ToLowerInvariant() -ne ([string]$verification.catalogSha256).ToLowerInvariant() -or
-        $previousDriverSha256.ToLowerInvariant() -ne ([string]$verification.driverSha256).ToLowerInvariant()) {
-      throw 'Uninstall the currently recorded Voxveil Virtual Audio package before installing a different signed package.'
-    }
-  }
-}
-
-$deviceInstanceId = $null
-function Write-VirtualDriverInstallState {
-  param(
-    [Parameter(Mandatory = $true)][string]$PublishedInf,
-    [bool]$PendingReboot = $false,
-    [bool]$UninstallComplete = $false
-  )
-
-  if ($PublishedInf -notmatch '^oem\d+\.inf$') {
-    throw "Cannot record virtual-driver install state for invalid published INF '$PublishedInf'."
-  }
-  if (-not $deviceInstanceId -or $deviceInstanceId -match '[\r\n]') {
-    throw 'Cannot record virtual-driver install state without the exact devnode instance ID.'
-  }
-
-  $pendingRebootBootMarker = if ($PendingReboot) { $currentBootMarker } else { $null }
-  @{
-    publishedInf = $PublishedInf
-    deviceInstanceId = $deviceInstanceId
-    releaseChannel = [string]$verification.releaseChannel
-    architecture = [string]$verification.architecture
-    infSha256 = ([string]$verification.infSha256).ToLowerInvariant()
-    catalogSha256 = ([string]$verification.catalogSha256).ToLowerInvariant()
-    driverSha256 = ([string]$verification.driverSha256).ToLowerInvariant()
-    pendingReboot = $PendingReboot
-    pendingRebootBootMarker = $pendingRebootBootMarker
-    uninstallComplete = $UninstallComplete
-  } | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
-}
-
-function Write-VirtualDriverRebootTombstone {
-  @{
-    pendingReboot = $true
-    pendingRebootBootMarker = $currentBootMarker
-    uninstallComplete = $true
-  } | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
-}
-
-$beforePublishedInfNames = @(Get-VoxveilPublishedInfNames)
 $newPublishedInf = $null
 $deviceCreated = $false
 try {
