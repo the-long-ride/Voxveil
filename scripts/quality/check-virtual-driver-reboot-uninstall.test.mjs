@@ -113,3 +113,16 @@ test('virtual driver uninstall fails closed when PnPUtil reports success but pac
   assert.ok(staleSuccessGuard > refreshPresence, 'successful exit must prove the package disappeared');
   assert.ok(lifecycle > staleSuccessGuard, 'restart/success state must be committed only after the successful-delete absence proof');
 });
+
+
+test('virtual driver uninstall checkpoints missing pending-reboot boot marker before lifecycle mutation', () => {
+  const stateLoad = uninstaller.indexOf('$state = Get-Content $statePath -Raw | ConvertFrom-Json');
+  const identityCheck = uninstaller.indexOf('Assert-PublishedInfIdentity $publishedInf $deviceInstanceId');
+  assert.ok(stateLoad >= 0 && identityCheck > stateLoad);
+
+  const preflight = uninstaller.slice(stateLoad, identityCheck);
+  assert.match(preflight, /\$pendingReboot\s*-and\s*-not\s+\$pendingBootMarker/i);
+  assert.match(preflight, /pendingRebootBootMarker\s*=\s*\$currentBootMarker/i);
+  assert.match(preflight, /Set-Content\s+\$statePath\s+-Encoding\s+utf8/i);
+  assert.match(preflight, /Restart Windows before continuing Voxveil Virtual Audio lifecycle changes/i);
+});
