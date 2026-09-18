@@ -25,6 +25,9 @@ test('signed APO verifier checks exact package identities and catalog coverage',
   assert.match(text, /Get-PeMachine/i);
   assert.match(text, /0x8664/i);
   assert.match(text, /InfVerif\.exe/i);
+  assert.match(text, /GetFolderPath\(\[Environment\+SpecialFolder\]::ProgramFilesX86\)/i);
+  assert.doesNotMatch(text, /\$env:ProgramFiles\(x86\)/i);
+  assert.doesNotMatch(text, /Get-Command\s+\$Name/i);
   assert.doesNotMatch(text, /TESTSIGNING|New-SelfSignedCertificate|signtool\s+sign/i);
 });
 

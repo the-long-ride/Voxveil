@@ -47,10 +47,13 @@ test('virtual driver validator rejects a SYS for the wrong architecture', () => 
   assert.match(text, /driver architecture/i);
 });
 
-test('virtual driver validator finds WDK tools from both bin and Tools trees', () => {
+test('virtual driver validator pins WDK tools to OS-known Program Files', () => {
   const text = readFileSync('scripts/windows/validate-virtual-driver-package.ps1', 'utf8');
+  assert.match(text, /GetFolderPath\(\[Environment\+SpecialFolder\]::ProgramFilesX86\)/i);
   assert.match(text, /Windows Kits\\10\\bin/i);
   assert.match(text, /Windows Kits\\10\\Tools/i);
+  assert.doesNotMatch(text, /\$env:ProgramFiles\(x86\)/i);
+  assert.doesNotMatch(text, /Get-Command\s+\$Name/i);
   assert.match(text, /InfVerif\.exe/i);
 });
 

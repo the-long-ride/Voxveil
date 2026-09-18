@@ -8,13 +8,18 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
+function Get-TrustedProgramFilesX86 {
+  $path = [Environment]::GetFolderPath([Environment+SpecialFolder]::ProgramFilesX86)
+  if (-not $path -or -not (Test-Path $path -PathType Container)) {
+    throw 'Windows Program Files (x86) directory could not be resolved from the OS known-folder API.'
+  }
+  return [IO.Path]::GetFullPath($path)
+}
+
 function Find-WdkTool {
   param([Parameter(Mandatory = $true)][string]$Name)
 
-  $command = Get-Command $Name -ErrorAction SilentlyContinue
-  if ($command) { return $command.Source }
-
-  $binRoot = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin'
+  $binRoot = Join-Path (Get-TrustedProgramFilesX86) 'Windows Kits\10\bin'
   if (-not (Test-Path $binRoot -PathType Container)) {
     throw "Windows Kits tool directory was not found while locating $Name."
   }
