@@ -77,7 +77,17 @@ $state = $null
 if (Test-Path $statePath) {
   $state = Get-Content $statePath -Raw | ConvertFrom-Json
   $recordedInfNames = @($state.installedInfNames)
-  $invalidRecordedInfNames = @($recordedInfNames | Where-Object { [string]$_ -notmatch '^oem\d+\.inf  $bootMarkerProperty = $state.PSObject.Properties['pendingRebootBootMarker']
+  $invalidRecordedInfNames = @($recordedInfNames | Where-Object { [string]$_ -notmatch '^oem\d+[.]inf\z' })
+  if ($invalidRecordedInfNames.Count -gt 0) {
+    throw "Malformed APO/Extension package identity in install-state.json: $($invalidRecordedInfNames -join ', '). State was kept for recovery."
+  }
+  $infNames = @($recordedInfNames)
+  $bindingMode = [string]$state.bindingMode
+  if ($bindingMode -notin @('capx-extension', 'legacy-runtime-interface', 'legacy-reference')) {
+    throw "install-state.json has unknown bindingMode '$bindingMode'; state was kept for recovery."
+  }
+  $pendingProperty = $state.PSObject.Properties['pendingReboot']
+  $bootMarkerProperty = $state.PSObject.Properties['pendingRebootBootMarker']
   $pendingRemovedProperty = $state.PSObject.Properties['pendingRemovedInfName']
   $pendingReboot = $pendingProperty -and [bool]$pendingProperty.Value
   $pendingBootMarker = if ($bootMarkerProperty) { [string]$bootMarkerProperty.Value } else { '' }
@@ -111,7 +121,6 @@ if (Test-Path $statePath) {
     $state | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
   }
 }
-
 if ($state -and [string]$state.bindingMode -eq 'legacy-runtime-interface') {
   foreach ($name in @('bindingPnpInstanceId', 'topologyInterfacePath', 'audioInterfacePath')) {
     if (-not $state.$name) {
