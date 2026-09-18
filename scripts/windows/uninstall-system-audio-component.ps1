@@ -253,11 +253,13 @@ foreach ($inf in @($infNames)) {
     if (-not $packageStillPresent) {
       $infNames = @($infNames | Where-Object { $_ -ine $inf })
       $state.installedInfNames = @($infNames)
-      $state.pendingRemovedInfName = $null
-      $state.pendingReboot = $false
-      $state.pendingRebootBootMarker = $null
-      $state.audioServiceRestartRequired = ($infNames.Count -eq 0)
+      $state.pendingRemovedInfName = $inf
+      $state.pendingReboot = $true
+      $state.pendingRebootBootMarker = $currentBootMarker
+      $state.audioServiceRestartRequired = $false
       Write-JsonStateAtomically -State $state -Path $statePath
+      Write-Warning "PnPUtil returned exit $pnputilExitCode for $inf, but the package is already absent. Requiring a restart before cleanup continues because the completion state is ambiguous."
+      exit 3010
     }
     throw "PnPUtil failed to remove $inf (exit $pnputilExitCode). Driver Store ownership was refreshed and install-state.json was kept for recovery."
   }
