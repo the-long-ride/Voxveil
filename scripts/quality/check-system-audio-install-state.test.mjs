@@ -100,7 +100,7 @@ test('APO PnP failures refresh scoped ownership before throwing so staged packag
 test('partial APO ownership snapshots stay non-ready until AudioDG load verification succeeds', () => {
   assert.match(
     installer,
-    /function\s+Write-InstallStateSnapshot\s*\(\s*\[bool\]\$BindingReady\s*=\s*\$false\s*\)/i,
+    /function\s+Write-InstallStateSnapshot\s*\(\s*\[bool\]\$BindingReady\s*=\s*\$false(?:\s*,[\s\S]*?)?\)/i,
   );
   assert.match(installer, /bindingReady\s*=\s*\$BindingReady/);
   assert.match(apoRoute, /binding_ready:\s*Option<bool>/);
