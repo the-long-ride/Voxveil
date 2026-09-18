@@ -119,6 +119,22 @@ function Get-WindowsBootMarker {
   ([DateTime]$os.LastBootUpTime).ToUniversalTime().ToString('o')
 }
 
+function Write-JsonStateAtomically($State, [string]$Path) {
+  $directory = Split-Path -Parent $Path
+  $tempPath = Join-Path $directory ('.' + [IO.Path]::GetFileName($Path) + '.' + [Guid]::NewGuid().ToString('N') + '.tmp')
+  try {
+    $State | ConvertTo-Json -Depth 3 | Set-Content $tempPath -Encoding utf8
+    if (Test-Path $Path -PathType Leaf) {
+      [IO.File]::Replace($tempPath, $Path, $null)
+    } else {
+      [IO.File]::Move($tempPath, $Path)
+    }
+  }
+  finally {
+    Remove-Item $tempPath -Force -ErrorAction SilentlyContinue
+  }
+}
+
 function Get-HelperValue([string[]]$Output, [string]$Name) {
   $prefix = "$Name="
   $line = $Output | Where-Object { $_.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1
@@ -153,7 +169,7 @@ if ($pendingReboot -and -not $pendingBootMarker) {
   } else {
     $state | Add-Member -NotePropertyName pendingRebootBootMarker -NotePropertyValue $currentBootMarker
   }
-  $state | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
+  Write-JsonStateAtomically -State $state -Path $statePath
   throw 'Restart Windows before continuing Voxveil Virtual Audio lifecycle changes.'
 }
 if ($pendingReboot -and $pendingBootMarker -and $pendingBootMarker -eq $currentBootMarker) {
@@ -218,7 +234,7 @@ if ($pnputilExitCode -ne 0 -and $pnputilExitCode -ne 3010) {
       } else {
         $state | Add-Member -NotePropertyName uninstallComplete -NotePropertyValue $true
       }
-      $state | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
+      Write-JsonStateAtomically -State $state -Path $statePath
     } else {
       Remove-Item $statePath -Force
     }
@@ -238,7 +254,7 @@ if ($pnputilExitCode -ne 0 -and $pnputilExitCode -ne 3010) {
     } else {
       $state | Add-Member -NotePropertyName uninstallComplete -NotePropertyValue $false
     }
-    $state | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
+    Write-JsonStateAtomically -State $state -Path $statePath
   }
   throw "PnPUtil failed to delete $publishedInf (exit $pnputilExitCode). Driver Store ownership was refreshed before preserving recovery state."
 }
@@ -259,7 +275,7 @@ if ($pnputilExitCode -eq 0 -and $packageStillPresent) {
     } else {
       $state | Add-Member -NotePropertyName uninstallComplete -NotePropertyValue $false
     }
-    $state | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
+    Write-JsonStateAtomically -State $state -Path $statePath
   }
   throw "PnPUtil reported success deleting $publishedInf, but the recorded Voxveil package is still present in the Driver Store; the install-state file was kept for recovery."
 }
@@ -281,7 +297,7 @@ if ($lifecycleRebootRequired) {
   } else {
     $state | Add-Member -NotePropertyName uninstallComplete -NotePropertyValue $true
   }
-  $state | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
+  Write-JsonStateAtomically -State $state -Path $statePath
   Write-Warning 'Voxveil Virtual Audio was removed successfully, but Windows requires a restart to finish the device/package removal.'
   exit 3010
 }
