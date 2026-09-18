@@ -104,3 +104,30 @@ test('virtual-driver rollback persists exact package ownership when devnode clea
   );
   assert.doesNotMatch(retainedPackage, /-UninstallComplete\s+\$true/i);
 });
+
+
+test('virtual-driver rollback hard package-delete failure keeps exact package ownership without a helper reboot', () => {
+  const catchStart = installer.indexOf('catch {');
+  assert.ok(catchStart >= 0, 'installer must keep rollback catch block');
+  const rollback = installer.slice(catchStart);
+  const deletePackage = rollback.indexOf('pnputil.exe /delete-driver $newPublishedInf');
+  assert.ok(deletePackage >= 0, 'rollback must attempt deletion of only the newly added package');
+  const deleteTail = rollback.slice(deletePackage);
+  const hardFailureStart = deleteTail.search(/if\s*\(\s*\$rollbackDeleteExitCode\s*-ne\s*0\s*-and\s*\$rollbackDeleteExitCode\s*-ne\s*3010\s*\)/i);
+  assert.ok(hardFailureStart >= 0, 'rollback must keep a hard package-delete failure branch');
+  const hardFailureTail = deleteTail.slice(hardFailureStart);
+  const successElse = hardFailureTail.indexOf('} else {');
+  assert.ok(successElse > 0, 'hard package-delete failure branch must end before rollback-success handling');
+  const hardFailure = hardFailureTail.slice(0, successElse);
+
+  assert.match(
+    hardFailure,
+    /Write-VirtualDriverInstallState\s+-PublishedInf\s+\$newPublishedInf/i,
+    'a package left behind by hard rollback deletion failure must remain recorded for scoped recovery',
+  );
+  assert.doesNotMatch(
+    hardFailure,
+    /if\s*\(\s*\$rollbackHelperRebootRequired\s*\)/i,
+    'ownership persistence must not depend on SetupAPI also requiring a reboot',
+  );
+});
