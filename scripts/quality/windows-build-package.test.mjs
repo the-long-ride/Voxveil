@@ -44,3 +44,24 @@ test('Windows package starts from a clean output tree before signed virtual-driv
   assert.ok(recreateSystemAudio > removeOutput, 'system-audio staging must be recreated only after output cleanup');
   assert.ok(signedDriverStage > recreateSystemAudio, 'signed driver staging must run only inside the newly cleaned package tree');
 });
+
+
+test('Windows package output cleanup is preflighted against repository and signed-input paths', () => {
+  const outputResolve = buildScript.indexOf('$output = [IO.Path]::GetFullPath($OutputDirectory)');
+  const removeOutput = buildScript.indexOf('Remove-Item $output -Recurse -Force -ErrorAction SilentlyContinue');
+  assert.ok(outputResolve >= 0 && removeOutput > outputResolve);
+
+  const preflight = buildScript.slice(outputResolve, removeOutput);
+  assert.match(preflight, /Assert-SafeOutputDirectory/i);
+  assert.match(preflight, /\$repoPath/i);
+  assert.match(preflight, /\$distRoot/i);
+  assert.match(preflight, /VOXVEIL_SIGNED_APO_DIR/i);
+  assert.match(preflight, /VOXVEIL_SIGNED_DRIVER_DIR/i);
+  assert.match(preflight, /must not overlap/i);
+});
+
+test('Windows package only allows in-repository custom output under dist', () => {
+  assert.match(buildScript, /function\s+Assert-SafeOutputDirectory/i);
+  assert.match(buildScript, /output directory inside the repository must be under dist/i);
+  assert.match(buildScript, /GetPathRoot/i);
+});
