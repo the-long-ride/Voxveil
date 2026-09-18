@@ -95,18 +95,19 @@ $inf = $infFiles[0]
 $cat = $catFiles[0]
 $sys = $sysFiles[0]
 
-$existingInstallStatePath = Join-Path $destination 'virtual-driver-install-state.json'
-$existingInstallStateBytes = if (Test-Path $existingInstallStatePath -PathType Leaf) {
-  [IO.File]::ReadAllBytes($existingInstallStatePath)
-} else {
-  $null
+$preservedInstallStateName = 'virtual-driver-install-state.json'
+$existingInstallStatePath = Join-Path $destination $preservedInstallStateName
+if (Test-Path $existingInstallStatePath -and -not (Test-Path $existingInstallStatePath -PathType Leaf)) {
+  throw 'Signed virtual-driver destination contains an invalid lifecycle-state entry; refusing destructive restaging.'
 }
-
-Remove-Item $destination -Recurse -Force -ErrorAction SilentlyContinue
+if (Test-Path $destination -PathType Leaf) {
+  throw 'Signed virtual-driver staging destination exists as a file.'
+}
 New-Item -ItemType Directory -Force -Path $destination | Out-Null
-if ($null -ne $existingInstallStateBytes) {
-  [IO.File]::WriteAllBytes((Join-Path $destination 'virtual-driver-install-state.json'), $existingInstallStateBytes)
-}
+Get-ChildItem $destination -Force |
+  Where-Object { $_.Name -ine $preservedInstallStateName } |
+  Remove-Item -Recurse -Force
+
 foreach ($file in @($inf, $cat, $sys)) {
   Copy-Item $file.FullName (Join-Path $destination $file.Name)
 }
