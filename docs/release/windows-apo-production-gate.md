@@ -91,6 +91,8 @@ For a release package, set `VOXVEIL_SIGNED_APO_DIR` to that verified returned pa
 
 When Windows changes the default output away from the APO-installed endpoint, a stale `loaded>0` count must not suppress VB-CABLE/Voxveil virtual-endpoint fallback. When the user changes back, the APO may regain precedence only after a real non-discovery processing instance exists for the installed/default endpoint.
 
+The current native control telemetry exposes a process-wide `loaded` count rather than endpoint-specific instance identities. Therefore one install-state file manages exactly one APO endpoint at a time. The installer must reject a different endpoint while any endpoint-scoped install state remains, including partial/non-ready state after a failed or reboot-required install. Uninstall the managed APO state/packages first, then install the different endpoint. The UI must not offer a bulk “install all endpoints” action that could imply endpoint-scoped load verification which the current telemetry cannot prove.
+
 ## Package ownership and uninstall rule
 
 The APO/Extension installer may coexist with the first-party `VoxveilVirtualAudio` kernel package. Package ownership must remain scoped.
