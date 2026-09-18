@@ -201,7 +201,13 @@ $previousManagedEndpointId = $null
 if (Test-Path $statePath -PathType Leaf) {
   $previousState = Get-Content $statePath -Raw | ConvertFrom-Json
   $recordedInfNames = @($previousState.installedInfNames)
-  $invalidRecordedInfNames = @($recordedInfNames | Where-Object { [string]$_ -notmatch '^oem\d+\.inf  $previousBootMarker = [string](Get-OptionalProperty $previousState 'pendingRebootBootMarker')
+  $invalidRecordedInfNames = @($recordedInfNames | Where-Object { [string]$_ -notmatch '^oem\d+[.]inf\z' })
+  if ($invalidRecordedInfNames.Count -gt 0) {
+    throw "Malformed APO/Extension package identity in install-state.json: $($invalidRecordedInfNames -join ', '). State was kept for recovery."
+  }
+  $previousInstalledInfNames = @($recordedInfNames)
+  $previousPendingReboot = Get-OptionalProperty $previousState 'pendingReboot'
+  $previousBootMarker = [string](Get-OptionalProperty $previousState 'pendingRebootBootMarker')
   $previousPendingRemovedInfName = [string](Get-OptionalProperty $previousState 'pendingRemovedInfName')
   $previousBindingMode = [string](Get-OptionalProperty $previousState 'bindingMode')
   if ($previousBindingMode -notin @('capx-extension', 'legacy-runtime-interface', 'legacy-reference')) {
