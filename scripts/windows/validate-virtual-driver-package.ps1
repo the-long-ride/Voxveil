@@ -32,22 +32,25 @@ function Find-WdkTool {
     (Join-Path $programFilesX86 'Windows Kits\10\bin'),
     (Join-Path $programFilesX86 'Windows Kits\10\Tools')
   )
+  $toolArchitectures = @('x64', 'x86')
 
   foreach ($root in $searchRoots) {
     if (-not (Test-Path $root -PathType Container)) { continue }
 
-    $direct = Join-Path $root "x64\$Name"
-    if (Test-Path $direct -PathType Leaf) { return $direct }
+    foreach ($toolArchitecture in $toolArchitectures) {
+      $direct = Join-Path $root "$toolArchitecture\$Name"
+      if (Test-Path $direct -PathType Leaf) { return $direct }
+    }
 
-    $candidate = Get-ChildItem $root -Directory -ErrorAction SilentlyContinue |
-      Sort-Object Name -Descending |
-      ForEach-Object { Join-Path $_.FullName "x64\$Name" } |
-      Where-Object { Test-Path $_ -PathType Leaf } |
-      Select-Object -First 1
-    if ($candidate) { return $candidate }
+    foreach ($versionDirectory in @(Get-ChildItem $root -Directory -ErrorAction SilentlyContinue | Sort-Object Name -Descending)) {
+      foreach ($toolArchitecture in $toolArchitectures) {
+        $candidate = Join-Path $versionDirectory.FullName "$toolArchitecture\$Name"
+        if (Test-Path $candidate -PathType Leaf) { return $candidate }
+      }
+    }
   }
 
-  throw "$Name was not found in PATH or the installed Windows Kits bin/Tools directories."
+  throw "$Name was not found in the trusted Windows Kits bin/Tools directories."
 }
 
 function Get-PeMachine {

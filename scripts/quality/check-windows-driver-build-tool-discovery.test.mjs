@@ -11,5 +11,6 @@ test('virtual driver build pins Visual Studio and WDK discovery to OS-known Prog
   assert.match(text, /Windows Kits\\10\\Tools/i);
   assert.doesNotMatch(text, /\$env:ProgramFiles\(x86\)/i);
   assert.doesNotMatch(text, /Get-Command\s+(?:\$Name|msbuild\.exe)/i);
+  assert.match(text, /\$toolArchitectures\s*=\s*@\('x64',\s*'x86'\)/i);
   assert.match(text, /Inf2Cat\.exe/i);
 });

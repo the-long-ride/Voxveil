@@ -23,13 +23,19 @@ function Find-WdkTool {
   if (-not (Test-Path $binRoot -PathType Container)) {
     throw "Windows Kits tool directory was not found while locating $Name."
   }
-  $candidate = Get-ChildItem $binRoot -Directory -ErrorAction SilentlyContinue |
-    Sort-Object Name -Descending |
-    ForEach-Object { Join-Path $_.FullName "x64\$Name" } |
-    Where-Object { Test-Path $_ -PathType Leaf } |
-    Select-Object -First 1
-  if ($candidate) { return $candidate }
-  throw "$Name was not found in PATH or the installed Windows Kits."
+  $toolArchitectures = @('x64', 'x86')
+
+  foreach ($toolArchitecture in $toolArchitectures) {
+    $direct = Join-Path $binRoot "$toolArchitecture\$Name"
+    if (Test-Path $direct -PathType Leaf) { return $direct }
+  }
+  foreach ($versionDirectory in @(Get-ChildItem $binRoot -Directory -ErrorAction SilentlyContinue | Sort-Object Name -Descending)) {
+    foreach ($toolArchitecture in $toolArchitectures) {
+      $candidate = Join-Path $versionDirectory.FullName "$toolArchitecture\$Name"
+      if (Test-Path $candidate -PathType Leaf) { return $candidate }
+    }
+  }
+  throw "$Name was not found in the trusted Windows Kits bin directory."
 }
 
 function Get-ExactlyOneFile {

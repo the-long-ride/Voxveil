@@ -54,6 +54,7 @@ test('virtual driver validator pins WDK tools to OS-known Program Files', () => 
   assert.match(text, /Windows Kits\\10\\Tools/i);
   assert.doesNotMatch(text, /\$env:ProgramFiles\(x86\)/i);
   assert.doesNotMatch(text, /Get-Command\s+\$Name/i);
+  assert.match(text, /\$toolArchitectures\s*=\s*@\('x64',\s*'x86'\)/i);
   assert.match(text, /InfVerif\.exe/i);
 });
 
