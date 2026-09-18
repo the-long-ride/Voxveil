@@ -5,6 +5,12 @@ import test from 'node:test';
 const installer = readFileSync('scripts/windows/install-system-audio-component.ps1', 'utf8');
 const uninstaller = readFileSync('scripts/windows/uninstall-system-audio-component.ps1', 'utf8');
 const apoRoute = readFileSync('crates/voxveil-windows-audio/src/apo_route.rs', 'utf8');
+const systemAudioUi = readFileSync('ui/features/home/SystemAudioEndpoints.tsx', 'utf8');
+const homeScreen = readFileSync('ui/features/home/HomeScreen.tsx', 'utf8');
+const stateHook = readFileSync('ui/app/useVoxveilState.ts', 'utf8');
+const releaseGuide = readFileSync('docs/release/windows-apo-production-gate.md', 'utf8');
+const validationMatrix = readFileSync('docs/testing/windows-apo-capx-hlk.md', 'utf8');
+const windowsSpec = readFileSync('docs/specs/platform/windows.md', 'utf8');
 
 const modes = ['capx-extension', 'legacy-runtime-interface', 'legacy-reference'];
 
@@ -246,4 +252,17 @@ test('APO installer refuses a second different managed endpoint before PnP mutat
   assert.match(preflight, /selectedEndpointId/i);
   assert.match(preflight, /-ine\s+\$previousManagedEndpointId/i);
   assert.match(preflight, /Uninstall the currently managed Voxveil APO endpoint/i);
+});
+
+
+test('APO endpoint management remains explicit and single-endpoint until telemetry is endpoint-scoped', () => {
+  assert.doesNotMatch(systemAudioUi, /onInstallAll|installAll/i);
+  assert.doesNotMatch(homeScreen, /installAllSystemAudioEndpoints|onInstallAll/i);
+  assert.doesNotMatch(stateHook, /installAllSystemAudioEndpoints/i);
+
+  for (const text of [releaseGuide, validationMatrix, windowsSpec]) {
+    assert.match(text, /one .*endpoint at a time|one endpoint at a time|exactly one APO endpoint at a time/i);
+    assert.match(text, /bulk/i);
+    assert.match(text, /uninstall/i);
+  }
 });
