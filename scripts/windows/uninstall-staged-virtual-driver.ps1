@@ -47,6 +47,24 @@ function Assert-PublishedInfIdentity([string]$PublishedInf, [string]$DeviceInsta
   }
 }
 
+function Test-RecordedVirtualDriverPackagePresent([string]$PublishedInf) {
+  $matches = @(Get-WindowsDriver -Online |
+    Where-Object { [string]$_.Driver -ieq $PublishedInf })
+  if ($matches.Count -eq 0) {
+    return $false
+  }
+  if ($matches.Count -ne 1) {
+    throw "Recorded package $PublishedInf resolved to $($matches.Count) Driver Store entries; the install-state file was kept for recovery."
+  }
+
+  $package = $matches[0]
+  if ([string]$package.ProviderName -ine 'Voxveil' -or
+      [IO.Path]::GetFileName([string]$package.OriginalFileName) -ine 'VoxveilVirtualAudio.inf') {
+    throw "Recorded package $PublishedInf no longer identifies Voxveil Virtual Audio; the install-state file was kept for recovery."
+  }
+  return $true
+}
+
 function Assert-CompletedUninstallAbsent($State) {
   $publishedInfProperty = $State.PSObject.Properties['publishedInf']
   $deviceInstanceProperty = $State.PSObject.Properties['deviceInstanceId']
@@ -172,7 +190,50 @@ $helperRebootRequired = $removeRebootValue -eq '1'
 Write-Host "Deleting recorded Voxveil Virtual Audio driver-store package $publishedInf ..."
 pnputil.exe /delete-driver $publishedInf | Out-Host
 $pnputilExitCode = $LASTEXITCODE
+$packageStillPresent = Test-RecordedVirtualDriverPackagePresent $publishedInf
 if ($pnputilExitCode -ne 0 -and $pnputilExitCode -ne 3010) {
+  if (-not $packageStillPresent) {
+    if ($helperRebootRequired) {
+      if ($state.PSObject.Properties['pendingReboot']) {
+        $state.pendingReboot = $true
+      } else {
+        $state | Add-Member -NotePropertyName pendingReboot -NotePropertyValue $true
+      }
+      if ($state.PSObject.Properties['pendingRebootBootMarker']) {
+        $state.pendingRebootBootMarker = $currentBootMarker
+      } else {
+        $state | Add-Member -NotePropertyName pendingRebootBootMarker -NotePropertyValue $currentBootMarker
+      }
+      if ($state.PSObject.Properties['uninstallComplete']) {
+        $state.uninstallComplete = $true
+      } else {
+        $state | Add-Member -NotePropertyName uninstallComplete -NotePropertyValue $true
+      }
+      $state | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
+    } else {
+      Remove-Item $statePath -Force
+    }
+  } elseif ($helperRebootRequired) {
+    if ($state.PSObject.Properties['pendingReboot']) {
+      $state.pendingReboot = $true
+    } else {
+      $state | Add-Member -NotePropertyName pendingReboot -NotePropertyValue $true
+    }
+    if ($state.PSObject.Properties['pendingRebootBootMarker']) {
+      $state.pendingRebootBootMarker = $currentBootMarker
+    } else {
+      $state | Add-Member -NotePropertyName pendingRebootBootMarker -NotePropertyValue $currentBootMarker
+    }
+    if ($state.PSObject.Properties['uninstallComplete']) {
+      $state.uninstallComplete = $false
+    } else {
+      $state | Add-Member -NotePropertyName uninstallComplete -NotePropertyValue $false
+    }
+    $state | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
+  }
+  throw "PnPUtil failed to delete $publishedInf (exit $pnputilExitCode). Driver Store ownership was refreshed before preserving recovery state."
+}
+if ($pnputilExitCode -eq 0 -and $packageStillPresent) {
   if ($helperRebootRequired) {
     if ($state.PSObject.Properties['pendingReboot']) {
       $state.pendingReboot = $true
@@ -191,7 +252,7 @@ if ($pnputilExitCode -ne 0 -and $pnputilExitCode -ne 3010) {
     }
     $state | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
   }
-  throw "PnPUtil failed to delete $publishedInf (exit $pnputilExitCode). The install-state file was kept for recovery."
+  throw "PnPUtil reported success deleting $publishedInf, but the recorded Voxveil package is still present in the Driver Store; the install-state file was kept for recovery."
 }
 
 $lifecycleRebootRequired = $helperRebootRequired -or $pnputilExitCode -eq 3010
