@@ -22,12 +22,14 @@ pub(super) fn installer_launch_outcome(
 pub(super) fn launch_system_audio_installer(
     script: &Path,
     descriptor: &Path,
+    descriptor_sha256: &str,
 ) -> Result<InstallerLaunchOutcome, String> {
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
     let script = powershell_single_quoted(&script.to_string_lossy());
     let descriptor = powershell_single_quoted(&descriptor.to_string_lossy());
+    let descriptor_sha256 = powershell_single_quoted(descriptor_sha256);
     let launch = format!(
-        r#"$ErrorActionPreference='Stop'; $script='{script}'; $descriptor='{descriptor}'; $scriptArg='"' + $script + '"'; $descriptorArg='"' + $descriptor + '"'; try {{ $process=Start-Process -FilePath 'powershell.exe' -Verb RunAs -Wait -PassThru -ArgumentList @('-NoLogo','-NoProfile','-ExecutionPolicy','Bypass','-File',$scriptArg,'-EndpointDescriptor',$descriptorArg); exit $process.ExitCode }} catch {{ Write-Error $_; exit 1 }}"#,
+        r#"$ErrorActionPreference='Stop'; $script='{script}'; $descriptor='{descriptor}'; $descriptorSha256='{descriptor_sha256}'; $scriptArg='"' + $script + '"'; $descriptorArg='"' + $descriptor + '"'; try {{ $process=Start-Process -FilePath 'powershell.exe' -Verb RunAs -Wait -PassThru -ArgumentList @('-NoLogo','-NoProfile','-ExecutionPolicy','Bypass','-File',$scriptArg,'-EndpointDescriptor',$descriptorArg,'-EndpointDescriptorSha256',$descriptorSha256); exit $process.ExitCode }} catch {{ Write-Error $_; exit 1 }}"#,
     );
     let status = std::process::Command::new("powershell.exe")
         .args(["-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &launch])
