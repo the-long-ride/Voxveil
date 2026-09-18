@@ -85,6 +85,7 @@ If PnPUtil returns `3010`, the package operation succeeded but Windows requires 
 - [ ] On `3010`, `virtual-driver-install-state.json` records the exact `deviceInstanceId`, `publishedInf`, `pendingReboot=true`, and current boot marker before restart.
 - [ ] Lifecycle state checkpoints replace the prior JSON atomically from a same-directory temporary file.
 - [ ] Restaging a signed package preserves `virtual-driver-install-state.json` in place, rejects any unexpected destination entry before cleanup, removes only known staging artifacts, and never rewrites lifecycle state as part of staging.
+- [ ] Signed-driver staging targets a strict descendant of the architecture-specific `dist/windows-x64/` or `dist/windows-arm64/` tree and rejects any existing junction/symlink ancestor before mutation.
 - [ ] If cleanup is interrupted after package deletion but before state persistence, rerun detects the already-absent package, verifies/removes only the exact recorded devnode, writes an uninstall-complete reboot tombstone, and clears it only after restart plus absence proof.
 - [ ] If PnPUtil returns a hard non-3010 code but the exact recorded package is already absent afterward, the same conservative reboot-tombstone recovery is used instead of discarding state.
 - [ ] A same-boot install retry is rejected before any devnode or PnP mutation.
