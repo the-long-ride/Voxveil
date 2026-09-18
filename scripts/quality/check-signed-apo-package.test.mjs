@@ -107,3 +107,23 @@ test('Windows package build stages a signed APO only through the verifier path',
   assert.match(text, /stage-signed-apo-package\.ps1/i);
   assert.doesNotMatch(text, /Copy-Item\s+\$env:VOXVEIL_SIGNED_APO_DIR/i);
 });
+
+
+test('signed APO staging is confined to repository dist before any destination mutation', () => {
+  const text = read('scripts/windows/stage-signed-apo-package.ps1');
+  assert.match(text, /\$repoRoot/i);
+  assert.match(text, /\$distRoot/i);
+  assert.match(text, /Test-DirectoryContains/i);
+  assert.match(text, /destination must be under the repository dist tree/i);
+
+  const safety = text.indexOf('destination must be under the repository dist tree');
+  const manifestRemoval = text.indexOf('Remove-Item $manifestPath -Force -ErrorAction SilentlyContinue');
+  const copy = text.indexOf('Copy-Item $file.FullName');
+  assert.ok(safety >= 0 && manifestRemoval > safety && copy > safety, 'destination safety must run before mutation');
+});
+
+test('signed APO staging rejects source and destination overlap in either direction', () => {
+  const text = read('scripts/windows/stage-signed-apo-package.ps1');
+  assert.match(text, /Test-DirectoryOverlap/i);
+  assert.match(text, /must not overlap the source package directory/i);
+});
