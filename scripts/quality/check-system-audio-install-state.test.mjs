@@ -183,3 +183,38 @@ test('APO installer proves pending removed INF absence after reboot before new P
   assert.match(helper, /Get-WindowsDriver\s+-Online/i);
   assert.match(helper, /VoxveilApo\.inf|VoxveilApoExtension\.inf/i);
 });
+
+
+test('APO uninstaller refreshes Driver Store ownership before propagating hard delete failures', () => {
+  const deleteDriver = uninstaller.indexOf('pnputil.exe /delete-driver $inf /uninstall /force');
+  assert.ok(deleteDriver >= 0, 'scoped APO package deletion must exist');
+  const tail = uninstaller.slice(deleteDriver);
+
+  const captureExit = tail.search(/\$pnputilExitCode\s*=\s*\$LASTEXITCODE/i);
+  const refreshPresence = tail.search(/\$packageStillPresent\s*=\s*Test-RecordedApoInfPresent\s+\$inf/i);
+  const hardFailure = tail.search(/if\s*\(\s*\$pnputilExitCode\s*-ne\s*0\s*-and\s*\$pnputilExitCode\s*-ne\s*3010\s*\)/i);
+  assert.ok(captureExit >= 0, 'PnPUtil delete exit code must be captured');
+  assert.ok(refreshPresence > captureExit, 'Driver Store ownership must be refreshed after PnPUtil returns');
+  assert.ok(hardFailure > refreshPresence, 'hard delete failure must be interpreted only after ownership refresh');
+
+  const hardTail = tail.slice(hardFailure);
+  const successPath = hardTail.indexOf('$infNames = @($infNames | Where-Object');
+  assert.ok(successPath > 0, 'hard failure recovery must precede normal success checkpointing');
+  const hardBlock = hardTail.slice(0, successPath);
+  assert.match(hardBlock, /if\s*\(\s*-not\s+\$packageStillPresent\s*\)/i);
+  assert.match(hardBlock, /\$state\.installedInfNames\s*=\s*@\(\$infNames\)/i);
+  assert.match(hardBlock, /Set-Content\s+\$statePath\s+-Encoding\s+utf8/i);
+});
+
+test('APO uninstaller fails closed when PnPUtil reports success but the recorded package remains', () => {
+  assert.match(uninstaller, /function\s+Test-RecordedApoInfPresent/i);
+  const deleteDriver = uninstaller.indexOf('pnputil.exe /delete-driver $inf /uninstall /force');
+  const tail = uninstaller.slice(deleteDriver);
+  const refreshPresence = tail.search(/\$packageStillPresent\s*=\s*Test-RecordedApoInfPresent\s+\$inf/i);
+  const staleSuccessGuard = tail.search(/if\s*\(\s*\$pnputilExitCode\s*-eq\s*0\s*-and\s*\$packageStillPresent\s*\)/i);
+  const ownershipDrop = tail.search(/\$infNames\s*=\s*@\(\$infNames\s*\|\s*Where-Object/i);
+
+  assert.ok(refreshPresence >= 0, 'post-delete Driver Store presence refresh must exist');
+  assert.ok(staleSuccessGuard > refreshPresence, 'successful exit must still prove the package disappeared');
+  assert.ok(ownershipDrop > staleSuccessGuard, 'ownership must be dropped only after the successful-delete absence proof');
+});
