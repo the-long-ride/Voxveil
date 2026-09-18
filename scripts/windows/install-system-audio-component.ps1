@@ -149,6 +149,18 @@ function Assert-TrustedPackagedFile(
   }
 }
 
+function Open-TrustedReadLock([string]$Path, [string]$Description) {
+  if (-not (Test-Path $Path -PathType Leaf)) {
+    throw "Trusted packaged file is missing: $Description ($Path)"
+  }
+  [IO.File]::Open(
+    $Path,
+    [IO.FileMode]::Open,
+    [IO.FileAccess]::Read,
+    [IO.FileShare]::Read
+  )
+}
+
 function Assert-StagedFileHash([string]$Path, [string]$ExpectedSha256, [string]$Description) {
   if (-not (Test-Path $Path -PathType Leaf)) {
     throw "Verified production APO artifact is missing: $Description ($Path)"
@@ -275,24 +287,30 @@ function Resolve-EndpointDescriptor(
   }
 
   $helper = Join-Path $Root 'discover-system-audio-endpoints.ps1'
-  Assert-TrustedPackagedFile $helper $ExpectedDiscoverySha256 'discover-system-audio-endpoints.ps1'
-  $request = ConvertTo-Json -InputObject @([pscustomobject]@{
-    endpointId = [string]$descriptor.endpointId
-    displayName = ''
-    isDefault = $false
-    runtimeDeviceId = [string]$descriptor.bindingPnpInstanceId
-    runtimeAliasMatch = $runtimeBound
-  }) -Compress
-  $systemDirectory = [Environment]::SystemDirectory
-  if (-not $systemDirectory) {
-    throw 'Windows system directory could not be resolved.'
+  $helperLock = Open-TrustedReadLock $helper 'discover-system-audio-endpoints.ps1'
+  try {
+    Assert-TrustedPackagedFile $helper $ExpectedDiscoverySha256 'discover-system-audio-endpoints.ps1'
+    $request = ConvertTo-Json -InputObject @([pscustomobject]@{
+      endpointId = [string]$descriptor.endpointId
+      displayName = ''
+      isDefault = $false
+      runtimeDeviceId = [string]$descriptor.bindingPnpInstanceId
+      runtimeAliasMatch = $runtimeBound
+    }) -Compress
+    $systemDirectory = [Environment]::SystemDirectory
+    if (-not $systemDirectory) {
+      throw 'Windows system directory could not be resolved.'
+    }
+    $powershell = Join-Path $systemDirectory 'WindowsPowerShell\v1.0\powershell.exe'
+    if (-not (Test-Path $powershell -PathType Leaf)) {
+      throw "Windows PowerShell was not found at $powershell."
+    }
+    $output = $request | & $powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -File $helper
+    if ($LASTEXITCODE -ne 0) { throw 'device-changed: endpoint discovery failed during elevated revalidation.' }
   }
-  $powershell = Join-Path $systemDirectory 'WindowsPowerShell\v1.0\powershell.exe'
-  if (-not (Test-Path $powershell -PathType Leaf)) {
-    throw "Windows PowerShell was not found at $powershell."
+  finally {
+    $helperLock.Dispose()
   }
-  $output = $request | & $powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -File $helper
-  if ($LASTEXITCODE -ne 0) { throw 'device-changed: endpoint discovery failed during elevated revalidation.' }
   $parsedResolved = ConvertFrom-Json ($output -join [Environment]::NewLine)
   $resolvedItems = [Collections.Generic.List[object]]::new()
   foreach ($resolvedItem in $parsedResolved) {
@@ -445,10 +463,9 @@ $template = Join-Path $root 'VoxveilApoExtension.inf.template'
 $generator = Join-Path $root 'new-apo-extension-inf.ps1'
 $control = Join-Path $root 'voxveil-control.exe'
 $controlDll = Join-Path $root 'VoxveilControl.dll'
-if (-not $TestSign) {
-  Assert-TrustedPackagedFile $control $ControlHelperSha256 'voxveil-control.exe'
-  Assert-TrustedPackagedFile $controlDll $ControlDllSha256 'VoxveilControl.dll'
-}
+$controlLock = $null
+$controlDllLock = $null
+$productionPackageLocks = @()
 $useLegacyRuntimeAttachment = $TestSign -and $runtimeBound
 $bindingMode = if (-not $TestSign) {
   'capx-extension'
@@ -495,10 +512,23 @@ foreach ($required in @($apoInf, $apoDll)) {
   if (-not (Test-Path $required)) { throw "Required system-audio file not found: $required" }
 }
 
-$work = Join-Path $env:TEMP ("voxveil-apo-install-" + [Guid]::NewGuid().ToString('N'))
-New-Item -ItemType Directory -Force -Path $work | Out-Null
+$work = if ($TestSign) {
+  Join-Path $env:TEMP ("voxveil-apo-install-" + [Guid]::NewGuid().ToString('N'))
+} else {
+  $root
+}
+if ($TestSign) {
+  New-Item -ItemType Directory -Force -Path $work | Out-Null
+}
 try {
-  Copy-Item $apoInf, $apoDll -Destination $work
+  if (-not $TestSign) {
+    $controlLock = Open-TrustedReadLock $control 'voxveil-control.exe'
+    $controlDllLock = Open-TrustedReadLock $controlDll 'VoxveilControl.dll'
+    Assert-TrustedPackagedFile $control $ControlHelperSha256 'voxveil-control.exe'
+    Assert-TrustedPackagedFile $controlDll $ControlDllSha256 'VoxveilControl.dll'
+  } else {
+    Copy-Item $apoInf, $apoDll -Destination $work
+  }
   $extensionInf = Join-Path $work 'VoxveilApoExtension.inf'
 
   if ($TestSign) {
@@ -567,10 +597,13 @@ try {
       if ($LASTEXITCODE -ne 0) { throw "Failed to sign catalog: $($_.Name)" }
     }
   } else {
-    $null = Assert-StagedProductionApo $root
     $prebuiltExtension = Join-Path $root 'VoxveilApoExtension.inf'
     $apoCat = Join-Path $root 'VoxveilApo.cat'
     $extensionCat = Join-Path $root 'VoxveilApoExtension.cat'
+    foreach ($productionFile in @($apoInf, $apoDll, $apoCat, $prebuiltExtension, $extensionCat)) {
+      $productionPackageLocks += Open-TrustedReadLock $productionFile ([IO.Path]::GetFileName($productionFile))
+    }
+    $null = Assert-StagedProductionApo $root
 
     $prebuiltText = Get-Content $prebuiltExtension -Raw
     if (-not $prebuiltText.Contains($HardwareId)) {
@@ -595,8 +628,6 @@ try {
       throw 'The signed Voxveil Extension INF does not match the resolved playback endpoint topology reference.'
     }
 
-    Copy-Item $prebuiltExtension $extensionInf
-    Copy-Item $apoCat, $extensionCat -Destination $work
   }
 
   Write-Host 'Staging/installing the Voxveil APO software-component package...'
@@ -671,6 +702,13 @@ finally {
     }
   }
   finally {
-    Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
+    foreach ($lock in @($productionPackageLocks) + @($controlLock, $controlDllLock)) {
+      if ($lock) {
+        $lock.Dispose()
+      }
+    }
+    if ($TestSign) {
+      Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
+    }
   }
 }
