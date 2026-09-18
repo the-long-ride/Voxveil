@@ -90,6 +90,13 @@ function manifestIssues(manifest, fileName) {
     const accompaniment = manifest.sources?.find((source) => source.role === 'accompaniment');
     if (vocal?.dataset !== 'VocalSet') issues.push(`${label}: controlled vocal source is not VocalSet`);
     if (accompaniment?.dataset !== 'URMP') issues.push(`${label}: controlled accompaniment source is not URMP`);
+    for (const role of ['vocal', 'accompaniment']) {
+      const reference = manifest.referenceFiles?.[role];
+      if (!reference || !nonEmpty(reference.rawFile) || !hashOk(reference.sha256) ||
+          !Number.isInteger(reference.bytes) || reference.bytes < 8) {
+        issues.push(`${label}: controlled ${role} aligned reference is missing/invalid`);
+      }
+    }
   } else if (manifest.mixRecipe !== null) {
     issues.push(`${label}: natural-mix fixture must have mixRecipe = null`);
   }
@@ -179,6 +186,29 @@ export async function auditWorkspace(workspaceRoot) {
     if (evidenceIssues.length !== 0) continue;
 
     if (manifest.tier === 'controlled') {
+      const metricsFile = path.join(measurementsDir, `${manifest.fixtureId}-${manifest.targetSampleRate}-controlled-metrics.json`);
+      let metrics;
+      try {
+        metrics = await readJson(metricsFile);
+      } catch (error) {
+        issues.push(`${manifest.fixtureId}: controlled quantitative metrics missing/invalid (${error.code === 'ENOENT' ? 'not found' : error.message})`);
+        continue;
+      }
+      const metricIssues = [];
+      if (metrics.fixtureId !== manifest.fixtureId || metrics.tier !== 'controlled' ||
+          metrics.sampleRate !== manifest.targetSampleRate || metrics.vocal !== 0) {
+        metricIssues.push(`${manifest.fixtureId}: controlled metrics identity does not match manifest`);
+      }
+      for (const [profileName, renderKey] of [['Music preservation', 'musicPreservation'], ['Balanced', 'balanced']]) {
+        const profile = metrics.renders?.[renderKey];
+        for (const key of ['vocalAttenuationDb', 'accompanimentGainChangeDb', 'accompanimentErrorRelativeDb', 'unexplainedResidualRms']) {
+          if (typeof profile?.metrics?.[key] !== 'number' || !Number.isFinite(profile.metrics[key])) {
+            metricIssues.push(`${manifest.fixtureId}: ${profileName} controlled metric ${key} is missing/non-finite`);
+          }
+        }
+      }
+      issues.push(...metricIssues);
+      if (metricIssues.length !== 0) continue;
       controlledAcceptedByRate.set(
         manifest.targetSampleRate,
         (controlledAcceptedByRate.get(manifest.targetSampleRate) ?? 0) + 1,

@@ -50,6 +50,12 @@ function manifest(fixtureId, tier, rate, status = tier === 'controlled' ? 'prepa
             sourceSha256: HASH,
           },
         ],
+    referenceFiles: tier === 'controlled'
+      ? {
+          vocal: { rawFile: `fixtures/${fixtureId}-vocal-reference.f32`, sha256: HASH, bytes: 32 },
+          accompaniment: { rawFile: `fixtures/${fixtureId}-accompaniment-reference.f32`, sha256: HASH, bytes: 32 },
+        }
+      : null,
     mixRecipe: tier === 'controlled'
       ? {
           vocalStartSeconds: 0,
@@ -87,6 +93,25 @@ function renderEvidence(fixtureId, tier, rate) {
       musicPreservation: 'accepted listening notes',
       balanced: 'accepted listening notes',
       reviewMethod: 'randomized A/B',
+    },
+  };
+}
+
+function controlledMetrics(fixtureId, rate) {
+  const metrics = {
+    vocalAttenuationDb: 6,
+    accompanimentGainChangeDb: -1,
+    accompanimentErrorRelativeDb: -12,
+    unexplainedResidualRms: 0.01,
+  };
+  return {
+    fixtureId,
+    tier: 'controlled',
+    sampleRate: rate,
+    vocal: 0,
+    renders: {
+      musicPreservation: { metrics },
+      balanced: { metrics },
     },
   };
 }
@@ -141,6 +166,9 @@ async function createCompleteWorkspace(root) {
   for (const [id, tier, rate] of fixtures) {
     await writeJson(path.join(manifests, `${id}.json`), manifest(id, tier, rate));
     await writeJson(path.join(measurements, `${id}-${rate}-render-evidence.json`), renderEvidence(id, tier, rate));
+    if (tier === 'controlled') {
+      await writeJson(path.join(measurements, `${id}-${rate}-controlled-metrics.json`), controlledMetrics(id, rate));
+    }
   }
 
   for (const rate of [44100, 48000]) {
