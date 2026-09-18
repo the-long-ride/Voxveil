@@ -78,6 +78,14 @@ Canonical pages used for the current review:
 
 For the SinclairUkiri Commons candidate, the API-reported SHA-1 above is discovery metadata only. The original binary has **not** been acquired in the Voxveil evaluation workspace from this runtime, so no local SHA-256, fixture render, listening result, or release-acceptance claim exists yet. Acquire the original file, compute and record its SHA-256, and re-check the source/license before promoting it beyond `approved-metadata` or treating it as evaluated evidence.
 
+A local acquisition helper is provided for this exact candidate:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/evaluation/acquire-tier-b-muffin-man.ps1
+```
+
+It downloads only into the ignored `.local-evaluation/classic-dsp/` workspace, verifies the authoritative 1,101,160-byte size and MediaWiki SHA-1 before accepting the file, computes the local SHA-256, and writes a schema-shaped natural-mix manifest that remains `approved-metadata` until listening/evaluation is performed. Use `-Force` to reacquire the original file rather than reusing an already verified local copy.
+
 Do not infer approval from another ccMixter upload merely because its final remix page says CC BY. Trace every listed source and reject unresolved license conflicts. For example, **Waking Me Softly Featuring SnowFlake** currently has conflicting license metadata between its ccMixter page and the ccMixter Bandcamp release, so it is not an approved Voxveil acceptance fixture until that conflict is resolved.
 
 ## Excluded baseline datasets
