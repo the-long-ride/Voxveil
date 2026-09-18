@@ -173,16 +173,42 @@ function Assert-TrustedPackagedFile(
   }
 }
 
-function Open-TrustedReadLock([string]$Path, [string]$Description) {
+function Open-TrustedVerifiedReadLock(
+  [string]$Path,
+  [string]$ExpectedSha256,
+  [string]$Description
+) {
   if (-not (Test-Path $Path -PathType Leaf)) {
     throw "Trusted packaged file is missing: $Description ($Path)"
   }
-  [IO.File]::Open(
+  if ($ExpectedSha256 -notmatch '^[0-9A-Fa-f]{64}$') {
+    throw "Trusted packaged file SHA-256 is invalid: $Description."
+  }
+
+  $stream = [IO.File]::Open(
     $Path,
     [IO.FileMode]::Open,
     [IO.FileAccess]::Read,
     [IO.FileShare]::Read
   )
+  try {
+    $sha256 = [Security.Cryptography.SHA256]::Create()
+    try {
+      $actual = ([BitConverter]::ToString($sha256.ComputeHash($stream))).Replace('-', '').ToLowerInvariant()
+    }
+    finally {
+      $sha256.Dispose()
+    }
+    if ($actual -ne $ExpectedSha256.ToLowerInvariant()) {
+      throw "Trusted packaged file failed integrity verification: $Description."
+    }
+    $stream.Position = 0
+    return $stream
+  }
+  catch {
+    $stream.Dispose()
+    throw
+  }
 }
 
 function Assert-StagedFileHash([string]$Path, [string]$ExpectedSha256, [string]$Description) {
@@ -592,10 +618,8 @@ if ($TestSign) {
 }
 try {
   if (-not $TestSign) {
-    $controlLock = Open-TrustedReadLock $control 'voxveil-control.exe'
-    $controlDllLock = Open-TrustedReadLock $controlDll 'VoxveilControl.dll'
-    Assert-TrustedPackagedFile $control $ControlHelperSha256 'voxveil-control.exe'
-    Assert-TrustedPackagedFile $controlDll $ControlDllSha256 'VoxveilControl.dll'
+    $controlLock = Open-TrustedVerifiedReadLock $control $ControlHelperSha256 'voxveil-control.exe'
+    $controlDllLock = Open-TrustedVerifiedReadLock $controlDll $ControlDllSha256 'VoxveilControl.dll'
   } else {
     Copy-Item $apoInf, $apoDll -Destination $work
   }
@@ -670,8 +694,18 @@ try {
     $prebuiltExtension = Join-Path $root 'VoxveilApoExtension.inf'
     $apoCat = Join-Path $root 'VoxveilApo.cat'
     $extensionCat = Join-Path $root 'VoxveilApoExtension.cat'
-    foreach ($productionFile in @($apoInf, $apoDll, $apoCat, $prebuiltExtension, $extensionCat)) {
-      $productionPackageLocks += Open-TrustedReadLock $productionFile ([IO.Path]::GetFileName($productionFile))
+    $trustedProductionFiles = @(
+      @{ Path = $apoInf; Expected = $ExpectedApoInfSha256 },
+      @{ Path = $apoDll; Expected = $ExpectedApoDllSha256 },
+      @{ Path = $apoCat; Expected = $ExpectedApoCatalogSha256 },
+      @{ Path = $prebuiltExtension; Expected = $ExpectedExtensionInfSha256 },
+      @{ Path = $extensionCat; Expected = $ExpectedExtensionCatalogSha256 }
+    )
+    foreach ($productionFile in $trustedProductionFiles) {
+      $productionPackageLocks += Open-TrustedVerifiedReadLock `
+        $productionFile.Path `
+        $productionFile.Expected `
+        ([IO.Path]::GetFileName([string]$productionFile.Path))
     }
     $null = Assert-StagedProductionApo $root
 
