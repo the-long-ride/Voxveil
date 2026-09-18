@@ -94,3 +94,22 @@ test('native APO policy assertions remain active in Release', () => {
     'NDEBUG would compile out every policy assertion',
   );
 });
+
+
+test('legacy runtime FX mutation validates topology and audio interface categories', () => {
+  const text = read('native/windows/apo/VoxveilControlCli.cpp');
+  assert.match(text, /kKsCategoryTopology/i);
+  assert.match(text, /kKsCategoryAudio/i);
+  assert.match(text, /dda54a40/i);
+  assert.match(text, /6994ad04/i);
+  assert.match(text, /expectedInterfaceClass/i);
+  assert.match(text, /IsEqualGUID\(interfaceData\.InterfaceClassGuid,\s*expectedInterfaceClass\)/i);
+  assert.match(
+    text,
+    /OpenInterfaceFxKey\(expectedInstanceId,\s*topologyPath,\s*kKsCategoryTopology,\s*attach/i,
+  );
+  assert.match(
+    text,
+    /OpenInterfaceFxKey\(expectedInstanceId,\s*audioPath,\s*kKsCategoryAudio,\s*attach/i,
+  );
+});
