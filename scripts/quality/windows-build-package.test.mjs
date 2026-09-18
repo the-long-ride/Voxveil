@@ -106,3 +106,20 @@ test('Windows package rechecks final privileged helper bytes against Tauri trust
   assert.match(finalPackage, /Get-Sha256Hex/i);
   assert.match(finalPackage, /privileged helper changed after Tauri trust anchors were compiled/i);
 });
+
+
+test('Windows build embeds exact verified production APO package hashes before compiling Tauri', () => {
+  const tauriBuild = buildScript.indexOf('npm run tauri -- build --no-bundle');
+  assert.ok(tauriBuild >= 0);
+  assert.match(buildScript.slice(0, tauriBuild), /verify-signed-apo-package\.ps1/i);
+  for (const name of [
+    'VOXVEIL_APO_INF_SHA256',
+    'VOXVEIL_APO_DLL_SHA256',
+    'VOXVEIL_APO_CATALOG_SHA256',
+    'VOXVEIL_APO_EXTENSION_INF_SHA256',
+    'VOXVEIL_APO_EXTENSION_CATALOG_SHA256',
+  ]) {
+    const assignment = buildScript.indexOf(`$env:${name} =`);
+    assert.ok(assignment >= 0 && assignment < tauriBuild, `${name} must be set before Tauri build`);
+  }
+});
