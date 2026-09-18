@@ -352,3 +352,27 @@ test('TestSign certificate ownership is checkpointed before trust-store or PnP m
   assert.ok(rootTrust > ownershipSnapshot, 'certificate ownership must be recoverable before trust-store mutation can fail');
   assert.ok(firstPnp > rootTrust, 'package mutation must follow scoped certificate ownership persistence');
 });
+
+
+test('APO uninstall retries a required AudioSrv restart after packages are already gone', () => {
+  assert.match(uninstaller, /audioServiceRestartRequired/i);
+
+  const zeroOwnership = uninstaller.indexOf('if ($infNames.Count -eq 0)');
+  const packageDelete = uninstaller.indexOf('pnputil.exe /delete-driver $inf /uninstall /force');
+  const finalRestart = uninstaller.lastIndexOf('Restart-Service Audiosrv -Force');
+  const certificateCleanup = uninstaller.lastIndexOf('Remove-RecordedDevelopmentCertificate $developmentCertificateThumbprint');
+  assert.ok(zeroOwnership >= 0 && packageDelete > zeroOwnership && finalRestart > packageDelete);
+
+  const zeroBlock = uninstaller.slice(zeroOwnership, packageDelete);
+  assert.match(zeroBlock, /audioServiceRestartRequired/i);
+  assert.match(zeroBlock, /Restart-Service Audiosrv -Force/i);
+  assert.match(zeroBlock, /audioServiceRestartRequired\s*=\s*\$false/i);
+
+  const deleteTail = uninstaller.slice(packageDelete, finalRestart);
+  assert.match(deleteTail, /audioServiceRestartRequired\s*=\s*\$true/i);
+  assert.match(deleteTail, /Set-Content\s+\$statePath\s+-Encoding\s+utf8/i);
+
+  const finalTail = uninstaller.slice(finalRestart, certificateCleanup);
+  assert.match(finalTail, /audioServiceRestartRequired\s*=\s*\$false/i);
+  assert.match(finalTail, /Set-Content\s+\$statePath\s+-Encoding\s+utf8/i);
+});
