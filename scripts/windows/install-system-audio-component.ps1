@@ -5,6 +5,10 @@ param(
   [string]$EndpointDescriptor,
 
   [Parameter(ParameterSetName = 'Descriptor', Mandatory = $true)]
+  [ValidateNotNullOrEmpty()]
+  [string]$TrustedPackageRoot,
+
+  [Parameter(ParameterSetName = 'Descriptor', Mandatory = $true)]
   [ValidatePattern('^[0-9A-Fa-f]{64}$')]
   [string]$EndpointDescriptorSha256,
 
@@ -396,7 +400,14 @@ foreach ($commandName in $trustedSystemCommands) {
   Set-Alias -Name $commandName -Value $commandPath -Scope Script -Option ReadOnly
 }
 
-$root = Split-Path -Parent $MyInvocation.MyCommand.Path
+$root = if ($PSCmdlet.ParameterSetName -eq 'Descriptor') {
+  [IO.Path]::GetFullPath($TrustedPackageRoot)
+} else {
+  Split-Path -Parent $MyInvocation.MyCommand.Path
+}
+if (-not (Test-Path $root -PathType Container)) {
+  throw "Trusted package root does not exist: $root"
+}
 $statePath = Join-Path $root 'install-state.json'
 $currentBootMarker = Get-WindowsBootMarker
 $previousInstalledInfNames = @()
