@@ -611,11 +611,18 @@ test('production APO PnP installs directly from the locked staged package instea
   assert.doesNotMatch(installer, /Copy-Item\s+\$apoCat,\s*\$extensionCat\s+-Destination\s+\$work/i);
 });
 
-test('elevated launcher keeps the installer script read-locked between hash verification and execution', () => {
+test('elevated launcher executes installer from the same exclusively locked bytes it verifies', () => {
   assert.match(systemAudioLauncher, /IO\.File\]::Open/i);
-  assert.match(systemAudioLauncher, /IO\.FileShare\]::Read/i);
+  assert.match(systemAudioLauncher, /IO\.FileShare\]::None/i);
   assert.match(systemAudioLauncher, /ComputeHash\([^)]*scriptLock/i);
+  assert.match(systemAudioLauncher, /scriptLock\.Position\s*=\s*0/i);
+  assert.match(systemAudioLauncher, /StreamReader/i);
+  assert.match(systemAudioLauncher, /ScriptBlock\]::Create/i);
+  assert.match(systemAudioLauncher, /TrustedPackageRoot/i);
+  assert.doesNotMatch(systemAudioLauncher, /&\s*\x60\$script\s+-EndpointDescriptor/i);
   assert.match(systemAudioLauncher, /scriptLock\.Dispose\(\)/i);
+  assert.match(installer, /\[string\]\$TrustedPackageRoot/i);
+  assert.match(installer, /\$root\s*=\s*if\s*\(\$PSCmdlet\.ParameterSetName\s*-eq\s*'Descriptor'\)/i);
 });
 
 
