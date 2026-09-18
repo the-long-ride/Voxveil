@@ -153,6 +153,13 @@ If devnode removal requires restart but PnPUtil hard-fails package deletion, `un
 - [ ] Reinstalling the exact same signed package through `install-staged-virtual-driver.ps1` succeeds without creating a duplicate Voxveil devnode.
 - [ ] Voxveil handles the endpoint disappearance without feedback recursion or false `ready` state.
 
+
+### Signed-package repair and replacement
+
+- [ ] A same-package repair is attempted only when the staged INF/CAT/SYS hashes exactly match the complete signed-package hash identity recorded in `virtual-driver-install-state.json`.
+- [ ] Before installing a different signed package, uninstall the currently recorded Voxveil Virtual Audio package and complete any required restart plus post-reboot absence verification.
+- [ ] Attempting to install a different signed package while non-tombstone ownership state exists is rejected before devnode or PnP mutation.
+
 For support diagnostics only, the equivalent operations are scoped to the exact recorded identities:
 
 ```powershell
