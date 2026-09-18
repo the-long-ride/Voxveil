@@ -198,6 +198,7 @@ $statePath = Join-Path $root 'install-state.json'
 $currentBootMarker = Get-WindowsBootMarker
 $previousInstalledInfNames = @()
 $previousManagedEndpointId = $null
+$previousBindingMode = $null
 $previousDevelopmentCertificateThumbprint = $null
 $developmentCertificateThumbprint = $null
 if (Test-Path $statePath -PathType Leaf) {
@@ -283,6 +284,9 @@ $bindingMode = if (-not $TestSign) {
   'legacy-runtime-interface'
 } else {
   'legacy-reference'
+}
+if ($previousBindingMode -and $bindingMode -ine $previousBindingMode) {
+  throw "Uninstall the currently managed Voxveil APO state before changing binding mode from '$previousBindingMode' to '$bindingMode'."
 }
 
 function Write-InstallStateSnapshot(
