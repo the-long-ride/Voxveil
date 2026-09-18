@@ -160,3 +160,26 @@ test('raw HardwareId and ReferenceString mode is development/test-sign only', ()
   assert.match(installer, /-not\s+\$TestSign/);
   assert.match(installer, /Manual[^'\r\n]*development|development[^'\r\n]*Manual/i);
 });
+
+
+test('APO installer proves pending removed INF absence after reboot before new PnP mutation', () => {
+  assert.match(installer, /function\s+Assert-PendingRemovedApoInfAbsent/i);
+  assert.match(installer, /pendingRemovedInfName/i);
+
+  const stateLoad = installer.indexOf('$previousState = Get-Content $statePath -Raw | ConvertFrom-Json');
+  const sameBootGuard = installer.indexOf('Restart Windows before continuing the Voxveil system-audio installation.');
+  const absenceCheck = installer.indexOf('Assert-PendingRemovedApoInfAbsent $previousPendingRemovedInfName', sameBootGuard);
+  const baseInstall = installer.indexOf("pnputil.exe /add-driver (Join-Path $work 'VoxveilApo.inf') /install");
+
+  assert.ok(stateLoad >= 0, 'installer must load persisted APO lifecycle state');
+  assert.ok(sameBootGuard > stateLoad, 'same-boot restart guard must run after state load');
+  assert.ok(absenceCheck > sameBootGuard, 'post-reboot absence proof must run after the same-boot guard');
+  assert.ok(baseInstall > absenceCheck, 'pending removed APO identity must be proved absent before new PnP mutation');
+
+  const helperStart = installer.search(/function\s+Assert-PendingRemovedApoInfAbsent/i);
+  const helperEnd = installer.indexOf('function Get-WindowsBootMarker', helperStart);
+  assert.ok(helperStart >= 0 && helperEnd > helperStart, 'APO absence helper must be defined before boot marker logic');
+  const helper = installer.slice(helperStart, helperEnd);
+  assert.match(helper, /Get-WindowsDriver\s+-Online/i);
+  assert.match(helper, /VoxveilApo\.inf|VoxveilApoExtension\.inf/i);
+});
