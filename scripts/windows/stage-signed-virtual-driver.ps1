@@ -32,6 +32,27 @@ function Assert-StagedHash {
   }
 }
 
+function Assert-NoReparsePointInPath([string]$Path, [string]$Boundary) {
+  $current = [IO.Path]::GetFullPath($Path)
+  $boundaryFull = [IO.Path]::GetFullPath($Boundary)
+  while ($true) {
+    if (Test-Path -LiteralPath $current) {
+      $item = Get-Item -LiteralPath $current -Force
+      if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "Refusing to mutate a staging/output path that traverses a junction or symbolic link: $current"
+      }
+    }
+    if ($current -ieq $boundaryFull) {
+      break
+    }
+    $parent = Split-Path -Parent $current
+    if (-not $parent -or $parent -ieq $current) {
+      throw 'Could not prove the staging/output path remains beneath the repository boundary.'
+    }
+    $current = $parent
+  }
+}
+
 $package = [IO.Path]::GetFullPath($PackageDir)
 $destination = [IO.Path]::GetFullPath($Destination)
 $repoRoot = [IO.Path]::GetFullPath((Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path)
@@ -57,6 +78,7 @@ if ($destination.StartsWith($submissionRoot, [StringComparison]::OrdinalIgnoreCa
     $destination -match '(?i)[\\/]submission(?:[\\/]|$)') {
   throw 'Signed release destination must not be inside an unsigned submission directory.'
 }
+Assert-NoReparsePointInPath -Path $destination -Boundary $repoRoot
 
 $verifier = Join-Path $PSScriptRoot 'verify-signed-virtual-driver.ps1'
 $verificationJson = & $verifier -PackageDir $package -Architecture $Architecture | Out-String
