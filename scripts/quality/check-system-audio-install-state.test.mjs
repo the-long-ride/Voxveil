@@ -554,3 +554,18 @@ test('production UAC path binds discovery and control helpers to build-time SHA-
   assert.match(installer, /voxveil-control\.exe/i);
   assert.match(installer, /VoxveilControl\.dll/i);
 });
+
+
+test('production elevation uses the absolute Windows PowerShell executable', () => {
+  assert.match(systemAudioLauncher, /SystemRoot/i);
+  assert.match(systemAudioLauncher, /WindowsPowerShell[\\/]v1\.0[\\/]powershell\.exe/i);
+  assert.doesNotMatch(systemAudioLauncher, /Command::new\("powershell\.exe"\)/i);
+  assert.doesNotMatch(systemAudioLauncher, /Start-Process\s+-FilePath\s+'powershell\.exe'/i);
+
+  const resolver = installer.slice(
+    installer.indexOf('function Resolve-EndpointDescriptor'),
+    installer.indexOf('Assert-Administrator'),
+  );
+  assert.match(resolver, /WindowsPowerShell\\v1\.0\\powershell\.exe/i);
+  assert.doesNotMatch(resolver, /&\s+powershell\.exe/i);
+});
