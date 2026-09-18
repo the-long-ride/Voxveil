@@ -117,3 +117,14 @@ test('retail virtual-driver staging retains validated qualification evidence', (
   assert.match(text, /signingPath\s*=\s*\$verifiedSigningPath/i);
   assert.match(text, /releaseEvidenceSha256\s*=\s*\$releaseEvidenceSha256/i);
 });
+
+
+test('retail release evidence rejects undocumented fields before distribution', () => {
+  const text = readFileSync('scripts/windows/stage-signed-virtual-driver.ps1', 'utf8');
+  for (const field of ['releaseChannel', 'signingPath', 'infSha256', 'catalogSha256', 'driverSha256']) {
+    assert.match(text, new RegExp(field, 'i'));
+  }
+  assert.match(text, /allowedEvidenceFields/i);
+  assert.match(text, /unexpectedEvidenceFields/i);
+  assert.match(text, /undocumented fields/i);
+});
