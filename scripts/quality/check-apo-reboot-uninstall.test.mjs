@@ -82,3 +82,18 @@ test('APO uninstall proves pending removed package absence after reboot before d
   assert.match(helper, /Get-WindowsDriver\s+-Online/i);
   assert.match(helper, /VoxveilApo\.inf|VoxveilApoExtension\.inf/i);
 });
+
+
+test('APO uninstall checkpoints missing pending-reboot boot marker before cleanup mutation', () => {
+  const stateLoad = text.indexOf('$state = Get-Content $statePath -Raw | ConvertFrom-Json');
+  const detachEffects = text.indexOf('& $control detach-effects');
+  const deleteDriver = text.indexOf('pnputil.exe /delete-driver $inf /uninstall /force');
+  const firstMutation = detachEffects >= 0 ? Math.min(detachEffects, deleteDriver) : deleteDriver;
+  assert.ok(stateLoad >= 0 && firstMutation > stateLoad);
+
+  const preflight = text.slice(stateLoad, firstMutation);
+  assert.match(preflight, /\$pendingReboot\s*-and\s*-not\s+\$pendingBootMarker/i);
+  assert.match(preflight, /pendingRebootBootMarker\s*=\s*\$currentBootMarker/i);
+  assert.match(preflight, /Set-Content\s+\$statePath\s+-Encoding\s+utf8/i);
+  assert.match(preflight, /Restart Windows before continuing Voxveil APO package cleanup/i);
+});
