@@ -97,7 +97,7 @@ $sys = $sysFiles[0]
 
 $preservedInstallStateName = 'virtual-driver-install-state.json'
 $existingInstallStatePath = Join-Path $destination $preservedInstallStateName
-if (Test-Path $existingInstallStatePath -and -not (Test-Path $existingInstallStatePath -PathType Leaf)) {
+if ((Test-Path $existingInstallStatePath) -and -not (Test-Path $existingInstallStatePath -PathType Leaf)) {
   throw 'Signed virtual-driver destination contains an invalid lifecycle-state entry; refusing destructive restaging.'
 }
 if (Test-Path $destination -PathType Leaf) {
