@@ -183,6 +183,27 @@ if ([string]$verification.architecture -notin @('x64', 'ARM64')) {
 }
 Assert-StagedArchitecture -PackageArchitecture ([string]$verification.architecture)
 
+if ([string]$verification.releaseChannel -eq 'retail') {
+  $verifiedSigningPath = [string]$verification.signingPath
+  if ($verifiedSigningPath -notin @('whcp-hlk', 'microsoft-approved-retail')) {
+    throw 'Retail verification.json does not contain an approved signingPath.'
+  }
+  $expectedEvidenceSha256 = [string]$verification.releaseEvidenceSha256
+  if ($expectedEvidenceSha256 -notmatch '^[0-9A-Fa-f]{64}$') {
+    throw 'Retail verification.json does not contain a valid releaseEvidenceSha256.'
+  }
+  $releaseEvidencePath = Join-Path $package 'release-evidence.json'
+  Assert-StagedFileHash $releaseEvidencePath $expectedEvidenceSha256 'release-evidence.json'
+  $releaseEvidence = Get-Content $releaseEvidencePath -Raw | ConvertFrom-Json
+  if ([string]$releaseEvidence.releaseChannel -ine 'retail' -or
+      [string]$releaseEvidence.signingPath -ine $verifiedSigningPath -or
+      [string]$releaseEvidence.infSha256 -ine [string]$verification.infSha256 -or
+      [string]$releaseEvidence.catalogSha256 -ine [string]$verification.catalogSha256 -or
+      [string]$releaseEvidence.driverSha256 -ine [string]$verification.driverSha256) {
+    throw 'Retail release evidence changed after staging or no longer matches verification.json.'
+  }
+}
+
 $inf = Join-Path $package 'VoxveilVirtualAudio.inf'
 $cat = Join-Path $package 'VoxveilVirtualAudio.cat'
 $sys = Join-Path $package 'VoxveilVirtualAudio.sys'
