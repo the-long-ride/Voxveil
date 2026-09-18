@@ -507,3 +507,12 @@ test('elevated APO descriptor handoff is bound to the exact serialized bytes wit
     'descriptor hash must be checked before JSON parsing',
   );
 });
+
+
+test('endpoint descriptor temp file is created exclusively instead of overwriting an existing path', () => {
+  assert.match(systemAudioBackend, /OpenOptions::new\(\)/i);
+  assert.match(systemAudioBackend, /create_new\(true\)/i);
+  assert.match(systemAudioBackend, /ErrorKind::AlreadyExists/i);
+  assert.match(systemAudioBackend, /write_all\(json\)/i);
+  assert.doesNotMatch(systemAudioBackend, /std::fs::write\(&descriptor_path/i);
+});
