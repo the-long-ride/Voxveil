@@ -528,10 +528,14 @@ try {
   }
 }
 finally {
-  if ($TestSign -and
-      $developmentCertificateThumbprint -and
-      -not $script:developmentCertificateOwnedByState) {
-    Remove-RecordedDevelopmentCertificate $developmentCertificateThumbprint
+  try {
+    if ($TestSign -and
+        $developmentCertificateThumbprint -and
+        -not $script:developmentCertificateOwnedByState) {
+      Remove-RecordedDevelopmentCertificate $developmentCertificateThumbprint
+    }
   }
-  Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
+  finally {
+    Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
+  }
 }
