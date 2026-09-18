@@ -83,11 +83,12 @@ test('signed package verifier and stager use valid explicit cardinality checks',
   }
 });
 
-test('attestation CAB helper safely resolves makecab and quotes DDF output paths', () => {
+test('attestation CAB helper pins makecab to the OS system directory and quotes DDF output paths', () => {
   const text = readFileSync('scripts/windows/new-driver-attestation-cab.ps1', 'utf8');
-  assert.match(text, /\$makecabCommand\s*=\s*Get-Command\s+makecab\.exe/i);
-  assert.match(text, /if\s*\(\$makecabCommand\)/i);
-  assert.doesNotMatch(text, /\(Get-Command\s+makecab\.exe[^\r\n]*\)\.Source/i);
+  assert.match(text, /\[Environment\]::SystemDirectory/i);
+  assert.match(text, /Join-Path\s+\$trustedSystemDirectory\s+'makecab\.exe'/i);
+  assert.doesNotMatch(text, /Get-Command\s+makecab\.exe/i);
+  assert.doesNotMatch(text, /\$env:SystemRoot/i);
   assert.match(text, /CabinetNameTemplate=`"\$cabName`"/i);
   assert.match(text, /DiskDirectoryTemplate=`"\$outputDir`"/i);
 });

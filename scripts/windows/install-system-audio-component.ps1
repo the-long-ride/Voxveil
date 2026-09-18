@@ -76,8 +76,16 @@ function Assert-Administrator {
   }
 }
 
+function Get-TrustedProgramFilesX86 {
+  $path = [Environment]::GetFolderPath([Environment+SpecialFolder]::ProgramFilesX86)
+  if (-not $path -or -not (Test-Path $path -PathType Container)) {
+    throw 'Windows Program Files (x86) directory could not be resolved from the OS known-folder API.'
+  }
+  return [IO.Path]::GetFullPath($path)
+}
+
 function Find-WdkTool([string]$Name) {
-  $kits = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin'
+  $kits = Join-Path (Get-TrustedProgramFilesX86) 'Windows Kits\10\bin'
   if (-not (Test-Path $kits)) { return $null }
   Get-ChildItem $kits -Recurse -Filter $Name -File -ErrorAction SilentlyContinue |
     Where-Object { $_.FullName -match '\x64\' } |

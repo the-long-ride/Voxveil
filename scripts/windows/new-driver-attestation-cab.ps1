@@ -33,14 +33,13 @@ foreach ($name in $required) {
   }
 }
 
-$makecabCommand = Get-Command makecab.exe -ErrorAction SilentlyContinue
-if ($makecabCommand) {
-  $makecab = $makecabCommand.Source
-} else {
-  $makecab = Join-Path $env:SystemRoot 'System32\makecab.exe'
+$trustedSystemDirectory = [Environment]::SystemDirectory
+if (-not $trustedSystemDirectory) {
+  throw 'Windows system directory could not be resolved for makecab.exe.'
 }
+$makecab = Join-Path $trustedSystemDirectory 'makecab.exe'
 if (-not (Test-Path $makecab -PathType Leaf)) {
-  throw 'makecab.exe was not found.'
+  throw "makecab.exe was not found at $makecab."
 }
 
 $outputDir = Split-Path -Parent $outputPath

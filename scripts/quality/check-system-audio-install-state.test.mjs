@@ -727,3 +727,9 @@ test('endpoint discovery derives the Windows INF directory from the OS system di
   assert.match(discoveryHelper, /Join-Path\s+\$trustedWindowsDirectory\s+\('INF\\'/i);
   assert.doesNotMatch(discoveryHelper, /\$env:(?:windir|SystemRoot)/i);
 });
+
+test('development APO WDK lookup uses OS-known Program Files instead of inherited environment paths', () => {
+  assert.match(installer, /GetFolderPath\(\[Environment\+SpecialFolder\]::ProgramFilesX86\)/i);
+  assert.match(installer, /Windows Kits\\10\\bin/i);
+  assert.doesNotMatch(installer, /\$env:ProgramFiles\(x86\)/i);
+});
