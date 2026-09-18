@@ -197,10 +197,9 @@ test('APO uninstaller refreshes Driver Store ownership before propagating hard d
   assert.ok(refreshPresence > captureExit, 'Driver Store ownership must be refreshed after PnPUtil returns');
   assert.ok(hardFailure > refreshPresence, 'hard delete failure must be interpreted only after ownership refresh');
 
-  const hardTail = tail.slice(hardFailure);
-  const successPath = hardTail.indexOf('$infNames = @($infNames | Where-Object');
-  assert.ok(successPath > 0, 'hard failure recovery must precede normal success checkpointing');
-  const hardBlock = hardTail.slice(0, successPath);
+  const staleSuccessGuard = tail.search(/if\s*\(\s*\$pnputilExitCode\s*-eq\s*0\s*-and\s*\$packageStillPresent\s*\)/i);
+  assert.ok(staleSuccessGuard > hardFailure, 'hard failure recovery must finish before successful-delete absence validation');
+  const hardBlock = tail.slice(hardFailure, staleSuccessGuard);
   assert.match(hardBlock, /if\s*\(\s*-not\s+\$packageStillPresent\s*\)/i);
   assert.match(hardBlock, /\$state\.installedInfNames\s*=\s*@\(\$infNames\)/i);
   assert.match(hardBlock, /Set-Content\s+\$statePath\s+-Encoding\s+utf8/i);
@@ -212,9 +211,9 @@ test('APO uninstaller fails closed when PnPUtil reports success but the recorded
   const tail = uninstaller.slice(deleteDriver);
   const refreshPresence = tail.search(/\$packageStillPresent\s*=\s*Test-RecordedApoInfPresent\s+\$inf/i);
   const staleSuccessGuard = tail.search(/if\s*\(\s*\$pnputilExitCode\s*-eq\s*0\s*-and\s*\$packageStillPresent\s*\)/i);
-  const ownershipDrop = tail.search(/\$infNames\s*=\s*@\(\$infNames\s*\|\s*Where-Object/i);
+  const ownershipDrop = tail.indexOf('$infNames = @($infNames | Where-Object', staleSuccessGuard);
 
   assert.ok(refreshPresence >= 0, 'post-delete Driver Store presence refresh must exist');
   assert.ok(staleSuccessGuard > refreshPresence, 'successful exit must still prove the package disappeared');
-  assert.ok(ownershipDrop > staleSuccessGuard, 'ownership must be dropped only after the successful-delete absence proof');
+  assert.ok(ownershipDrop > staleSuccessGuard, 'normal ownership must be dropped only after the successful-delete absence proof');
 });
