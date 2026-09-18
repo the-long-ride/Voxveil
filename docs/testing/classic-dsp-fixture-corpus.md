@@ -63,6 +63,7 @@ These tracks passed the current metadata/source-chain review. `approved-metadata
 | **Blackout Romeo** — Stefan Kartenberg feat. Thespinwires | 48 kHz | male | remix page is CC BY 3.0 and identifies one source, **Blackout Romeo Vocals** by Thespinwires; that source page is also CC BY 3.0 and is presented as the uploader's vocal line from The Spin Wires song | `approved-metadata` |
 | **Road Back To You** — Allerlei von Nicolai feat. Admiral Bob | 44.1 kHz | male | remix page is CC BY 3.0, explicitly says the track may be used for any purpose with attribution, and identifies the vocal source **Love is my Road Back to You** by Admiral Bob; that original-song source is CC BY 3.0 | `approved-metadata` |
 | **OUTCAST GROUNDED DREAMS - SKYE JORDAN FT. QUIANA NADINE** — QuianaNadine | 44.1 kHz | female | remix page is CC BY 4.0 and identifies one backing source, **Outcast (Grounded Dreams Edition)** by Skye Jordan; that instrumental source page is also CC BY 4.0 | `approved-metadata` |
+| **The Muffin Man (performed by Sinclair Ukiri)** — SinclairUkiri | 44.1 kHz | mixed vocal + piano | Wikimedia Commons identifies the upload as the performer's own work under CC BY 4.0; MediaWiki imageinfo reports stereo Vorbis at 44.1 kHz, 19.6875 s, 1,101,160 bytes, SHA-1 `0a2ff6ab77db7995c4a8b2ed868520bd80838574`; the underlying traditional rhyme was written down by 1820, supporting a public-domain composition basis | `approved-metadata` |
 
 Canonical pages used for the current review:
 
@@ -72,6 +73,10 @@ Canonical pages used for the current review:
 - https://ccmixter.org/files/admiralbob77/61493
 - https://ccmixter.org/files/QuianaNadine/68995
 - https://ccmixter.org/files/SkyeJordan/68149
+- https://commons.wikimedia.org/wiki/File:The_Muffin_Man_(performed_by_Sinclair_Ukiri).ogg
+- https://www.londonmuseum.org.uk/visit/families/rhymes-in-time/the-muffin-man/
+
+For the SinclairUkiri Commons candidate, the API-reported SHA-1 above is discovery metadata only. The original binary has **not** been acquired in the Voxveil evaluation workspace from this runtime, so no local SHA-256, fixture render, listening result, or release-acceptance claim exists yet. Acquire the original file, compute and record its SHA-256, and re-check the source/license before promoting it beyond `approved-metadata` or treating it as evaluated evidence.
 
 Do not infer approval from another ccMixter upload merely because its final remix page says CC BY. Trace every listed source and reject unresolved license conflicts. For example, **Waking Me Softly Featuring SnowFlake** currently has conflicting license metadata between its ccMixter page and the ccMixter Bandcamp release, so it is not an approved Voxveil acceptance fixture until that conflict is resolved.
 
