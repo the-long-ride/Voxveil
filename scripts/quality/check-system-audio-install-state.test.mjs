@@ -581,3 +581,31 @@ test('production control helper integrity is rechecked immediately before readin
   assert.match(preStatus, /Assert-TrustedPackagedFile\s+\$control\s+\$ControlHelperSha256/i);
   assert.match(preStatus, /Assert-TrustedPackagedFile\s+\$controlDll\s+\$ControlDllSha256/i);
 });
+
+
+test('production APO install locks trusted files from verification through privileged execution', () => {
+  assert.match(installer, /function\s+Open-TrustedReadLock/i);
+  assert.match(installer, /IO\.FileMode\]::Open/i);
+  assert.match(installer, /IO\.FileAccess\]::Read/i);
+  assert.match(installer, /IO\.FileShare\]::Read/i);
+  assert.match(installer, /\$productionPackageLocks/i);
+  assert.match(installer, /\$controlLock/i);
+  assert.match(installer, /\$controlDllLock/i);
+  assert.match(installer, /\.Dispose\(\)/i);
+});
+
+test('production APO PnP installs directly from the locked staged package instead of user temp copies', () => {
+  assert.match(installer, /\$apoInstallInf\s*=\s*if\s*\(\$TestSign\)/i);
+  assert.match(installer, /\$extensionInstallInf\s*=\s*if\s*\(\$TestSign\)/i);
+  assert.match(installer, /pnputil\.exe\s+\/add-driver\s+\$apoInstallInf\s+\/install/i);
+  assert.match(installer, /pnputil\.exe\s+\/add-driver\s+\$extensionInstallInf\s+\/install/i);
+  assert.doesNotMatch(installer, /Copy-Item\s+\$prebuiltExtension\s+\$extensionInf/i);
+  assert.doesNotMatch(installer, /Copy-Item\s+\$apoCat,\s*\$extensionCat\s+-Destination\s+\$work/i);
+});
+
+test('elevated launcher keeps the installer script read-locked between hash verification and execution', () => {
+  assert.match(systemAudioLauncher, /IO\.File\]::Open/i);
+  assert.match(systemAudioLauncher, /IO\.FileShare\]::Read/i);
+  assert.match(systemAudioLauncher, /ComputeHash\([^)]*scriptLock/i);
+  assert.match(systemAudioLauncher, /scriptLock\.Dispose\(\)/i);
+});
