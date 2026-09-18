@@ -28,6 +28,6 @@ test('virtual-driver install checkpoints missing pending-reboot boot marker befo
   const preflight = installer.slice(stateLoad, ensureDevice);
   assert.match(preflight, /\$previousPendingReboot\s*-and\s*-not\s+\$previousBootMarker/i);
   assert.match(preflight, /pendingRebootBootMarker\s*=\s*\$currentBootMarker/i);
-  assert.match(preflight, /Set-Content\s+\$statePath\s+-Encoding\s+utf8/i);
+  assert.match(preflight, /Write-JsonStateAtomically\s+-State\s+\$previousState\s+-Path\s+\$statePath/i);
   assert.match(preflight, /Restart Windows before continuing the Voxveil virtual-driver installation/i);
 });
