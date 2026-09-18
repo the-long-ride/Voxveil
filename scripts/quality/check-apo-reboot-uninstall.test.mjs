@@ -21,7 +21,8 @@ test('APO uninstall checkpoints successful 3010 deletion before requiring reboot
   assert.ok(exemptFailure > captureExit, 'hard failure must explicitly exempt reboot-required success');
   assert.ok(removeCurrent > exemptFailure, 'deleted package must be removed from recorded ownership only after a successful result');
   assert.ok(checkpoint > removeCurrent, 'remaining package ownership must be checkpointed');
-  assert.ok(stateWrite > checkpoint, 'checkpoint must be persisted before reboot handling');
+  assert.ok(pendingRemoved > checkpoint, '3010 cleanup must retain the just-removed INF identity for post-reboot absence proof');
+  assert.ok(stateWrite > pendingRemoved, 'checkpoint and pending removed identity must be persisted before reboot handling');
   assert.ok(rebootCheck > stateWrite, 'reboot-required handling must run after the remaining ownership is persisted');
   assert.ok(rebootExit > rebootCheck, '3010 must propagate after the checkpoint');
 });
@@ -48,4 +49,33 @@ test('APO uninstall blocks same-boot continuation after reboot-required deletion
   assert.ok(markBoot > markPending, '3010 cleanup state must record the current boot marker');
   assert.ok(stateWrite > markBoot, 'pending reboot marker must be persisted');
   assert.ok(rebootExit > stateWrite, 'restart-required exit must follow state persistence');
+});
+
+
+test('APO uninstall proves pending removed package absence after reboot before discarding its identity', () => {
+  assert.match(text, /function\s+Assert-PendingRemovedApoInfAbsent/i);
+  assert.match(text, /pendingRemovedInfName/i);
+
+  const stateLoad = text.indexOf('$state = Get-Content $statePath -Raw | ConvertFrom-Json');
+  const sameBootGuard = text.indexOf('Restart Windows before continuing Voxveil APO package cleanup');
+  const absenceCheck = text.indexOf('Assert-PendingRemovedApoInfAbsent $pendingRemovedInfName', sameBootGuard);
+  const clearIdentity = text.indexOf('$state.pendingRemovedInfName = $null', absenceCheck);
+  const detachEffects = text.indexOf('& $control detach-effects');
+  const deleteDriver = text.indexOf('pnputil.exe /delete-driver $inf /uninstall /force');
+
+  assert.ok(stateLoad >= 0, 'install state must be loaded');
+  assert.ok(sameBootGuard > stateLoad, 'same-boot reboot guard must run after state load');
+  assert.ok(absenceCheck > sameBootGuard, 'post-reboot absence proof must run only after the same-boot guard');
+  assert.ok(clearIdentity > absenceCheck, 'pending removed identity must be cleared only after absence proof');
+  if (detachEffects >= 0) {
+    assert.ok(clearIdentity < detachEffects, 'absence proof must complete before legacy FX detach mutation');
+  }
+  assert.ok(clearIdentity < deleteDriver, 'absence proof must complete before deleting remaining APO packages');
+
+  const helperStart = text.search(/function\s+Assert-PendingRemovedApoInfAbsent/i);
+  const helperEnd = text.indexOf('function Get-WindowsBootMarker', helperStart);
+  assert.ok(helperStart >= 0 && helperEnd > helperStart, 'absence helper must be defined before boot marker logic');
+  const helper = text.slice(helperStart, helperEnd);
+  assert.match(helper, /Get-WindowsDriver\s+-Online/i);
+  assert.match(helper, /VoxveilApo\.inf|VoxveilApoExtension\.inf/i);
 });
