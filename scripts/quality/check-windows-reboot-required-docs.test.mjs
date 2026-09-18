@@ -22,6 +22,8 @@ test('Tier 3 APO release gate documents non-ready reboot state and resumable uni
   assert.match(text, /restart/i);
   assert.match(text, /bindingReady=false/i);
   assert.match(text, /remaining[\s\S]{0,120}installedInfNames|installedInfNames[\s\S]{0,120}remaining/i);
+  assert.match(text, /pendingRemovedInfName/i);
+  assert.match(text, /post-reboot[\s\S]{0,260}absence|absence[\s\S]{0,260}post-reboot/i);
 });
 
 test('Tier 2 real-machine matrix records install and uninstall restart continuation', () => {
@@ -40,4 +42,6 @@ test('Tier 3 real-machine matrix records non-ready install and resumable uninsta
   assert.match(text, /3010/);
   assert.match(text, /bindingReady=false/i);
   assert.match(text, /remaining[\s\S]{0,160}installedInfNames|installedInfNames[\s\S]{0,160}remaining/i);
+  assert.match(text, /pendingRemovedInfName/i);
+  assert.match(text, /after restart[\s\S]{0,260}absen|absen[\s\S]{0,260}after restart/i);
 });
