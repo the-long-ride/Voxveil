@@ -18,3 +18,16 @@ test('virtual-driver reboot-required state blocks same-boot reinstall mutation',
   assert.ok(pnpInstall >= 0, 'virtual-driver PnP mutation must exist');
   assert.ok(rebootState > pnpInstall, '3010 path must persist pending reboot ownership state');
 });
+
+
+test('virtual-driver install checkpoints missing pending-reboot boot marker before devnode mutation', () => {
+  const stateLoad = installer.indexOf('$previousState = Get-Content $statePath -Raw | ConvertFrom-Json');
+  const ensureDevice = installer.indexOf('& $deviceHelper ensure $inf');
+  assert.ok(stateLoad >= 0 && ensureDevice > stateLoad);
+
+  const preflight = installer.slice(stateLoad, ensureDevice);
+  assert.match(preflight, /\$previousPendingReboot\s*-and\s*-not\s+\$previousBootMarker/i);
+  assert.match(preflight, /pendingRebootBootMarker\s*=\s*\$currentBootMarker/i);
+  assert.match(preflight, /Set-Content\s+\$statePath\s+-Encoding\s+utf8/i);
+  assert.match(preflight, /Restart Windows before continuing the Voxveil virtual-driver installation/i);
+});
