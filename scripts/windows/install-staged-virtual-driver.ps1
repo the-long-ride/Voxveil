@@ -162,6 +162,16 @@ function Get-VoxveilPublishedInfNames {
 Assert-Administrator
 Assert-SupportedWindowsBuild
 
+$trustedSystemDirectory = [Environment]::SystemDirectory
+if (-not $trustedSystemDirectory) {
+  throw 'Windows system directory could not be resolved for PnPUtil.'
+}
+$pnputilPath = Join-Path $trustedSystemDirectory 'pnputil.exe'
+if (-not (Test-Path $pnputilPath -PathType Leaf)) {
+  throw "PnPUtil was not found at $pnputilPath."
+}
+Set-Alias -Name 'pnputil.exe' -Value $pnputilPath -Scope Script -Option ReadOnly
+
 if (-not $PackageDir) {
   $PackageDir = Join-Path $PSScriptRoot 'virtual-driver'
 }
