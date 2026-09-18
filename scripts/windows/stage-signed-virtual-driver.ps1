@@ -13,7 +13,11 @@ param(
 
   [Parameter(Mandatory = $true)]
   [ValidateSet('Pilot', 'Retail')]
-  [string]$ReleaseChannel
+  [string]$ReleaseChannel,
+
+  [Parameter(Mandatory = $true)]
+  [ValidateNotNullOrEmpty()]
+  [string]$DeviceHelperPath
 )
 
 $ErrorActionPreference = 'Stop'
@@ -59,6 +63,15 @@ $repoRoot = [IO.Path]::GetFullPath((Resolve-Path (Join-Path $PSScriptRoot '..\..
 $distArchitecture = if ($Architecture -eq 'ARM64') { 'windows-arm64' } else { 'windows-x64' }
 $distRoot = [IO.Path]::GetFullPath((Join-Path $repoRoot ('dist\' + $distArchitecture)))
 $submissionRoot = [IO.Path]::GetFullPath((Join-Path $repoRoot 'native\windows\driver\out'))
+$deviceHelper = [IO.Path]::GetFullPath($DeviceHelperPath)
+$expectedDeviceHelper = [IO.Path]::GetFullPath((Join-Path (Split-Path -Parent $destination) 'voxveil-virtual-device.exe'))
+if ($deviceHelper -ine $expectedDeviceHelper) {
+  throw 'Signed virtual-driver staging must bind the SetupAPI helper packaged beside the virtual-driver directory.'
+}
+if (-not (Test-Path $deviceHelper -PathType Leaf)) {
+  throw "Packaged Voxveil virtual-device helper was not found: $deviceHelper"
+}
+$deviceHelperSha256 = (Get-FileHash $deviceHelper -Algorithm SHA256).Hash.ToLowerInvariant()
 
 $distPrefix = if ($distRoot.EndsWith([IO.Path]::DirectorySeparatorChar.ToString())) {
   $distRoot
@@ -173,12 +186,14 @@ Assert-StagedHash -Path $stagedSys -Expected $verification.driverSha256 -Label '
 if ($evidencePath) {
   Assert-StagedHash -Path (Join-Path $destination 'release-evidence.json') -Expected $releaseEvidenceSha256 -Label 'release evidence'
 }
+Assert-StagedHash -Path $deviceHelper -Expected $deviceHelperSha256 -Label 'virtual-device helper'
 
 @{
   releaseChannel = $ReleaseChannel.ToLowerInvariant()
   signingPath = $verifiedSigningPath
   releaseEvidenceSha256 = $releaseEvidenceSha256
   architecture = $Architecture
+  deviceHelperSha256 = $deviceHelperSha256
   infSha256 = $verification.infSha256
   catalogSha256 = $verification.catalogSha256
   driverSha256 = $verification.driverSha256

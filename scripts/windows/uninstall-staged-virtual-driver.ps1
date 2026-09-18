@@ -17,6 +17,23 @@ $env:PSModulePath = $trustedModulePath
 $trustedWindowsDirectory = Split-Path -Parent $trustedSystemDirectoryForModules
 Set-StrictMode -Version Latest
 
+function Assert-StagedFileHash(
+  [Parameter(Mandatory = $true)][string]$Path,
+  [Parameter(Mandatory = $true)][string]$ExpectedSha256,
+  [Parameter(Mandatory = $true)][string]$Description
+) {
+  if (-not (Test-Path $Path -PathType Leaf)) {
+    throw "Verified virtual-driver artifact is missing: $Description ($Path)"
+  }
+  if ($ExpectedSha256 -notmatch '^[0-9A-Fa-f]{64}$') {
+    throw "verification.json contains an invalid SHA-256 value for $Description."
+  }
+  $actual = (Get-FileHash $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+  if ($actual -ne $ExpectedSha256.ToLowerInvariant()) {
+    throw "Verified virtual-driver artifact changed after staging: $Description."
+  }
+}
+
 function Assert-Administrator {
   $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
   $principal = [Security.Principal.WindowsPrincipal]::new($identity)
@@ -175,6 +192,18 @@ if (-not (Test-Path $statePath -PathType Leaf)) {
   return
 }
 
+$manifestPath = Join-Path $package 'verification.json'
+if (-not (Test-Path $manifestPath -PathType Leaf)) {
+  throw 'Recorded Voxveil virtual-driver state requires verification.json before the lifecycle helper can run.'
+}
+$verification = Get-Content $manifestPath -Raw | ConvertFrom-Json
+$expectedDeviceHelperSha256 = [string]$verification.deviceHelperSha256
+if ($expectedDeviceHelperSha256 -notmatch '^[0-9A-Fa-f]{64}$') {
+  throw 'verification.json does not contain a valid deviceHelperSha256.'
+}
+$deviceHelper = Join-Path $PSScriptRoot 'voxveil-virtual-device.exe'
+Assert-StagedFileHash $deviceHelper $expectedDeviceHelperSha256 'voxveil-virtual-device.exe'
+
 $state = Get-Content $statePath -Raw | ConvertFrom-Json
 $currentBootMarker = Get-WindowsBootMarker
 $uninstallCompleteProperty = $state.PSObject.Properties['uninstallComplete']
@@ -211,11 +240,6 @@ if ($publishedInf -notmatch '^oem\d+\.inf$') {
 }
 if (-not $deviceInstanceId -or $deviceInstanceId -match '[\r\n]') {
   throw 'virtual-driver-install-state.json does not contain a valid deviceInstanceId value.'
-}
-
-$deviceHelper = Join-Path $PSScriptRoot 'voxveil-virtual-device.exe'
-if (-not (Test-Path $deviceHelper -PathType Leaf)) {
-  throw "Voxveil root-device helper is missing: $deviceHelper"
 }
 
 $packagePresentBeforeDelete = Test-RecordedVirtualDriverPackagePresent $publishedInf

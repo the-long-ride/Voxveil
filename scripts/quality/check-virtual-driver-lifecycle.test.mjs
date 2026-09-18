@@ -241,6 +241,28 @@ test('virtual-driver install binds current catalog certificate thumbprint to ver
 });
 
 
+test('virtual-driver staging and lifecycle hash-bind the packaged SetupAPI helper', () => {
+  const build = read('scripts/windows/build-windows.ps1');
+  const stager = read('scripts/windows/stage-signed-virtual-driver.ps1');
+
+  assert.match(build, /\$virtualDeviceHelperSha256\s*=\s*Get-Sha256Hex\s+\$virtualDeviceHelper/i);
+  assert.match(build, /-DeviceHelperPath\s+\(Join-Path\s+\$systemAudio\s+'voxveil-virtual-device\.exe'\)/i);
+  assert.match(stager, /\[string\]\$DeviceHelperPath/i);
+  assert.match(stager, /deviceHelperSha256\s*=\s*\$deviceHelperSha256/i);
+
+  for (const [label, text] of [
+    ['installer', installer()],
+    ['uninstaller', uninstaller()],
+  ]) {
+    const helperExecution = text.search(/&\s*\$deviceHelper\s+(?:ensure|query|remove)/i);
+    const helperHashCheck = text.search(/Assert-StagedFileHash\s+\$deviceHelper\s+\$expectedDeviceHelperSha256\s+'voxveil-virtual-device\.exe'/i);
+    assert.ok(helperHashCheck >= 0, `${label} must hash-check the SetupAPI helper`);
+    assert.ok(helperExecution > helperHashCheck, `${label} must verify the helper before first execution`);
+    assert.match(text, /deviceHelperSha256/i);
+  }
+});
+
+
 test('virtual-driver lifecycle pins PnPUtil to the OS system directory', () => {
   for (const [label, text] of [
     ['installer', installer()],

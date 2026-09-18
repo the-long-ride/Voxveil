@@ -57,7 +57,7 @@ $env:VOXVEIL_SIGNED_DRIVER_RELEASE_CHANNEL = 'Retail'
 npm run build:windows
 ```
 
-Verify `dist/windows-x64/Voxveil/system-audio/virtual-driver/` contains the staged INF/CAT/SYS plus `verification.json`; Retail staging must also retain the validated `release-evidence.json` whose SHA-256 is recorded in `verification.json`. Then verify the package also contains:
+Verify `dist/windows-x64/Voxveil/system-audio/virtual-driver/` contains the staged INF/CAT/SYS plus `verification.json`; Retail staging must also retain the validated `release-evidence.json` whose SHA-256 is recorded in `verification.json`. The manifest must also contain `deviceHelperSha256` for the packaged `system-audio/voxveil-virtual-device.exe`. Then verify the package also contains:
 
 ```text
 system-audio/voxveil-virtual-device.exe
@@ -75,7 +75,7 @@ From an elevated PowerShell in the staged `system-audio` directory:
 .\install-staged-virtual-driver.ps1
 ```
 
-The installer re-hashes the INF/CAT/SYS against `virtual-driver/verification.json`, verifies the fixed Voxveil driver/interface identity, and requires the current Microsoft catalog signer subject **and certificate thumbprint** to match the staged manifest. It resolves native processor architecture through `Win32_Processor` and rejects a package/OS architecture mismatch before creating or reusing the root devnode. Only then does it ensure exactly one `Root\VoxveilVirtualAudio` devnode through `voxveil-virtual-device.exe` and invoke `pnputil /add-driver ... /install`. It resolves the installed driver from the exact returned device instance and records both that instance ID and one published INF in `virtual-driver/virtual-driver-install-state.json`.
+The installer re-hashes the INF/CAT/SYS and the packaged `voxveil-virtual-device.exe` against `virtual-driver/verification.json`, verifies the fixed Voxveil driver/interface identity, and requires the current Microsoft catalog signer subject **and certificate thumbprint** to match the staged manifest. The uninstaller performs the same helper hash check before any recorded devnode operation. It resolves native processor architecture through `Win32_Processor` and rejects a package/OS architecture mismatch before creating or reusing the root devnode. Only then does it ensure exactly one `Root\VoxveilVirtualAudio` devnode through `voxveil-virtual-device.exe` and invoke `pnputil /add-driver ... /install`. It resolves the installed driver from the exact returned device instance and records both that instance ID and one published INF in `virtual-driver/virtual-driver-install-state.json`.
 
 If PnPUtil returns `3010`, the package operation succeeded but Windows requires restart before binding validation can finish. The script records exact cleanup ownership in `virtual-driver-install-state.json` with `pendingReboot=true` and the current Windows boot marker. A same-boot rerun is rejected before devnode or PnP mutation. Restart Windows, then rerun `install-staged-virtual-driver.ps1` and repeat the binding/Device Manager checks before accepting the result.
 

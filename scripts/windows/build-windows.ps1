@@ -237,6 +237,7 @@ foreach ($file in $requiredNative) {
 if (-not (Test-Path $virtualDeviceHelper -PathType Leaf)) {
   throw "Virtual audio devnode helper was not produced: $virtualDeviceHelper"
 }
+$virtualDeviceHelperSha256 = Get-Sha256Hex $virtualDeviceHelper
 
 if (-not $OutputDirectory) {
   $OutputDirectory = Join-Path $repo 'dist\windows-x64\Voxveil'
@@ -298,7 +299,8 @@ if ($signedDriverDir) {
     -PackageDir $signedDriverDir `
     -Architecture 'x64' `
     -Destination $driverStage `
-    -ReleaseChannel $releaseChannel
+    -ReleaseChannel $releaseChannel `
+    -DeviceHelperPath (Join-Path $systemAudio 'voxveil-virtual-device.exe')
   if ($LASTEXITCODE -ne 0) { throw 'Signed virtual driver staging failed.' }
 }
 
@@ -318,6 +320,10 @@ $trustedPackageFiles = @(
   @{
     Path = Join-Path $systemAudio 'VoxveilControl.dll'
     Expected = $env:VOXVEIL_CONTROL_DLL_SHA256
+  },
+  @{
+    Path = Join-Path $systemAudio 'voxveil-virtual-device.exe'
+    Expected = $virtualDeviceHelperSha256
   }
 )
 if ($signedApoDir) {

@@ -203,6 +203,13 @@ if ([string]$verification.architecture -notin @('x64', 'ARM64')) {
 }
 Assert-StagedArchitecture -PackageArchitecture ([string]$verification.architecture)
 
+$deviceHelper = Join-Path $PSScriptRoot 'voxveil-virtual-device.exe'
+$expectedDeviceHelperSha256 = [string]$verification.deviceHelperSha256
+if ($expectedDeviceHelperSha256 -notmatch '^[0-9A-Fa-f]{64}$') {
+  throw 'verification.json does not contain a valid deviceHelperSha256.'
+}
+Assert-StagedFileHash $deviceHelper $expectedDeviceHelperSha256 'voxveil-virtual-device.exe'
+
 if ([string]$verification.releaseChannel -eq 'retail') {
   $verifiedSigningPath = [string]$verification.signingPath
   if ($verifiedSigningPath -notin @('whcp-hlk', 'microsoft-approved-retail')) {
@@ -263,11 +270,6 @@ $currentCatalogThumbprint = [string]$catalogSignature.SignerCertificate.Thumbpri
 if ($expectedCatalogThumbprint -notmatch '^[0-9A-Fa-f]{40}$' -or
     $currentCatalogThumbprint -ine $expectedCatalogThumbprint) {
   throw 'Staged virtual-driver catalog thumbprint does not match verification.json.'
-}
-
-$deviceHelper = Join-Path $PSScriptRoot 'voxveil-virtual-device.exe'
-if (-not (Test-Path $deviceHelper -PathType Leaf)) {
-  throw "Voxveil root-device helper is missing: $deviceHelper"
 }
 
 $statePath = Join-Path $package 'virtual-driver-install-state.json'
