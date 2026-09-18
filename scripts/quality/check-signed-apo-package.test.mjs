@@ -109,12 +109,12 @@ test('Windows package build stages a signed APO only through the verifier path',
 });
 
 
-test('signed APO staging is confined to repository dist before any destination mutation', () => {
+test('signed APO staging is confined below repository dist/windows-x64 before any destination mutation', () => {
   const text = read('scripts/windows/stage-signed-apo-package.ps1');
   assert.match(text, /\$repoRoot/i);
   assert.match(text, /\$distRoot/i);
   assert.match(text, /Test-DirectoryContains/i);
-  assert.match(text, /destination must be under the repository dist tree/i);
+  assert.match(text, /destination must be below the repository dist\\windows-x64 tree/i);
 
   const safety = text.indexOf('destination must be under the repository dist tree');
   const manifestRemoval = text.indexOf('Remove-Item $manifestPath -Force -ErrorAction SilentlyContinue');
