@@ -56,7 +56,8 @@ function Assert-NoReparsePointInPath([string]$Path, [string]$Boundary) {
 $package = [IO.Path]::GetFullPath($PackageDir)
 $destination = [IO.Path]::GetFullPath($Destination)
 $repoRoot = [IO.Path]::GetFullPath((Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path)
-$distRoot = [IO.Path]::GetFullPath((Join-Path $repoRoot 'dist\windows-x64'))
+$distArchitecture = if ($Architecture -eq 'ARM64') { 'windows-arm64' } else { 'windows-x64' }
+$distRoot = [IO.Path]::GetFullPath((Join-Path $repoRoot ('dist\' + $distArchitecture)))
 $submissionRoot = [IO.Path]::GetFullPath((Join-Path $repoRoot 'native\windows\driver\out'))
 
 $distPrefix = if ($distRoot.EndsWith([IO.Path]::DirectorySeparatorChar.ToString())) {
@@ -66,7 +67,7 @@ $distPrefix = if ($distRoot.EndsWith([IO.Path]::DirectorySeparatorChar.ToString(
 }
 if ($destination -ieq $distRoot -or
     -not $destination.StartsWith($distPrefix, [StringComparison]::OrdinalIgnoreCase)) {
-  throw 'Signed virtual-driver staging destination must be below the repository dist\windows-x64 tree.'
+  throw 'Signed virtual-driver staging destination must be below the architecture-specific repository dist tree.'
 }
 
 if ($destination -eq $package -or
