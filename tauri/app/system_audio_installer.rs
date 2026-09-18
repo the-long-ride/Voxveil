@@ -12,6 +12,14 @@ const TRUSTED_DISCOVERY_SHA256: Option<&str> = option_env!("VOXVEIL_DISCOVERY_SH
 const TRUSTED_CONTROL_SHA256: Option<&str> = option_env!("VOXVEIL_CONTROL_SHA256");
 const TRUSTED_CONTROL_DLL_SHA256: Option<&str> = option_env!("VOXVEIL_CONTROL_DLL_SHA256");
 
+const TRUSTED_APO_INF_SHA256: Option<&str> = option_env!("VOXVEIL_APO_INF_SHA256");
+const TRUSTED_APO_DLL_SHA256: Option<&str> = option_env!("VOXVEIL_APO_DLL_SHA256");
+const TRUSTED_APO_CATALOG_SHA256: Option<&str> = option_env!("VOXVEIL_APO_CATALOG_SHA256");
+const TRUSTED_APO_EXTENSION_INF_SHA256: Option<&str> =
+    option_env!("VOXVEIL_APO_EXTENSION_INF_SHA256");
+const TRUSTED_APO_EXTENSION_CATALOG_SHA256: Option<&str> =
+    option_env!("VOXVEIL_APO_EXTENSION_CATALOG_SHA256");
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum InstallerLaunchOutcome {
     Completed,
@@ -90,6 +98,15 @@ pub(super) fn launch_system_audio_installer(
     let discovery_sha256 = embedded_sha256(TRUSTED_DISCOVERY_SHA256, "endpoint discovery helper")?;
     let control_sha256 = embedded_sha256(TRUSTED_CONTROL_SHA256, "control executable")?;
     let control_dll_sha256 = embedded_sha256(TRUSTED_CONTROL_DLL_SHA256, "control DLL")?;
+    let apo_inf_sha256 = embedded_sha256(TRUSTED_APO_INF_SHA256, "APO INF")?;
+    let apo_dll_sha256 = embedded_sha256(TRUSTED_APO_DLL_SHA256, "APO DLL")?;
+    let apo_catalog_sha256 = embedded_sha256(TRUSTED_APO_CATALOG_SHA256, "APO catalog")?;
+    let extension_inf_sha256 =
+        embedded_sha256(TRUSTED_APO_EXTENSION_INF_SHA256, "APO Extension INF")?;
+    let extension_catalog_sha256 = embedded_sha256(
+        TRUSTED_APO_EXTENSION_CATALOG_SHA256,
+        "APO Extension catalog",
+    )?;
     verify_trusted_packaged_file(
         &system_audio_dir.join("discover-system-audio-endpoints.ps1"),
         &discovery_sha256,
@@ -105,12 +122,37 @@ pub(super) fn launch_system_audio_installer(
         &control_dll_sha256,
         "control DLL",
     )?;
+    verify_trusted_packaged_file(
+        &system_audio_dir.join("VoxveilApo.inf"),
+        &apo_inf_sha256,
+        "APO INF",
+    )?;
+    verify_trusted_packaged_file(
+        &system_audio_dir.join("VoxveilApo.dll"),
+        &apo_dll_sha256,
+        "APO DLL",
+    )?;
+    verify_trusted_packaged_file(
+        &system_audio_dir.join("VoxveilApo.cat"),
+        &apo_catalog_sha256,
+        "APO catalog",
+    )?;
+    verify_trusted_packaged_file(
+        &system_audio_dir.join("VoxveilApoExtension.inf"),
+        &extension_inf_sha256,
+        "APO Extension INF",
+    )?;
+    verify_trusted_packaged_file(
+        &system_audio_dir.join("VoxveilApoExtension.cat"),
+        &extension_catalog_sha256,
+        "APO Extension catalog",
+    )?;
     let script = powershell_single_quoted(&script.to_string_lossy());
     let descriptor = powershell_single_quoted(&descriptor.to_string_lossy());
     let descriptor_sha256 = powershell_single_quoted(descriptor_sha256);
     let script_sha256 = powershell_single_quoted(&script_sha256);
     let launch = format!(
-        r#"$ErrorActionPreference='Stop'; $powershell='{powershell}'; $script='{script}'; $descriptor='{descriptor}'; $descriptorSha256='{descriptor_sha256}'; $scriptSha256='{script_sha256}'; $scriptB64=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($script)); $descriptorB64=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($descriptor)); $elevatedCommand="`$ErrorActionPreference='Stop'; `$script=[Text.Encoding]::Unicode.GetString([Convert]::FromBase64String('$scriptB64')); `$descriptor=[Text.Encoding]::Unicode.GetString([Convert]::FromBase64String('$descriptorB64')); `$scriptLock=[IO.File]::Open(`$script,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read); try {{ `$sha=[Security.Cryptography.SHA256]::Create(); try {{ `$actualScriptSha256=([BitConverter]::ToString(`$sha.ComputeHash(`$scriptLock))).Replace('-','').ToLowerInvariant() }} finally {{ `$sha.Dispose() }}; if (`$actualScriptSha256 -ne '$scriptSha256') {{ Write-Error 'Bundled system-audio installer integrity check failed.'; exit 1 }}; & `$script -EndpointDescriptor `$descriptor -EndpointDescriptorSha256 '$descriptorSha256' -DiscoveryHelperSha256 '$discovery_sha256' -ControlHelperSha256 '$control_sha256' -ControlDllSha256 '$control_dll_sha256'; `$installerExit=`$LASTEXITCODE }} finally {{ `$scriptLock.Dispose() }}; exit `$installerExit"; $encodedCommand=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($elevatedCommand)); try {{ $process=Start-Process -FilePath $powershell -Verb RunAs -Wait -PassThru -ArgumentList @('-NoLogo','-NoProfile','-ExecutionPolicy','Bypass','-EncodedCommand',$encodedCommand); exit $process.ExitCode }} catch {{ Write-Error $_; exit 1 }}"#,
+        r#"$ErrorActionPreference='Stop'; $powershell='{powershell}'; $script='{script}'; $descriptor='{descriptor}'; $descriptorSha256='{descriptor_sha256}'; $scriptSha256='{script_sha256}'; $scriptB64=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($script)); $descriptorB64=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($descriptor)); $elevatedCommand="`$ErrorActionPreference='Stop'; `$script=[Text.Encoding]::Unicode.GetString([Convert]::FromBase64String('$scriptB64')); `$descriptor=[Text.Encoding]::Unicode.GetString([Convert]::FromBase64String('$descriptorB64')); `$scriptLock=[IO.File]::Open(`$script,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read); try {{ `$sha=[Security.Cryptography.SHA256]::Create(); try {{ `$actualScriptSha256=([BitConverter]::ToString(`$sha.ComputeHash(`$scriptLock))).Replace('-','').ToLowerInvariant() }} finally {{ `$sha.Dispose() }}; if (`$actualScriptSha256 -ne '$scriptSha256') {{ Write-Error 'Bundled system-audio installer integrity check failed.'; exit 1 }}; & `$script -EndpointDescriptor `$descriptor -EndpointDescriptorSha256 '$descriptorSha256' -DiscoveryHelperSha256 '{discovery_sha256}' -ControlHelperSha256 '{control_sha256}' -ControlDllSha256 '{control_dll_sha256}' -ExpectedApoInfSha256 '{apo_inf_sha256}' -ExpectedApoDllSha256 '{apo_dll_sha256}' -ExpectedApoCatalogSha256 '{apo_catalog_sha256}' -ExpectedExtensionInfSha256 '{extension_inf_sha256}' -ExpectedExtensionCatalogSha256 '{extension_catalog_sha256}'; `$installerExit=`$LASTEXITCODE }} finally {{ `$scriptLock.Dispose() }}; exit `$installerExit"; $encodedCommand=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($elevatedCommand)); try {{ $process=Start-Process -FilePath $powershell -Verb RunAs -Wait -PassThru -ArgumentList @('-NoLogo','-NoProfile','-ExecutionPolicy','Bypass','-EncodedCommand',$encodedCommand); exit $process.ExitCode }} catch {{ Write-Error $_; exit 1 }}"#,
     );
     let status = std::process::Command::new(&powershell_path)
         .args(["-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &launch])
