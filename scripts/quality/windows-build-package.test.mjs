@@ -91,3 +91,18 @@ test('Windows build embeds privileged helper hashes before compiling Tauri', () 
     assert.ok(assignment >= 0 && assignment < tauriBuild, `${name} must be embedded before Tauri build`);
   }
 });
+
+
+test('Windows package rechecks final privileged helper bytes against Tauri trust anchors', () => {
+  const tauriBuild = buildScript.indexOf('npm run tauri -- build --no-bundle');
+  const packageHashes = buildScript.indexOf('$hashFiles = Get-ChildItem $output -Recurse -File');
+  assert.ok(tauriBuild >= 0 && packageHashes > tauriBuild);
+
+  const finalPackage = buildScript.slice(tauriBuild, packageHashes);
+  assert.match(finalPackage, /trustedInstallerSha256/i);
+  assert.match(finalPackage, /VOXVEIL_DISCOVERY_SHA256/i);
+  assert.match(finalPackage, /VOXVEIL_CONTROL_SHA256/i);
+  assert.match(finalPackage, /VOXVEIL_CONTROL_DLL_SHA256/i);
+  assert.match(finalPackage, /Get-Sha256Hex/i);
+  assert.match(finalPackage, /privileged helper changed after Tauri trust anchors were compiled/i);
+});
