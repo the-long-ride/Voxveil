@@ -78,3 +78,38 @@ test('virtual driver install proves completed uninstall absence after reboot bef
   assert.ok(absenceCheck > sameBootGuard, 'post-reboot absence proof must run after the same-boot guard');
   assert.ok(ensureDevice > absenceCheck, 'completed-uninstall absence must be proved before creating or reusing the devnode');
 });
+
+
+test('virtual driver uninstall refreshes exact Driver Store presence before propagating hard delete failure', () => {
+  assert.match(uninstaller, /function\s+Test-RecordedVirtualDriverPackagePresent/i);
+  const deleteDriver = uninstaller.indexOf('pnputil.exe /delete-driver $publishedInf');
+  assert.ok(deleteDriver >= 0, 'uninstaller must delete only the recorded published INF');
+  const tail = uninstaller.slice(deleteDriver);
+
+  const captureExit = tail.search(/\$pnputilExitCode\s*=\s*\$LASTEXITCODE/i);
+  const refreshPresence = tail.search(/\$packageStillPresent\s*=\s*Test-RecordedVirtualDriverPackagePresent\s+\$publishedInf/i);
+  const hardFailure = tail.search(/if\s*\(\s*\$pnputilExitCode\s*-ne\s*0\s*-and\s*\$pnputilExitCode\s*-ne\s*3010\s*\)/i);
+  assert.ok(captureExit >= 0, 'PnPUtil delete exit code must be captured');
+  assert.ok(refreshPresence > captureExit, 'Driver Store presence must be refreshed after PnPUtil returns');
+  assert.ok(hardFailure > refreshPresence, 'hard delete failure must be interpreted only after ownership refresh');
+
+  const hardTail = tail.slice(hardFailure);
+  const lifecycle = hardTail.indexOf('$lifecycleRebootRequired');
+  assert.ok(lifecycle > 0, 'hard failure recovery must finish before successful/reboot-required handling');
+  const hardBlock = hardTail.slice(0, lifecycle);
+  assert.match(hardBlock, /if\s*\(\s*-not\s+\$packageStillPresent\s*\)/i);
+  assert.match(hardBlock, /Remove-Item\s+\$statePath\s+-Force/i);
+  assert.match(hardBlock, /uninstallComplete\s*=\s*\$true/i);
+});
+
+test('virtual driver uninstall fails closed when PnPUtil reports success but package remains', () => {
+  const deleteDriver = uninstaller.indexOf('pnputil.exe /delete-driver $publishedInf');
+  const tail = uninstaller.slice(deleteDriver);
+  const refreshPresence = tail.search(/\$packageStillPresent\s*=\s*Test-RecordedVirtualDriverPackagePresent\s+\$publishedInf/i);
+  const staleSuccessGuard = tail.search(/if\s*\(\s*\$pnputilExitCode\s*-eq\s*0\s*-and\s*\$packageStillPresent\s*\)/i);
+  const lifecycle = tail.search(/\$lifecycleRebootRequired\s*=\s*\$helperRebootRequired\s*-or\s*\$pnputilExitCode\s*-eq\s*3010/i);
+
+  assert.ok(refreshPresence >= 0, 'post-delete Driver Store presence refresh must exist');
+  assert.ok(staleSuccessGuard > refreshPresence, 'successful exit must prove the package disappeared');
+  assert.ok(lifecycle > staleSuccessGuard, 'restart/success state must be committed only after the successful-delete absence proof');
+});
