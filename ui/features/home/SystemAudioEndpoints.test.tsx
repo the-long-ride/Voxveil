@@ -30,7 +30,6 @@ function renderPanel(
   const actions = {
     onRefresh: vi.fn(),
     onInstall: vi.fn(),
-    onInstallAll: vi.fn(),
     onSelectPhysicalOutput: vi.fn(),
     onOpenSoundSettings: vi.fn(),
     onGetVbCable: vi.fn(),
@@ -125,36 +124,19 @@ describe('SystemAudioEndpoints', () => {
     expect(within(screen.getByTestId('system-audio-endpoint-unsigned')).queryByRole('button', { name: 'Install' })).toBeNull();
   });
 
-  it('shows bulk install only when at least two endpoints are installable', () => {
-    const commonProps = {
-      backendStatus: 'component-required' as const,
-      backendKind: null,
-      physicalOutputs: [] as AudioOutput[],
-      selectedPhysicalOutputId: null,
-      busy: false,
-      installBusyId: null,
-      error: null,
-      onRefresh: vi.fn(),
-      onInstall: vi.fn(),
-      onInstallAll: vi.fn(),
-      onSelectPhysicalOutput: vi.fn(),
-      onOpenSoundSettings: vi.fn(),
-      onGetVbCable: vi.fn(),
-    };
-    const { rerender } = render(
-      <I18nextProvider i18n={getI18n()}>
-        <SystemAudioEndpoints endpoints={[endpoint('a', 'A', 'installable')]} {...commonProps} />
-      </I18nextProvider>,
-    );
+  it('keeps multiple installable outputs as explicit per-endpoint installs', () => {
+    const actions = renderPanel([
+      endpoint('a', 'A', 'installable'),
+      endpoint('b', 'B', 'installable'),
+    ]);
+
     expect(screen.queryByRole('button', { name: 'Install all compatible outputs' })).toBeNull();
-    rerender(
-      <I18nextProvider i18n={getI18n()}>
-        <SystemAudioEndpoints
-          endpoints={[endpoint('a', 'A', 'installable'), endpoint('b', 'B', 'installable')]}
-          {...commonProps}
-        />
-      </I18nextProvider>,
-    );
-    expect(screen.getByRole('button', { name: 'Install all compatible outputs' })).toBeInTheDocument();
+    const first = screen.getByTestId('system-audio-endpoint-a');
+    const second = screen.getByTestId('system-audio-endpoint-b');
+    fireEvent.click(within(first).getByRole('button', { name: 'Install' }));
+    fireEvent.click(within(second).getByRole('button', { name: 'Install' }));
+    expect(actions.onInstall).toHaveBeenNthCalledWith(1, 'a');
+    expect(actions.onInstall).toHaveBeenNthCalledWith(2, 'b');
   });
+
 });
