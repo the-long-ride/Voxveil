@@ -86,3 +86,21 @@ test('virtual-driver install and uninstall absence checks use SetupAPI query ins
     assert.doesNotMatch(body, /Win32_PnPSignedDriver/i);
   }
 });
+
+test('virtual-driver rollback persists exact package ownership when devnode cleanup fails', () => {
+  const catchStart = installer.indexOf('catch {');
+  assert.ok(catchStart >= 0, 'installer must keep rollback catch block');
+  const rollback = installer.slice(catchStart);
+  const retainedPackageBranch = rollback.indexOf('elseif ($newPublishedInf)');
+  const helperOnlyBranch = rollback.indexOf('elseif ($rollbackHelperRebootRequired)');
+  assert.ok(retainedPackageBranch >= 0, 'rollback must keep the retained-package branch');
+  assert.ok(helperOnlyBranch > retainedPackageBranch, 'retained-package branch must precede helper-only tombstone handling');
+
+  const retainedPackage = rollback.slice(retainedPackageBranch, helperOnlyBranch);
+  assert.match(
+    retainedPackage,
+    /Write-VirtualDriverInstallState\s+-PublishedInf\s+\$newPublishedInf/i,
+    'a newly added package that could not be rolled back must remain recorded for scoped recovery',
+  );
+  assert.doesNotMatch(retainedPackage, /-UninstallComplete\s+\$true/i);
+});
