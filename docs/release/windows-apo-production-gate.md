@@ -114,7 +114,7 @@ PnPUtil exit code `3010` is successful completion requiring a Windows restart, n
 - during uninstall, a package that returns `3010` is removed from `installedInfNames`, the remaining `installedInfNames` are persisted to `install-state.json`, and the just-removed published INF is retained separately as `pendingRemovedInfName` before the script exits without attempting additional package deletions;
 - after restart, rerun uninstall. The script must perform scoped post-reboot absence validation for `pendingRemovedInfName` in Driver Store before clearing that identity, then it may revalidate and delete any remaining recorded package. Do not delete or broaden the state manually.
 
-Any other nonzero PnPUtil result remains a hard failure and preserves the recorded package ownership for recovery.
+Any other nonzero PnPUtil result remains a hard failure while the recorded package still exists. If Driver Store verification proves the recorded package is already absent—either on entry after an interrupted prior deletion or immediately after a non-3010 result—the uninstaller removes only that exact INF from owned-package state, records it as `pendingRemovedInfName`, persists a reboot marker, and forces one restart before cleanup continues. All APO lifecycle JSON checkpoints use a same-directory atomic replace so a partial state-file write cannot replace the last complete ownership record.
 
 ## Required evidence
 
