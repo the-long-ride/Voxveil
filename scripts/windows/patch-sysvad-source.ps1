@@ -74,5 +74,5 @@ if ($patchedCount -ne 8) {
   throw "Pinned SysVAD compatibility patch expected exactly 8 sideband volume/mute branches, found $patchedCount."
 }
 
-[IO.File]::WriteAllLines($target, $output, [Text.UTF8Encoding]::new($false))
+[IO.File]::WriteAllLines($target, [string[]]$output, [Text.UTF8Encoding]::new($false))
 Write-Host "Applied Voxveil non-sideband compatibility guards to $patchedCount pinned SysVAD engine-node branches."
