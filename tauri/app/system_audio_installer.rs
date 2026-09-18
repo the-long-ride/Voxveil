@@ -1,5 +1,5 @@
 use std::os::windows::process::CommandExt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use sha2::{Digest, Sha256};
 
@@ -30,6 +30,20 @@ pub(super) fn installer_launch_outcome(
 
 fn sha256_hex(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
+}
+
+fn windows_powershell_path() -> Result<PathBuf, String> {
+    let system_root = std::env::var_os("SystemRoot")
+        .ok_or_else(|| "SystemRoot is unavailable; cannot locate Windows PowerShell.".to_string())?;
+    let path = PathBuf::from(system_root)
+        .join("System32")
+        .join("WindowsPowerShell")
+        .join("v1.0")
+        .join("powershell.exe");
+    if !path.is_file() {
+        return Err(format!("Windows PowerShell was not found at {}.", path.display()));
+    }
+    Ok(path)
 }
 
 fn verify_trusted_installer(script: &Path) -> Result<String, String> {
@@ -72,6 +86,8 @@ pub(super) fn launch_system_audio_installer(
     descriptor_sha256: &str,
 ) -> Result<InstallerLaunchOutcome, String> {
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    let powershell_path = windows_powershell_path()?;
+    let powershell = powershell_single_quoted(&powershell_path.to_string_lossy());
     let script_sha256 = verify_trusted_installer(script)?;
     let system_audio_dir = script
         .parent()
@@ -99,9 +115,9 @@ pub(super) fn launch_system_audio_installer(
     let descriptor_sha256 = powershell_single_quoted(descriptor_sha256);
     let script_sha256 = powershell_single_quoted(&script_sha256);
     let launch = format!(
-        r#"$ErrorActionPreference='Stop'; $script='{script}'; $descriptor='{descriptor}'; $descriptorSha256='{descriptor_sha256}'; $scriptSha256='{script_sha256}'; $scriptB64=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($script)); $descriptorB64=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($descriptor)); $elevatedCommand="`$ErrorActionPreference='Stop'; `$script=[Text.Encoding]::Unicode.GetString([Convert]::FromBase64String('$scriptB64')); `$descriptor=[Text.Encoding]::Unicode.GetString([Convert]::FromBase64String('$descriptorB64')); `$actualScriptSha256=(Get-FileHash -LiteralPath `$script -Algorithm SHA256).Hash.ToLowerInvariant(); if (`$actualScriptSha256 -ne '$scriptSha256') {{ Write-Error 'Bundled system-audio installer integrity check failed.'; exit 1 }}; & `$script -EndpointDescriptor `$descriptor -EndpointDescriptorSha256 '$descriptorSha256' -DiscoveryHelperSha256 '$discovery_sha256' -ControlHelperSha256 '$control_sha256' -ControlDllSha256 '$control_dll_sha256'; exit `$LASTEXITCODE"; $encodedCommand=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($elevatedCommand)); try {{ $process=Start-Process -FilePath 'powershell.exe' -Verb RunAs -Wait -PassThru -ArgumentList @('-NoLogo','-NoProfile','-ExecutionPolicy','Bypass','-EncodedCommand',$encodedCommand); exit $process.ExitCode }} catch {{ Write-Error $_; exit 1 }}"#,
+        r#"$ErrorActionPreference='Stop'; $powershell='{powershell}'; $script='{script}'; $descriptor='{descriptor}'; $descriptorSha256='{descriptor_sha256}'; $scriptSha256='{script_sha256}'; $scriptB64=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($script)); $descriptorB64=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($descriptor)); $elevatedCommand="`$ErrorActionPreference='Stop'; `$script=[Text.Encoding]::Unicode.GetString([Convert]::FromBase64String('$scriptB64')); `$descriptor=[Text.Encoding]::Unicode.GetString([Convert]::FromBase64String('$descriptorB64')); `$actualScriptSha256=(Get-FileHash -LiteralPath `$script -Algorithm SHA256).Hash.ToLowerInvariant(); if (`$actualScriptSha256 -ne '$scriptSha256') {{ Write-Error 'Bundled system-audio installer integrity check failed.'; exit 1 }}; & `$script -EndpointDescriptor `$descriptor -EndpointDescriptorSha256 '$descriptorSha256' -DiscoveryHelperSha256 '$discovery_sha256' -ControlHelperSha256 '$control_sha256' -ControlDllSha256 '$control_dll_sha256'; exit `$LASTEXITCODE"; $encodedCommand=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($elevatedCommand)); try {{ $process=Start-Process -FilePath $powershell -Verb RunAs -Wait -PassThru -ArgumentList @('-NoLogo','-NoProfile','-ExecutionPolicy','Bypass','-EncodedCommand',$encodedCommand); exit $process.ExitCode }} catch {{ Write-Error $_; exit 1 }}"#,
     );
-    let status = std::process::Command::new("powershell.exe")
+    let status = std::process::Command::new(&powershell_path)
         .args(["-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &launch])
         .creation_flags(CREATE_NO_WINDOW)
         .status()
