@@ -29,6 +29,10 @@ pub use sample::process_f32le_stereo;
 
 #[cfg(windows)]
 pub use relay::WindowsAudioBackend;
+#[cfg(windows)]
+pub fn windows_system_directory() -> Result<std::path::PathBuf, String> {
+    topology::windows_system_directory()
+}
 
 #[cfg(not(windows))]
 pub struct WindowsAudioBackend;
