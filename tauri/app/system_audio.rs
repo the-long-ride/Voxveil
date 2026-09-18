@@ -14,6 +14,8 @@ use system_audio_installer::{launch_system_audio_installer, InstallerLaunchOutco
 #[cfg(target_os = "windows")]
 use serde::Serialize;
 #[cfg(target_os = "windows")]
+use sha2::{Digest, Sha256};
+#[cfg(target_os = "windows")]
 use voxveil_windows_audio::{SystemAudioEndpoint, SystemAudioEndpointStatus};
 
 #[cfg(target_os = "windows")]
@@ -240,9 +242,11 @@ pub fn install_system_audio_component(
         let descriptor_path = temporary_descriptor_path();
         let json = serde_json::to_vec_pretty(&descriptor)
             .map_err(|error| format!("failed to serialize endpoint descriptor: {error}"))?;
-        std::fs::write(&descriptor_path, json)
+        let descriptor_sha256 = format!("{:x}", Sha256::digest(&json));
+        std::fs::write(&descriptor_path, &json)
             .map_err(|error| format!("failed to create endpoint descriptor: {error}"))?;
-        let result = launch_system_audio_installer(&script, &descriptor_path);
+        let result =
+            launch_system_audio_installer(&script, &descriptor_path, &descriptor_sha256);
         let _ = std::fs::remove_file(&descriptor_path);
         let outcome = result?;
         return Ok(match outcome {
