@@ -159,6 +159,24 @@ Use FFmpeg only as an offline fixture-preparation tool. Do not loudness-normaliz
 
 For a 44.1 kHz fixture, preserve VocalSet at 44.1 kHz and deterministically convert the URMP accompaniment to 44.1 kHz. For a 48 kHz fixture, preserve URMP at 48 kHz and deterministically convert the VocalSet excerpt to 48 kHz.
 
+A repository helper freezes that recipe, source hashing, license metadata, and manifest generation. Put the exact licensed VocalSet and URMP files under `.local-evaluation/classic-dsp/sources/`, then run:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/evaluation/prepare-tier-a-controlled-fixture.ps1 `
+  -VocalSource .\.local-evaluation\classic-dsp\sources\<vocalset-file>.wav `
+  -AccompanimentSource .\.local-evaluation\classic-dsp\sources\<urmp-file>.wav `
+  -FixtureId controlled-44k1-001 `
+  -TargetSampleRate 44100 `
+  -DurationSeconds 20 `
+  -VocalGainDb -6 `
+  -AccompanimentGainDb 0 `
+  -VocalSourceRecord '<exact VocalSet record/version>' `
+  -AccompanimentSourceRecord '<exact URMP record/version>' `
+  -LicenseCheckedOn YYYY-MM-DD
+```
+
+For 44.1 kHz the helper requires the VocalSet source itself to be native 44.1 kHz; for 48 kHz it requires the URMP accompaniment itself to be native 48 kHz. VocalSet input must be mono. The other source is deterministically resampled to the target rate. The helper refuses outputs that already exist unless `-Force` is explicit, writes only under the ignored workspace, hashes both sources and the final float32 WAV, and records `status: prepared` because DSP rendering/listening acceptance still has to happen.
+
 Example 44.1 kHz construction, with a centered mono vocal and explicit gains. Run it from `.local-evaluation/classic-dsp/` or adjust paths while keeping all generated audio inside that ignored workspace:
 
 ```powershell

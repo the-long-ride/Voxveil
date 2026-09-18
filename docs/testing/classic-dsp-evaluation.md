@@ -53,6 +53,8 @@ Get-FileHash .\fixtures\fixture-44k1.f32 -Algorithm SHA256
 
 When constructing a controlled fixture from separately licensed sources, use the frozen mix recipe from `classic-dsp-fixture-corpus.md` rather than ad-hoc gain or normalization changes made after hearing a profile result.
 
+Use `scripts/evaluation/prepare-tier-a-controlled-fixture.ps1` to create Tier-A fixtures and schema-shaped manifests from exact local VocalSet + URMP sources. The helper enforces the native-rate anchor for each target rate and records source/final hashes before any profile render.
+
 ## Render both profiles
 
 Maximum safe suppression (`Vocal = 0`) at 48 kHz:
