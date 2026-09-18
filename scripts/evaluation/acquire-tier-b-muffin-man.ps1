@@ -7,6 +7,32 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
+function Get-FileDigest {
+  param(
+    [Parameter(Mandatory = $true)][string]$Path,
+    [Parameter(Mandatory = $true)]
+    [ValidateSet('SHA1', 'SHA256')]
+    [string]$Algorithm
+  )
+
+  $stream = [IO.File]::OpenRead($Path)
+  try {
+    $hasher = switch ($Algorithm) {
+      'SHA1' { [Security.Cryptography.SHA1]::Create() }
+      'SHA256' { [Security.Cryptography.SHA256]::Create() }
+    }
+    try {
+      return ([BitConverter]::ToString($hasher.ComputeHash($stream))).Replace('-', '').ToLowerInvariant()
+    }
+    finally {
+      $hasher.Dispose()
+    }
+  }
+  finally {
+    $stream.Dispose()
+  }
+}
+
 $sourceUrl = 'https://upload.wikimedia.org/wikipedia/commons/f/fc/The_Muffin_Man_%28performed_by_Sinclair_Ukiri%29.ogg'
 $sourceRecord = 'https://commons.wikimedia.org/wiki/File:The_Muffin_Man_(performed_by_Sinclair_Ukiri).ogg'
 $fileName = 'The_Muffin_Man_(performed_by_Sinclair_Ukiri).ogg'
@@ -46,12 +72,12 @@ if ($item.Length -ne $expectedBytes) {
   throw "Tier-B source size mismatch: expected $expectedBytes bytes, got $($item.Length)."
 }
 
-$sha1 = (Get-FileHash $sourcePath -Algorithm SHA1).Hash.ToLowerInvariant()
+$sha1 = Get-FileDigest -Path $sourcePath -Algorithm SHA1
 if ($sha1 -ne $expectedSha1) {
   throw "Tier-B source SHA-1 mismatch: expected $expectedSha1, got $sha1."
 }
 
-$sha256 = (Get-FileHash $sourcePath -Algorithm SHA256).Hash.ToLowerInvariant()
+$sha256 = Get-FileDigest -Path $sourcePath -Algorithm SHA256
 $licenseCheckedOn = (Get-Date).ToString('yyyy-MM-dd')
 
 $manifest = [ordered]@{

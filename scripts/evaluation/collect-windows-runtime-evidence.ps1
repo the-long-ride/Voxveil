@@ -84,15 +84,22 @@ $cpuSample = [ordered]@{
   status = 'not-requested'
   processName = $ProcessName
   sampleSeconds = $CpuSampleSeconds
+  startProcessCount = 0
+  matchedProcessCount = 0
   normalizedPercent = $null
 }
 if ($CpuSampleSeconds -gt 0) {
   $startProcesses = @(Get-Process -Name $ProcessName -ErrorAction SilentlyContinue)
+  $cpuSample.startProcessCount = $startProcesses.Count
   if ($startProcesses.Count -eq 0) {
     $cpuSample.status = 'process-not-found'
   }
   else {
-    $startCpu = [double](($startProcesses | ForEach-Object { $_.TotalProcessorTime.TotalSeconds } | Measure-Object -Sum).Sum)
+    $startCpuById = @{}
+    foreach ($process in $startProcesses) {
+      $startCpuById[[int]$process.Id] = [double]$process.TotalProcessorTime.TotalSeconds
+    }
+
     $stopwatch = [Diagnostics.Stopwatch]::StartNew()
     Start-Sleep -Seconds $CpuSampleSeconds
     $endProcesses = @(Get-Process -Name $ProcessName -ErrorAction SilentlyContinue)
@@ -102,13 +109,35 @@ if ($CpuSampleSeconds -gt 0) {
       $cpuSample.status = 'process-ended'
     }
     else {
-      $endCpu = [double](($endProcesses | ForEach-Object { $_.TotalProcessorTime.TotalSeconds } | Measure-Object -Sum).Sum)
+      $endCpuById = @{}
+      foreach ($process in $endProcesses) {
+        $endCpuById[[int]$process.Id] = [double]$process.TotalProcessorTime.TotalSeconds
+      }
+
+      [double]$cpuDelta = 0
+      [int]$matched = 0
+      foreach ($entry in $startCpuById.GetEnumerator()) {
+        if (-not $endCpuById.ContainsKey($entry.Key)) {
+          continue
+        }
+        $delta = [double]$endCpuById[$entry.Key] - [double]$entry.Value
+        if ($delta -lt 0) {
+          continue
+        }
+        $cpuDelta += $delta
+        $matched += 1
+      }
+
+      $cpuSample.matchedProcessCount = $matched
       $elapsed = $stopwatch.Elapsed.TotalSeconds
-      if ($elapsed -le 0 -or $endCpu -lt $startCpu) {
+      if ($matched -eq 0) {
+        $cpuSample.status = 'process-changed'
+      }
+      elseif ($elapsed -le 0) {
         $cpuSample.status = 'invalid-sample'
       }
       else {
-        $normalized = (($endCpu - $startCpu) / $elapsed / $logicalProcessors) * 100.0
+        $normalized = ($cpuDelta / $elapsed / $logicalProcessors) * 100.0
         $cpuSample.normalizedPercent = [Math]::Round($normalized, 3)
         $cpuSample.status = 'sampled'
       }

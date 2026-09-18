@@ -18,6 +18,10 @@ test('Windows runtime evidence collector keeps CPU sampling explicit and manual 
   assert.match(script, /TotalProcessorTime\.TotalSeconds/i);
   assert.match(script, /CpuSampleSeconds/i);
   assert.match(script, /normalizedPercent/i);
+  assert.match(script, /startCpuById/i);
+  assert.match(script, /endCpuById/i);
+  assert.match(script, /matchedProcessCount/i);
+  assert.match(script, /process-changed/i);
   assert.match(script, /dropoutCount\s*=\s*\$null/i);
   assert.match(script, /endToEndLatencyMs\s*=\s*\$null/i);
   assert.match(script, /status\s*=\s*'pending'/i);
