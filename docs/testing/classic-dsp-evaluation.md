@@ -198,6 +198,18 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/evaluation/recor
 This updater requires an observed non-negative dropout count, measured latency, and a non-empty method; it timestamps completion and refuses to overwrite a completed measurement unless `-Force` is supplied. Do not use `0` as a placeholder for an unmeasured value.
 
 
+## Structural evidence audit
+
+After fixture/render/listening and runtime JSON have been recorded, run the repository audit:
+
+```powershell
+npm run evaluation:audit -- --workspace .\.local-evaluation\classic-dsp
+```
+
+The audit fails closed unless it finds at least two accepted controlled fixtures at 44.1 kHz, two at 48 kHz, at least one accepted non-candidate natural mix, and one **single machine/route group** containing sampled idle + processing CPU evidence for both profiles at both rates. Processing records must also contain completed dropout and end-to-end latency measurements.
+
+This is only a structural gate. It deliberately does **not** infer singer gender, sparse/dense arrangement, centered-instrument content, stereo ambience, mono compatibility, or harmony/double coverage from file names or notes; those semantic corpus checks remain explicit human review items.
+
 ## Result template
 
 | Fixture | Tier | Rate | Profile | Vocal | Vocal reduction | Center-instrument damage | Artifacts | Stereo change | CPU | E2E latency | Decision/notes |

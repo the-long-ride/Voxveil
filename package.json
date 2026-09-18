@@ -31,7 +31,8 @@
     "quality:tauri-security": "node scripts/quality/check-tauri-security.mjs .",
     "quality:hygiene": "node scripts/quality/check-repository-hygiene.mjs .",
     "quality:model-delivery": "node scripts/quality/check-model-delivery.mjs .",
-    "windows:sound": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/windows/open-sound-settings.ps1"
+    "windows:sound": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/windows/open-sound-settings.ps1",
+    "evaluation:audit": "node scripts/evaluation/audit-classic-dsp-evidence.mjs"
   },
   "engines": {
     "node": "^24.15.0",
