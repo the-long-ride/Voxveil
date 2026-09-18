@@ -112,9 +112,9 @@ $allowedDestinationNames = @(
   'verification.json',
   'release-evidence.json'
 )
+$destinationEntries = @(Get-ChildItem $destination -Force)
 $unexpectedDestinationEntries = @(
-  Get-ChildItem $destination -Force |
-    Where-Object { $allowedDestinationNames -inotcontains $_.Name }
+  $destinationEntries | Where-Object { $allowedDestinationNames -inotcontains $_.Name }
 )
 if ($unexpectedDestinationEntries.Count -gt 0) {
   throw "Signed virtual-driver destination contains unexpected entries; refusing destructive restaging: $($unexpectedDestinationEntries.Name -join ', ')."
