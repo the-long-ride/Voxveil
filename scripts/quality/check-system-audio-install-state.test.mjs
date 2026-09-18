@@ -590,14 +590,25 @@ test('production control helper integrity is rechecked immediately before readin
 });
 
 
-test('production APO install locks trusted files from verification through privileged execution', () => {
-  assert.match(installer, /function\s+Open-TrustedReadLock/i);
+test('production APO install verifies build-time hashes on the retained read locks', () => {
+  assert.match(installer, /function\s+Open-TrustedVerifiedReadLock/i);
   assert.match(installer, /IO\.FileMode\]::Open/i);
   assert.match(installer, /IO\.FileAccess\]::Read/i);
   assert.match(installer, /IO\.FileShare\]::Read/i);
+  assert.match(installer, /ComputeHash\(\$stream\)/i);
+  assert.match(installer, /\$stream\.Position\s*=\s*0/i);
   assert.match(installer, /\$productionPackageLocks/i);
-  assert.match(installer, /\$controlLock/i);
-  assert.match(installer, /\$controlDllLock/i);
+  assert.match(installer, /Open-TrustedVerifiedReadLock\s+\$control\s+\$ControlHelperSha256/i);
+  assert.match(installer, /Open-TrustedVerifiedReadLock\s+\$controlDll\s+\$ControlDllSha256/i);
+  for (const expected of [
+    'ExpectedApoInfSha256',
+    'ExpectedApoDllSha256',
+    'ExpectedApoCatalogSha256',
+    'ExpectedExtensionInfSha256',
+    'ExpectedExtensionCatalogSha256',
+  ]) {
+    assert.match(installer, new RegExp(`Open-TrustedVerifiedReadLock[\\s\\S]{0,180}\\$${expected}`, 'i'));
+  }
   assert.match(installer, /\.Dispose\(\)/i);
 });
 
