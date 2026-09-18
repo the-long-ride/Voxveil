@@ -104,6 +104,21 @@ if (Test-Path $destination -PathType Leaf) {
   throw 'Signed virtual-driver staging destination exists as a file.'
 }
 New-Item -ItemType Directory -Force -Path $destination | Out-Null
+$allowedDestinationNames = @(
+  $preservedInstallStateName,
+  'VoxveilVirtualAudio.inf',
+  'VoxveilVirtualAudio.cat',
+  'VoxveilVirtualAudio.sys',
+  'verification.json',
+  'release-evidence.json'
+)
+$unexpectedDestinationEntries = @(
+  Get-ChildItem $destination -Force |
+    Where-Object { $allowedDestinationNames -inotcontains $_.Name }
+)
+if ($unexpectedDestinationEntries.Count -gt 0) {
+  throw "Signed virtual-driver destination contains unexpected entries; refusing destructive restaging: $($unexpectedDestinationEntries.Name -join ', ')."
+}
 Get-ChildItem $destination -Force |
   Where-Object { $_.Name -ine $preservedInstallStateName } |
   Remove-Item -Recurse -Force
