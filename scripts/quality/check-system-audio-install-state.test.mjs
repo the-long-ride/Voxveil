@@ -217,3 +217,17 @@ test('APO uninstaller fails closed when PnPUtil reports success but the recorded
   assert.ok(staleSuccessGuard > refreshPresence, 'successful exit must still prove the package disappeared');
   assert.ok(ownershipDrop > staleSuccessGuard, 'normal ownership must be dropped only after the successful-delete absence proof');
 });
+
+
+test('APO installer refuses untracked pre-existing Voxveil packages before PnP mutation', () => {
+  const inventory = installer.indexOf('$beforeInstalledInfNames = @(Get-VoxveilPublishedInfNames)');
+  const baseInstall = installer.indexOf("pnputil.exe /add-driver (Join-Path $work 'VoxveilApo.inf') /install");
+  assert.ok(inventory >= 0 && baseInstall > inventory, 'Driver Store inventory must be checked before APO PnP mutation');
+
+  const preflight = installer.slice(inventory, baseInstall);
+  assert.match(preflight, /unexpectedInstalledInfNames/i);
+  assert.match(preflight, /previousInstalledInfNames/i);
+  assert.match(preflight, /-inotcontains\s+\$_/i);
+  assert.match(preflight, /untracked Voxveil APO\/Extension package/i);
+  assert.match(preflight, /throw/i);
+});
