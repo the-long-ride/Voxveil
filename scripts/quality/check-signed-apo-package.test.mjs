@@ -161,3 +161,13 @@ test('signed APO provenance carries exact signer certificate thumbprints through
   assert.match(installer, /SignerCertificate\.Thumbprint/i);
   assert.match(installer, /signer thumbprint does not match apo-verification\.json/i);
 });
+
+
+test('signed APO staging rejects junction or symlink destination ancestors before mutation', () => {
+  const text = read('scripts/windows/stage-signed-apo-package.ps1');
+  assert.match(text, /function\s+Assert-NoReparsePointInPath/i);
+  assert.match(text, /FileAttributes\]::ReparsePoint/i);
+  const check = text.indexOf('Assert-NoReparsePointInPath');
+  const mutation = text.indexOf('New-Item -ItemType Directory -Force -Path $destination');
+  assert.ok(check >= 0 && mutation > check, 'reparse-point preflight must precede staging mutation');
+});
