@@ -119,8 +119,11 @@ Assert-StagedHash -Path $stagedExtensionCat -Expected $verification.extensionCat
   extensionInfSha256 = $verification.extensionInfSha256
   extensionCatalogSha256 = $verification.extensionCatalogSha256
   apoSigner = $verification.apoSigner
+  apoThumbprint = $verification.apoThumbprint
   apoCatalogSigner = $verification.apoCatalogSigner
+  apoCatalogThumbprint = $verification.apoCatalogThumbprint
   extensionCatalogSigner = $verification.extensionCatalogSigner
+  extensionCatalogThumbprint = $verification.extensionCatalogThumbprint
   extensionId = $verification.extensionId
   capxContext = $verification.capxContext
 } | ConvertTo-Json -Depth 3 | Set-Content $manifestPath -Encoding utf8
