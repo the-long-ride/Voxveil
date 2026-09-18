@@ -31,4 +31,3 @@ voxveil-types = { path = "../crates/voxveil-types" }
 
 [target.'cfg(windows)'.dependencies]
 voxveil-windows-audio = { path = "../crates/voxveil-windows-audio" }
-windows-sys = { version = "=0.61.2", features = ["Win32_System_SystemInformation"] }
