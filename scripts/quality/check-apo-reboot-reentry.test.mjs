@@ -32,6 +32,6 @@ test('APO install checkpoints missing pending-reboot boot marker before mutation
   const preflight = installer.slice(stateLoad, firstPnp);
   assert.match(preflight, /\$previousPendingReboot\s*-eq\s*\$true\s*-and\s*-not\s+\$previousBootMarker/i);
   assert.match(preflight, /pendingRebootBootMarker\s*=\s*\$currentBootMarker/i);
-  assert.match(preflight, /Set-Content\s+\$statePath\s+-Encoding\s+utf8/i);
+  assert.match(preflight, /Write-JsonStateAtomically\s+-State\s+\$previousState\s+-Path\s+\$statePath/i);
   assert.match(preflight, /Restart Windows before continuing the Voxveil system-audio installation/i);
 });
