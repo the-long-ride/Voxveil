@@ -128,3 +128,12 @@ test('retail release evidence rejects undocumented fields before distribution', 
   assert.match(text, /unexpectedEvidenceFields/i);
   assert.match(text, /undocumented fields/i);
 });
+
+
+test('virtual driver validator requires canonical package filenames used by staging and install', () => {
+  const text = readFileSync('scripts/windows/validate-virtual-driver-package.ps1', 'utf8');
+  assert.match(text, /VoxveilVirtualAudio\.inf/i);
+  assert.match(text, /VoxveilVirtualAudio\.cat/i);
+  assert.match(text, /VoxveilVirtualAudio\.sys/i);
+  assert.match(text, /canonical package filenames/i);
+});
