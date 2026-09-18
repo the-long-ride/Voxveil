@@ -4,6 +4,16 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+$trustedSystemDirectoryForModules = [Environment]::SystemDirectory
+if (-not $trustedSystemDirectoryForModules) {
+  throw 'Windows system directory could not be resolved for PowerShell module loading.'
+}
+$trustedModulePath = Join-Path $trustedSystemDirectoryForModules 'WindowsPowerShell\v1.0\Modules'
+if (-not (Test-Path $trustedModulePath -PathType Container)) {
+  throw "Trusted Windows PowerShell module directory was not found: $trustedModulePath"
+}
+$env:PSModulePath = $trustedModulePath
 Set-StrictMode -Version Latest
 $TopologyGuid = '{DDA54A40-1E4C-11D1-A050-405705C10000}'
 $AudioGuid = '{6994AD04-93EF-11D0-A3CC-00A0C9223196}'
