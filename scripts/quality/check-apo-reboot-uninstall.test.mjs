@@ -18,7 +18,8 @@ test('APO uninstall checkpoints successful 3010 deletion before requiring reboot
   const stateWrite = stateWriteRelative >= 0 ? pendingRemoved + stateWriteRelative : -1;
   const rebootCheckRelative = tail.slice(stateWrite).search(/if\s*\(\s*\$pnputilExitCode\s*-eq\s*3010\s*\)/i);
   const rebootCheck = rebootCheckRelative >= 0 ? stateWrite + rebootCheckRelative : -1;
-  const rebootExit = tail.search(/exit\s+3010/i);
+  const rebootExitRelative = tail.slice(rebootCheck).search(/exit\s+3010/i);
+  const rebootExit = rebootExitRelative >= 0 ? rebootCheck + rebootExitRelative : -1;
 
   assert.ok(captureExit >= 0, 'PnPUtil delete exit code must be captured');
   assert.ok(exemptFailure > captureExit, 'hard failure must explicitly exempt reboot-required success');
