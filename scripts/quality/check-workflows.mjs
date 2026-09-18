@@ -67,7 +67,7 @@ function workflowTriggersAllowed(content) {
 }
 
 function hasBooleanInput(content, name, expectedDefault) {
-  const normalized = content.replaceAll('\\r\\n', '\\n');
+  const normalized = content.replaceAll('\r\n', '\n');
   const inputBlock = normalized.match(
     new RegExp(`^      ${name}:\\s*\\n((?:        .*(?:\\n|$))*)`, 'm'),
   )?.[1];
