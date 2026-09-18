@@ -571,3 +571,13 @@ test('production elevation resolves Windows PowerShell from the OS system direct
   assert.doesNotMatch(resolver, /\$env:(?:SystemRoot|windir)/i);
   assert.doesNotMatch(resolver, /&\s+powershell\.exe/i);
 });
+
+
+test('production control helper integrity is rechecked immediately before readiness execution', () => {
+  const status = installer.indexOf('$status = & $control status');
+  assert.ok(status >= 0);
+  const preStatus = installer.slice(Math.max(0, status - 900), status);
+  assert.match(preStatus, /if\s*\(\s*-not\s+\$TestSign\s*\)/i);
+  assert.match(preStatus, /Assert-TrustedPackagedFile\s+\$control\s+\$ControlHelperSha256/i);
+  assert.match(preStatus, /Assert-TrustedPackagedFile\s+\$controlDll\s+\$ControlDllSha256/i);
+});
