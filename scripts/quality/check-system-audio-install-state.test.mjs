@@ -231,3 +231,18 @@ test('APO installer refuses untracked pre-existing Voxveil packages before PnP m
   assert.match(preflight, /untracked Voxveil APO\/Extension package/i);
   assert.match(preflight, /throw/i);
 });
+
+
+test('APO installer refuses a second different managed endpoint before PnP mutation', () => {
+  const stateLoad = installer.indexOf('$previousState = Get-Content $statePath -Raw | ConvertFrom-Json');
+  const descriptorResolve = installer.indexOf('$binding = Resolve-EndpointDescriptor $EndpointDescriptor $root');
+  const baseInstall = installer.indexOf("pnputil.exe /add-driver (Join-Path $work 'VoxveilApo.inf') /install");
+  assert.ok(stateLoad >= 0 && descriptorResolve > stateLoad && baseInstall > descriptorResolve);
+
+  const preflight = installer.slice(stateLoad, baseInstall);
+  assert.match(preflight, /previousReadyEndpointId/i);
+  assert.match(preflight, /bindingReady/i);
+  assert.match(preflight, /selectedEndpointId/i);
+  assert.match(preflight, /-ine\s+\$previousReadyEndpointId/i);
+  assert.match(preflight, /Uninstall the currently managed Voxveil APO endpoint/i);
+});
