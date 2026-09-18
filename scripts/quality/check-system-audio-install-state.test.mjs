@@ -552,6 +552,14 @@ test('production UAC path binds discovery and control helpers to build-time SHA-
   assert.match(installer, /discover-system-audio-endpoints\.ps1/i);
   assert.match(installer, /voxveil-control\.exe/i);
   assert.match(installer, /VoxveilControl\.dll/i);
+  assert.match(systemAudioLauncher, /-DiscoveryHelperSha256 '\{discovery_sha256\}'/i);
+  assert.match(systemAudioLauncher, /-ControlHelperSha256 '\{control_sha256\}'/i);
+  assert.match(systemAudioLauncher, /-ControlDllSha256 '\{control_dll_sha256\}'/i);
+  assert.doesNotMatch(
+    systemAudioLauncher,
+    /-DiscoveryHelperSha256 '\$discovery_sha256'|-ControlHelperSha256 '\$control_sha256'|-ControlDllSha256 '\$control_dll_sha256'/i,
+    'unbound PowerShell hash variables must never cross UAC',
+  );
 });
 
 
