@@ -320,10 +320,34 @@ $trustedPackageFiles = @(
     Expected = $env:VOXVEIL_CONTROL_DLL_SHA256
   }
 )
+if ($signedApoDir) {
+  $trustedPackageFiles += @(
+    @{
+      Path = Join-Path $systemAudio 'VoxveilApo.inf'
+      Expected = $env:VOXVEIL_APO_INF_SHA256
+    },
+    @{
+      Path = Join-Path $systemAudio 'VoxveilApo.dll'
+      Expected = $env:VOXVEIL_APO_DLL_SHA256
+    },
+    @{
+      Path = Join-Path $systemAudio 'VoxveilApo.cat'
+      Expected = $env:VOXVEIL_APO_CATALOG_SHA256
+    },
+    @{
+      Path = Join-Path $systemAudio 'VoxveilApoExtension.inf'
+      Expected = $env:VOXVEIL_APO_EXTENSION_INF_SHA256
+    },
+    @{
+      Path = Join-Path $systemAudio 'VoxveilApoExtension.cat'
+      Expected = $env:VOXVEIL_APO_EXTENSION_CATALOG_SHA256
+    }
+  )
+}
 foreach ($trustedPackageFile in $trustedPackageFiles) {
   $actual = Get-Sha256Hex $trustedPackageFile.Path
   if ($actual -ne $trustedPackageFile.Expected) {
-    throw "Packaged privileged helper changed after Tauri trust anchors were compiled: $($trustedPackageFile.Path)"
+    throw "Packaged trusted file changed after Tauri trust anchors were compiled: $($trustedPackageFile.Path)"
   }
 }
 
