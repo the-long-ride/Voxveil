@@ -457,3 +457,21 @@ test('APO lifecycle state checkpoints use same-directory atomic replacement', ()
     assert.doesNotMatch(text, /ConvertTo-Json\s+-Depth\s+3\s*\|\s*Set-Content\s+\$statePath/i);
   }
 });
+
+
+test('APO uninstall recovers an already-absent recorded package through a conservative reboot checkpoint', () => {
+  const loop = uninstaller.indexOf('foreach ($inf in @($infNames))');
+  const identity = uninstaller.indexOf('Assert-RecordedApoInfIdentity $inf', loop);
+  const deleteDriver = uninstaller.indexOf('pnputil.exe /delete-driver $inf /uninstall /force', loop);
+  assert.ok(loop >= 0 && identity > loop && deleteDriver > identity);
+
+  const preDelete = uninstaller.slice(loop, identity);
+  assert.match(preDelete, /Test-RecordedApoInfPresent\s+\$inf/i);
+  assert.match(preDelete, /if\s*\(\s*-not\s+\$packagePresentBeforeDelete\s*\)/i);
+  assert.match(preDelete, /\$state\.installedInfNames\s*=\s*@\(\$infNames\)/i);
+  assert.match(preDelete, /\$state\.pendingRemovedInfName\s*=\s*\$inf/i);
+  assert.match(preDelete, /\$state\.pendingReboot\s*=\s*\$true/i);
+  assert.match(preDelete, /\$state\.pendingRebootBootMarker\s*=\s*\$currentBootMarker/i);
+  assert.match(preDelete, /Write-JsonStateAtomically\s+-State\s+\$state\s+-Path\s+\$statePath/i);
+  assert.match(preDelete, /exit\s+3010/i);
+});
