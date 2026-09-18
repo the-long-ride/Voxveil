@@ -204,6 +204,9 @@ if (Test-Path $statePath -PathType Leaf) {
   $invalidRecordedInfNames = @($recordedInfNames | Where-Object { [string]$_ -notmatch '^oem\d+\.inf  $previousBootMarker = [string](Get-OptionalProperty $previousState 'pendingRebootBootMarker')
   $previousPendingRemovedInfName = [string](Get-OptionalProperty $previousState 'pendingRemovedInfName')
   $previousBindingMode = [string](Get-OptionalProperty $previousState 'bindingMode')
+  if ($previousBindingMode -notin @('capx-extension', 'legacy-runtime-interface', 'legacy-reference')) {
+    throw "install-state.json has unknown bindingMode '$previousBindingMode'; state was kept for recovery."
+  }
   $previousEndpointId = [string](Get-OptionalProperty $previousState 'endpointId')
   if ($previousEndpointId -and $previousBindingMode -ne 'legacy-reference') {
     $previousManagedEndpointId = $previousEndpointId
