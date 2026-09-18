@@ -197,6 +197,7 @@ $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $statePath = Join-Path $root 'install-state.json'
 $currentBootMarker = Get-WindowsBootMarker
 $previousInstalledInfNames = @()
+$previousReadyEndpointId = $null
 if (Test-Path $statePath -PathType Leaf) {
   $previousState = Get-Content $statePath -Raw | ConvertFrom-Json
   $previousInstalledInfNames = @($previousState.installedInfNames) |
@@ -204,6 +205,11 @@ if (Test-Path $statePath -PathType Leaf) {
   $previousPendingReboot = Get-OptionalProperty $previousState 'pendingReboot'
   $previousBootMarker = [string](Get-OptionalProperty $previousState 'pendingRebootBootMarker')
   $previousPendingRemovedInfName = [string](Get-OptionalProperty $previousState 'pendingRemovedInfName')
+  $previousBindingReady = Get-OptionalProperty $previousState 'bindingReady'
+  $previousEndpointId = [string](Get-OptionalProperty $previousState 'endpointId')
+  if ($previousBindingReady -ne $false -and $previousEndpointId) {
+    $previousReadyEndpointId = $previousEndpointId
+  }
   if ($previousPendingReboot -eq $true -and $previousBootMarker -and $previousBootMarker -eq $currentBootMarker) {
     throw 'Restart Windows before continuing the Voxveil system-audio installation.'
   }
@@ -227,6 +233,9 @@ $runtimeBound = $false
 if ($PSCmdlet.ParameterSetName -eq 'Descriptor') {
   $binding = Resolve-EndpointDescriptor $EndpointDescriptor $root
   $selectedEndpointId = $binding.EndpointId
+  if ($previousReadyEndpointId -and $selectedEndpointId -ine $previousReadyEndpointId) {
+    throw "Uninstall the currently managed Voxveil APO endpoint '$previousReadyEndpointId' before installing a different playback endpoint '$selectedEndpointId'. Endpoint readiness is tracked for one managed APO endpoint at a time."
+  }
   $bindingPnpInstanceId = $binding.BindingPnpInstanceId
   $HardwareId = $binding.HardwareId
   $runtimeBound = $binding.RuntimeBound
