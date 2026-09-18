@@ -283,7 +283,11 @@ function Resolve-EndpointDescriptor(
     runtimeDeviceId = [string]$descriptor.bindingPnpInstanceId
     runtimeAliasMatch = $runtimeBound
   }) -Compress
-  $powershell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+  $systemDirectory = [Environment]::SystemDirectory
+  if (-not $systemDirectory) {
+    throw 'Windows system directory could not be resolved.'
+  }
+  $powershell = Join-Path $systemDirectory 'WindowsPowerShell\v1.0\powershell.exe'
   if (-not (Test-Path $powershell -PathType Leaf)) {
     throw "Windows PowerShell was not found at $powershell."
   }
