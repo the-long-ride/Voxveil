@@ -240,6 +240,25 @@ RemoveResult RemoveExactDevice(const std::wstring& instanceId) {
     return {true, DeviceInstallNeedsRestart(set.get(), &device)};
 }
 
+bool ExactDeviceExists(const std::wstring& instanceId) {
+    DeviceInfoSet set(SetupDiCreateDeviceInfoList(nullptr, nullptr));
+    SP_DEVINFO_DATA device{};
+    device.cbSize = sizeof(device);
+    if (!SetupDiOpenDeviceInfoW(set.get(), instanceId.c_str(), nullptr, 0, &device)) {
+        const DWORD error = GetLastError();
+        if (error == ERROR_NO_SUCH_DEVINST || error == ERROR_NO_SUCH_DEVICE || error == ERROR_NOT_FOUND) {
+            return false;
+        }
+        ThrowLastError("SetupDiOpenDeviceInfoW");
+    }
+
+    if (!HasExactHardwareId(set.get(), &device)) {
+        throw std::runtime_error(
+            "recorded device instance no longer has hardware ID Root\\VoxveilVirtualAudio");
+    }
+    return true;
+}
+
 int EnsureCommand(const std::wstring& infPath) {
     auto matches = FindMatchingDeviceInstanceIds();
     if (matches.size() > 1) {
@@ -285,10 +304,20 @@ int RemoveCommand(const std::wstring& instanceId) {
     return 0;
 }
 
+int QueryCommand(const std::wstring& instanceId) {
+    if (instanceId.empty()) {
+        throw std::runtime_error("device instance ID must not be empty");
+    }
+    const bool exists = ExactDeviceExists(instanceId);
+    std::wcout << L"exists=" << (exists ? 1 : 0) << L"\n";
+    return 0;
+}
+
 void PrintUsage() {
     std::wcerr << L"Usage:\n"
                << L"  voxveil-virtual-device.exe ensure <VoxveilVirtualAudio.inf>\n"
-               << L"  voxveil-virtual-device.exe remove <device-instance-id>\n";
+               << L"  voxveil-virtual-device.exe remove <device-instance-id>\n"
+               << L"  voxveil-virtual-device.exe query <device-instance-id>\n";
 }
 
 }  // namespace
@@ -306,6 +335,9 @@ int wmain(int argc, wchar_t** argv) {
         }
         if (_wcsicmp(command.c_str(), L"remove") == 0) {
             return RemoveCommand(argv[2]);
+        }
+        if (_wcsicmp(command.c_str(), L"query") == 0) {
+            return QueryCommand(argv[2]);
         }
 
         PrintUsage();
