@@ -8,6 +8,8 @@ const apoRoute = readFileSync('crates/voxveil-windows-audio/src/apo_route.rs', '
 const systemAudioUi = readFileSync('ui/features/home/SystemAudioEndpoints.tsx', 'utf8');
 const homeScreen = readFileSync('ui/features/home/HomeScreen.tsx', 'utf8');
 const stateHook = readFileSync('ui/app/useVoxveilState.ts', 'utf8');
+const systemAudioBackend = readFileSync('tauri/app/system_audio.rs', 'utf8');
+const systemAudioLauncher = readFileSync('tauri/app/system_audio_installer.rs', 'utf8');
 const releaseGuide = readFileSync('docs/release/windows-apo-production-gate.md', 'utf8');
 const validationMatrix = readFileSync('docs/testing/windows-apo-capx-hlk.md', 'utf8');
 const windowsSpec = readFileSync('docs/specs/platform/windows.md', 'utf8');
@@ -478,4 +480,30 @@ test('APO uninstall recovers an already-absent recorded package through a conser
   assert.match(preDelete, /\$state\.pendingRebootBootMarker\s*=\s*\$currentBootMarker/i);
   assert.match(preDelete, /Write-JsonStateAtomically\s+-State\s+\$state\s+-Path\s+\$statePath/i);
   assert.match(preDelete, /exit\s+3010/i);
+});
+
+
+test('elevated APO descriptor handoff is bound to the exact serialized bytes with SHA-256', () => {
+  assert.match(systemAudioBackend, /use\s+sha2::\{Digest,\s*Sha256\}/i);
+  assert.match(systemAudioBackend, /Sha256::digest\(&json\)/i);
+  assert.match(systemAudioBackend, /launch_system_audio_installer\(&script,\s*&descriptor_path,\s*&descriptor_sha256\)/i);
+
+  assert.match(systemAudioLauncher, /descriptor_sha256:\s*&str/i);
+  assert.match(systemAudioLauncher, /EndpointDescriptorSha256/i);
+
+  assert.match(installer, /\[ValidatePattern\('\^\[0-9A-Fa-f\]\{64\}\$'\)\]/i);
+  assert.match(installer, /\$EndpointDescriptorSha256/i);
+  const resolver = installer.slice(
+    installer.indexOf('function Resolve-EndpointDescriptor'),
+    installer.indexOf('Assert-Administrator'),
+  );
+  assert.match(resolver, /ReadAllBytes\(\$DescriptorPath\)/i);
+  assert.match(resolver, /Security\.Cryptography\.SHA256\]::Create\(\)/i);
+  assert.match(resolver, /ComputeHash\(\$descriptorBytes\)/i);
+  assert.match(resolver, /endpoint descriptor integrity check failed/i);
+  assert.ok(
+    resolver.indexOf('endpoint descriptor integrity check failed') <
+      resolver.indexOf('ConvertFrom-Json'),
+    'descriptor hash must be checked before JSON parsing',
+  );
 });
