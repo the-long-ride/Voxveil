@@ -57,7 +57,7 @@ test('Windows package output cleanup is preflighted against repository and signe
   assert.match(preflight, /\$distRoot/i);
   assert.match(preflight, /VOXVEIL_SIGNED_APO_DIR/i);
   assert.match(preflight, /VOXVEIL_SIGNED_DRIVER_DIR/i);
-  assert.match(preflight, /must not overlap/i);
+  assert.match(buildScript, /must not overlap signed input directory/i);
 });
 
 test('Windows package only allows in-repository custom output under dist', () => {
