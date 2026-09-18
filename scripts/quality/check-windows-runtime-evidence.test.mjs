@@ -20,6 +20,7 @@ test('Windows runtime evidence collector keeps CPU sampling explicit and manual 
   assert.match(script, /normalizedPercent/i);
   assert.match(script, /WorkloadState/i);
   assert.match(script, /workloadState\s*=\s*\$WorkloadState/i);
+  assert.match(script, /windows-runtime-\$SampleRate-\$Profile-\$WorkloadState-\$fileStamp\.json/i);
   assert.match(script, /startCpuById/i);
   assert.match(script, /endCpuById/i);
   assert.match(script, /matchedProcessCount/i);

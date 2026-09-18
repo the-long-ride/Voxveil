@@ -98,10 +98,11 @@ For a licensed local fixture, the repository helper performs the preparation, bo
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/evaluation/render-classic-dsp-fixture.ps1 `
   -Input .\.local-evaluation\classic-dsp\sources\<source-audio> `
   -FixtureId <fixture-id> `
+  -Tier controlled `
   -SampleRate 44100
 ```
 
-Use `-SampleRate 48000` for an independent native 48 kHz fixture. The helper writes only under the ignored `.local-evaluation/classic-dsp/{fixtures,renders,measurements}/` workspace. Its JSON evidence deliberately records `subjectiveReview.status = "pending"`; objective rendering/hashes do not constitute listening acceptance, Windows runtime validation, or release qualification.
+Use `-Tier natural-mix` for an approved natural production mix. The helper requires `ffprobe.exe` and rejects any source whose first audio stream does not already match the requested 44.1/48 kHz rate, so resampled material cannot be mislabeled as native-rate acceptance evidence. Use `-SampleRate 48000` only with an independent native 48 kHz source. The helper writes only under the ignored `.local-evaluation/classic-dsp/{fixtures,renders,measurements}/` workspace. Its JSON evidence records the tier and probed native sample rate and deliberately keeps `subjectiveReview.status = "pending"`; objective rendering/hashes do not constitute listening acceptance, Windows runtime validation, or release qualification.
 
 ## Listening protocol
 
@@ -185,7 +186,7 @@ After the observed run and latency measurement are complete, finalize the same r
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/evaluation/record-windows-runtime-measurement.ps1 `
-  -Evidence .\.local-evaluation\classic-dsp\measurements\windows-runtime-44100-music-preservation-<timestamp>.json `
+  -Evidence .\.local-evaluation\classic-dsp\measurements\windows-runtime-44100-music-preservation-processing-<timestamp>.json `
   -DropoutCount 0 `
   -EndToEndLatencyMs <measured-ms> `
   -LatencyMethod '<measurement method>' `

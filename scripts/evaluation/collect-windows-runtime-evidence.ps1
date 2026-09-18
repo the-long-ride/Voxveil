@@ -151,7 +151,7 @@ if ($CpuSampleSeconds -gt 0) {
 
 $timestamp = [DateTime]::UtcNow
 $fileStamp = $timestamp.ToString('yyyyMMddTHHmmssZ')
-$evidencePath = Join-Path $measurements "windows-runtime-$SampleRate-$Profile-$fileStamp.json"
+$evidencePath = Join-Path $measurements "windows-runtime-$SampleRate-$Profile-$WorkloadState-$fileStamp.json"
 
 $evidence = [ordered]@{
   generatedAtUtc = $timestamp.ToString('o')
