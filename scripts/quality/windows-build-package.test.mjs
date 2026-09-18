@@ -60,8 +60,9 @@ test('Windows package output cleanup is preflighted against repository and signe
   assert.match(buildScript, /must not overlap signed input directory/i);
 });
 
-test('Windows package only allows in-repository custom output under dist', () => {
+test('Windows package only allows output under the repository dist tree', () => {
   assert.match(buildScript, /function\s+Assert-SafeOutputDirectory/i);
-  assert.match(buildScript, /output directory inside the repository must be under dist/i);
+  assert.match(buildScript, /output directory must be under the repository dist tree/i);
+  assert.match(buildScript, /-not\s*\(Test-DirectoryContains\s+\$distFull\s+\$outputFull\)/i);
   assert.match(buildScript, /GetPathRoot/i);
 });
