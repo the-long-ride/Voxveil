@@ -171,3 +171,21 @@ test('signed APO staging rejects junction or symlink destination ancestors befor
   const mutation = text.indexOf('New-Item -ItemType Directory -Force -Path $destination');
   assert.ok(check >= 0 && mutation > check, 'reparse-point preflight must precede staging mutation');
 });
+
+
+test('production endpoint discovery requires complete staged APO signer provenance', () => {
+  const text = read('crates/voxveil-windows-audio/src/discovery_windows.rs');
+  for (const field of [
+    'apo_signer',
+    'apo_thumbprint',
+    'apo_catalog_signer',
+    'apo_catalog_thumbprint',
+    'extension_catalog_signer',
+    'extension_catalog_thumbprint',
+  ]) {
+    assert.match(text, new RegExp(field, 'i'));
+  }
+  assert.match(text, /fn\s+is_certificate_thumbprint/i);
+  assert.match(text, /value\.len\(\)\s*==\s*40/i);
+  assert.match(text, /!verification\.apo_signer\.trim\(\)\.is_empty\(\)/i);
+});
