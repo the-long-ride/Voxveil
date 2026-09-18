@@ -156,6 +156,70 @@
     },
     "notes": {
       "type": "string"
+    },
+    "referenceFiles": {
+      "description": "Aligned clean reference raw files for controlled-fixture quantitative measurements; null or omitted for a natural mix.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "vocal",
+            "accompaniment"
+          ],
+          "properties": {
+            "vocal": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "rawFile",
+                "sha256",
+                "bytes"
+              ],
+              "properties": {
+                "rawFile": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[A-Fa-f0-9]{64}$"
+                },
+                "bytes": {
+                  "type": "integer",
+                  "minimum": 8
+                }
+              }
+            },
+            "accompaniment": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "rawFile",
+                "sha256",
+                "bytes"
+              ],
+              "properties": {
+                "rawFile": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[A-Fa-f0-9]{64}$"
+                },
+                "bytes": {
+                  "type": "integer",
+                  "minimum": 8
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   },
   "allOf": [
@@ -174,8 +238,14 @@
         "properties": {
           "mixRecipe": {
             "type": "object"
+          },
+          "referenceFiles": {
+            "type": "object"
           }
-        }
+        },
+        "required": [
+          "referenceFiles"
+        ]
       }
     },
     {
@@ -192,6 +262,9 @@
       "then": {
         "properties": {
           "mixRecipe": {
+            "type": "null"
+          },
+          "referenceFiles": {
             "type": "null"
           }
         }

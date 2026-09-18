@@ -189,8 +189,10 @@ $vocalPath = Resolve-SourcePath -SourceRoot $sources -RequestedPath $VocalSource
 $accompanimentPath = Resolve-SourcePath -SourceRoot $sources -RequestedPath $AccompanimentSource
 
 $fixturePath = Join-Path $fixtures "$FixtureId.wav"
+$vocalReferencePath = Join-Path $fixtures "$FixtureId-vocal-reference.f32"
+$accompanimentReferencePath = Join-Path $fixtures "$FixtureId-accompaniment-reference.f32"
 $manifestPath = Join-Path $manifests "$FixtureId.json"
-foreach ($path in @($fixturePath, $manifestPath)) {
+foreach ($path in @($fixturePath, $vocalReferencePath, $accompanimentReferencePath, $manifestPath)) {
   if ((Test-Path -LiteralPath $path -PathType Leaf) -and -not $Force) {
     throw "Controlled fixture output already exists: $path. Use -Force to replace it."
   }
@@ -241,6 +243,38 @@ try {
     '-y', $fixturePath
   )
 
+  $vocalReferenceFilter = ('aresample={0},pan=stereo|c0=c0|c1=c0,volume={1}dB' -f $TargetSampleRate, $vocalGain)
+  Invoke-Checked $ffmpeg @(
+    '-v', 'error',
+    '-ss', $vocalStart,
+    '-t', $duration,
+    '-i', $vocalPath,
+    '-af', $vocalReferenceFilter,
+    '-ar', "$TargetSampleRate",
+    '-ac', '2',
+    '-f', 'f32le',
+    '-y', $vocalReferencePath
+  )
+
+  $accompanimentReferenceFilter = ('aresample={0},aformat=channel_layouts=stereo,volume={1}dB' -f $TargetSampleRate, $accompanimentGain)
+  Invoke-Checked $ffmpeg @(
+    '-v', 'error',
+    '-ss', $accompanimentStart,
+    '-t', $duration,
+    '-i', $accompanimentPath,
+    '-af', $accompanimentReferenceFilter,
+    '-ar', "$TargetSampleRate",
+    '-ac', '2',
+    '-f', 'f32le',
+    '-y', $accompanimentReferencePath
+  )
+
+  $vocalReferenceBytes = (Get-Item -LiteralPath $vocalReferencePath).Length
+  $accompanimentReferenceBytes = (Get-Item -LiteralPath $accompanimentReferencePath).Length
+  if ($vocalReferenceBytes -le 0 -or $vocalReferenceBytes -ne $accompanimentReferenceBytes -or ($vocalReferenceBytes % 8) -ne 0) {
+    throw "Controlled reference alignment mismatch: vocal=$vocalReferenceBytes accompaniment=$accompanimentReferenceBytes."
+  }
+
   $fixtureInfo = Get-AudioStreamInfo -Ffprobe $ffprobe -Path $fixturePath
   if ($fixtureInfo.sampleRate -ne $TargetSampleRate -or $fixtureInfo.channels -ne 2) {
     throw "Prepared fixture format mismatch: expected stereo $TargetSampleRate Hz, got $($fixtureInfo.channels) channels at $($fixtureInfo.sampleRate) Hz."
@@ -255,6 +289,8 @@ try {
   $vocalSha256 = Get-Sha256 $vocalPath
   $accompanimentSha256 = Get-Sha256 $accompanimentPath
   $fixtureSha256 = Get-Sha256 $fixturePath
+  $vocalReferenceSha256 = Get-Sha256 $vocalReferencePath
+  $accompanimentReferenceSha256 = Get-Sha256 $accompanimentReferencePath
 
   $preparationCommand = "prepare-tier-a-controlled-fixture.ps1 -FixtureId $FixtureId -TargetSampleRate $TargetSampleRate " +
     "-VocalStartSeconds $vocalStart -AccompanimentStartSeconds $accompanimentStart -DurationSeconds $duration " +
@@ -296,6 +332,18 @@ try {
       preparationCommand = $preparationCommand
       preparationToolVersion = "$ffmpegVersion"
     }
+    referenceFiles = [ordered]@{
+      vocal = [ordered]@{
+        rawFile = "fixtures/$FixtureId-vocal-reference.f32"
+        sha256 = $vocalReferenceSha256
+        bytes = [long]$vocalReferenceBytes
+      }
+      accompaniment = [ordered]@{
+        rawFile = "fixtures/$FixtureId-accompaniment-reference.f32"
+        sha256 = $accompanimentReferenceSha256
+        bytes = [long]$accompanimentReferenceBytes
+      }
+    }
     fixtureSha256 = $fixtureSha256
     notes = if ($Notes) { $Notes } else { 'Controlled fixture prepared; profile rendering, measurements, and listening acceptance remain pending.' }
   }
@@ -304,8 +352,10 @@ try {
   [IO.File]::WriteAllText($manifestPath, $json + [Environment]::NewLine, [Text.UTF8Encoding]::new($false))
 }
 catch {
-  if (Test-Path -LiteralPath $fixturePath -PathType Leaf) {
-    Remove-Item -LiteralPath $fixturePath -Force -ErrorAction SilentlyContinue
+  foreach ($generatedPath in @($fixturePath, $vocalReferencePath, $accompanimentReferencePath)) {
+    if (Test-Path -LiteralPath $generatedPath -PathType Leaf) {
+      Remove-Item -LiteralPath $generatedPath -Force -ErrorAction SilentlyContinue
+    }
   }
   if (Test-Path -LiteralPath $manifestPath -PathType Leaf) {
     Remove-Item -LiteralPath $manifestPath -Force -ErrorAction SilentlyContinue
@@ -315,4 +365,6 @@ catch {
 
 Write-Host "Controlled fixture: $fixturePath"
 Write-Host "Fixture SHA-256: $fixtureSha256"
+Write-Host "Vocal reference SHA-256: $vocalReferenceSha256"
+Write-Host "Accompaniment reference SHA-256: $accompanimentReferenceSha256"
 Write-Host "Manifest: $manifestPath"
