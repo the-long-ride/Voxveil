@@ -446,3 +446,14 @@ test('legacy APO uninstall never guesses an unrecorded development certificate',
     /Get-ChildItem\s+Cert:\\LocalMachine\\(?:My|Root|TrustedPublisher)[\s\S]*CN=Voxveil Development APO/i,
   );
 });
+
+
+test('APO lifecycle state checkpoints use same-directory atomic replacement', () => {
+  for (const [label, text] of [['installer', installer], ['uninstaller', uninstaller]]) {
+    assert.match(text, /function\s+Write-JsonStateAtomically/i, `${label} must define atomic state writes`);
+    assert.match(text, /Set-Content\s+\$tempPath\s+-Encoding\s+utf8/i);
+    assert.match(text, /\[IO\.File\]::Replace\(\$tempPath,\s*\$Path,\s*\$null\)/i);
+    assert.match(text, /\[IO\.File\]::Move\(\$tempPath,\s*\$Path\)/i);
+    assert.doesNotMatch(text, /ConvertTo-Json\s+-Depth\s+3\s*\|\s*Set-Content\s+\$statePath/i);
+  }
+});
