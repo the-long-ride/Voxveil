@@ -281,7 +281,15 @@ test('virtual-driver staging and lifecycle hash-bind the packaged SetupAPI helpe
     assert.ok(helperExecution > helperLock, `${label} must lock and verify the helper before first execution`);
     assert.match(text, /\[IO\.File\]::Open\([\s\S]*?\[IO\.FileShare\]::Read/i);
     assert.match(text, /ComputeHash\(\$stream\)/i);
-    assert.match(text, /finally\s*\{[\s\S]*?\$deviceHelperLock\.Dispose\(\)/i);
+    if (label === 'installer') {
+      assert.match(
+        text,
+        /foreach\s*\(\$lock\s+in\s+@\(\$infLock,\s*\$catLock,\s*\$sysLock,\s*\$deviceHelperLock\)\)/i,
+      );
+      assert.match(text, /\$lock\.Dispose\(\)/i);
+    } else {
+      assert.match(text, /finally\s*\{[\s\S]*?\$deviceHelperLock\.Dispose\(\)/i);
+    }
     assert.match(text, /deviceHelperSha256/i);
   }
 });

@@ -124,7 +124,10 @@ test('APO uninstaller checkpoints remaining package ownership after each success
   assert.match(uninstaller, /\$state\.installedInfNames\s*=\s*@\(\$infNames\)/);
 
   const deleteDriver = uninstaller.indexOf('pnputil.exe /delete-driver $inf /uninstall /force');
-  const checkpoint = uninstaller.indexOf('$state.installedInfNames = @($infNames)');
+  const checkpoint = uninstaller.indexOf(
+    '$state.installedInfNames = @($infNames)',
+    deleteDriver,
+  );
   const finalStateRemoval = uninstaller.lastIndexOf('Remove-Item $statePath -Force -ErrorAction SilentlyContinue');
   assert.ok(deleteDriver >= 0, 'scoped APO package deletion must exist');
   assert.ok(checkpoint > deleteDriver, 'remaining ownership must be checkpointed only after a successful deletion');
@@ -485,8 +488,10 @@ test('APO uninstall recovers an already-absent recorded package through a conser
 
 
 test('elevated APO descriptor handoff is bound to the exact serialized bytes with SHA-256', () => {
-  assert.match(systemAudioBackend, /use\s+sha2::\{Digest,\s*Sha256\}/i);
-  assert.match(systemAudioBackend, /Sha256::digest\(&json\)/i);
+  assert.match(systemAudioBackend, /descriptor_sha256\s*=\s*sha256_hex\(&json\)/i);
+  assert.match(systemAudioLauncher, /fn\s+sha256_hex\s*\(bytes:\s*&\[u8\]\)/i);
+  assert.match(systemAudioLauncher, /Sha256::digest\(bytes\)/i);
+  assert.match(systemAudioLauncher, /\{byte:02x\}/i);
   assert.match(systemAudioBackend, /launch_system_audio_installer\(&script,\s*&descriptor_path,\s*&descriptor_sha256\)/i);
 
   assert.match(systemAudioLauncher, /descriptor_sha256:\s*&str/i);

@@ -55,8 +55,9 @@ test('Windows package output cleanup is preflighted against repository and signe
   assert.match(preflight, /Assert-SafeOutputDirectory/i);
   assert.match(preflight, /\$repoPath/i);
   assert.match(preflight, /\$distRoot/i);
-  assert.match(preflight, /VOXVEIL_SIGNED_APO_DIR/i);
-  assert.match(preflight, /VOXVEIL_SIGNED_DRIVER_DIR/i);
+  assert.match(preflight, /SignedInputDirectories\s+@\(\$signedApoDir,\s*\$signedDriverDir\)/i);
+  assert.match(buildScript.slice(0, outputResolve), /\$signedApoDir\s*=\s*\$env:VOXVEIL_SIGNED_APO_DIR/i);
+  assert.match(preflight, /\$signedDriverDir\s*=\s*\$env:VOXVEIL_SIGNED_DRIVER_DIR/i);
   assert.match(buildScript, /must not overlap signed input directory/i);
 });
 
@@ -104,7 +105,7 @@ test('Windows package rechecks final privileged helper bytes against Tauri trust
   assert.match(finalPackage, /VOXVEIL_CONTROL_SHA256/i);
   assert.match(finalPackage, /VOXVEIL_CONTROL_DLL_SHA256/i);
   assert.match(finalPackage, /Get-Sha256Hex/i);
-  assert.match(finalPackage, /privileged helper changed after Tauri trust anchors were compiled/i);
+  assert.match(finalPackage, /Packaged trusted file changed after Tauri trust anchors were compiled/i);
 });
 
 

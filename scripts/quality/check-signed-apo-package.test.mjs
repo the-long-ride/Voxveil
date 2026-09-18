@@ -139,14 +139,19 @@ test('production APO installer revalidates staged Microsoft signer identities be
   assert.ok(preflight >= 0 && firstPnp > preflight);
 
   const block = text.slice(preflight, firstPnp);
-  assert.match(block, /function\s+Assert-StagedMicrosoftSigner/i);
-  assert.match(block, /Get-AuthenticodeSignature/i);
-  assert.match(block, /SignerCertificate\.Subject/i);
-  assert.match(block, /Microsoft/i);
+  const signerHelper = text.slice(
+    text.indexOf('function Assert-StagedMicrosoftSigner'),
+    preflight,
+  );
+  assert.match(signerHelper, /function\s+Assert-StagedMicrosoftSigner/i);
+  assert.match(signerHelper, /Get-AuthenticodeSignature/i);
+  assert.match(signerHelper, /SignerCertificate\.Subject/i);
+  assert.match(signerHelper, /Microsoft/i);
+  assert.match(signerHelper, /signer does not match apo-verification\.json/i);
+  assert.match(block, /Assert-StagedMicrosoftSigner/i);
   assert.match(block, /apoSigner/i);
   assert.match(block, /apoCatalogSigner/i);
   assert.match(block, /extensionCatalogSigner/i);
-  assert.match(block, /signer does not match apo-verification\.json/i);
 });
 
 

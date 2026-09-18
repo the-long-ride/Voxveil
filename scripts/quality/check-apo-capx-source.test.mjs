@@ -106,10 +106,10 @@ test('legacy runtime FX mutation validates topology and audio interface categori
   assert.match(text, /IsEqualGUID\(interfaceData\.InterfaceClassGuid,\s*expectedInterfaceClass\)/i);
   assert.match(
     text,
-    /OpenInterfaceFxKey\(expectedInstanceId,\s*topologyPath,\s*kKsCategoryTopology,\s*attach/i,
+    /OpenInterfaceFxKey\(\s*expectedInstanceId,\s*topologyPath,\s*kKsCategoryTopology,\s*attach/i,
   );
   assert.match(
     text,
-    /OpenInterfaceFxKey\(expectedInstanceId,\s*audioPath,\s*kKsCategoryAudio,\s*attach/i,
+    /OpenInterfaceFxKey\(\s*expectedInstanceId,\s*audioPath,\s*kKsCategoryAudio,\s*attach/i,
   );
 });
