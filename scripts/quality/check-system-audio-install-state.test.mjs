@@ -297,3 +297,13 @@ test('APO lifecycle rejects unknown persisted binding mode before package mutati
   assert.match(uninstallPreflight, modesPattern);
   assert.match(uninstallPreflight, /unknown bindingMode/i);
 });
+
+
+test('APO lifecycle state preflight is singular and uninstaller has no trailing duplicate block', () => {
+  assert.equal((installer.match(/\$invalidRecordedInfNames\s*=/g) ?? []).length, 1);
+  assert.equal((uninstaller.match(/\$invalidRecordedInfNames\s*=/g) ?? []).length, 1);
+  assert.match(
+    uninstaller.trimEnd(),
+    /Write-Host 'Recorded Voxveil componentized APO packages removed\.'$/,
+  );
+});
