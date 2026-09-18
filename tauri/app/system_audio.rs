@@ -204,13 +204,36 @@ fn system_audio_installer_path(executable: &Path) -> Result<PathBuf, String> {
 }
 
 #[cfg(target_os = "windows")]
-fn temporary_descriptor_path() -> PathBuf {
+fn create_temporary_descriptor(json: &[u8]) -> Result<PathBuf, String> {
+    use std::fs::OpenOptions;
+    use std::io::{ErrorKind, Write};
     use std::time::{SystemTime, UNIX_EPOCH};
-    let nonce = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_nanos();
-    std::env::temp_dir().join(format!("voxveil-endpoint-{}-{nonce}.json", std::process::id()))
+
+    for attempt in 0..16u8 {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!(
+            "voxveil-endpoint-{}-{nonce}-{attempt}.json",
+            std::process::id()
+        ));
+        match OpenOptions::new().write(true).create_new(true).open(&path) {
+            Ok(mut file) => {
+                if let Err(error) = file.write_all(json) {
+                    let _ = std::fs::remove_file(&path);
+                    return Err(format!("failed to write endpoint descriptor: {error}"));
+                }
+                return Ok(path);
+            }
+            Err(error) if error.kind() == ErrorKind::AlreadyExists => continue,
+            Err(error) => {
+                return Err(format!("failed to create endpoint descriptor: {error}"));
+            }
+        }
+    }
+
+    Err("failed to create a unique endpoint descriptor after repeated path collisions".into())
 }
 
 #[cfg(target_os = "windows")]
@@ -239,12 +262,10 @@ pub fn install_system_audio_component(
         if !script.is_file() {
             return Err(format!("Bundled system-audio installer not found at {}.", script.display()));
         }
-        let descriptor_path = temporary_descriptor_path();
         let json = serde_json::to_vec_pretty(&descriptor)
             .map_err(|error| format!("failed to serialize endpoint descriptor: {error}"))?;
         let descriptor_sha256 = format!("{:x}", Sha256::digest(&json));
-        std::fs::write(&descriptor_path, &json)
-            .map_err(|error| format!("failed to create endpoint descriptor: {error}"))?;
+        let descriptor_path = create_temporary_descriptor(&json)?;
         let result =
             launch_system_audio_installer(&script, &descriptor_path, &descriptor_sha256);
         let _ = std::fs::remove_file(&descriptor_path);
