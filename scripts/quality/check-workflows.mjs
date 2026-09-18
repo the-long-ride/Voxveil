@@ -10,23 +10,51 @@ const PLATFORM_INPUTS = [
   ['macos', 'false'],
 ];
 
+function workflowOnBlock(content) {
+  const lines = content.replaceAll('\r\n', '\n').split('\n');
+  const onIndex = lines.findIndex((line) => line.trimEnd() === 'on:');
+  if (onIndex < 0) return [];
+
+  const block = [];
+  for (let index = onIndex + 1; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (line.trim() === '') {
+      if (block.length) break;
+      continue;
+    }
+    if (!line.startsWith(' ')) break;
+    block.push(line);
+  }
+  return block;
+}
+
+function workflowTriggers(content) {
+  return workflowOnBlock(content)
+    .filter((line) => /^  [A-Za-z0-9_-]+:\s*$/.test(line))
+    .map((line) => line.trim().slice(0, -1));
+}
+
 function exactVerificationPush(content) {
-  const pushBlock = content.match(/^  push:\s*\n((?:    .*(?:\n|$))*)/m)?.[1] ?? '';
-  const lines = pushBlock
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
+  const block = workflowOnBlock(content);
+  const pushIndex = block.findIndex((line) => line.trim() === 'push:');
+  if (pushIndex < 0) return false;
+
+  const pushLines = [];
+  for (let index = pushIndex + 1; index < block.length; index += 1) {
+    const line = block[index];
+    if (/^  [A-Za-z0-9_-]+:\s*$/.test(line)) break;
+    pushLines.push(line.trim());
+  }
+  const meaningful = pushLines.filter(Boolean);
   return (
-    lines.length === 2 &&
-    lines[0] === 'branches:' &&
-    lines[1] === '- ' + VERIFICATION_PUSH_BRANCH
+    meaningful.length === 2 &&
+    meaningful[0] === 'branches:' &&
+    meaningful[1] === '- ' + VERIFICATION_PUSH_BRANCH
   );
 }
 
 function workflowTriggersAllowed(content) {
-  const onBlock = content.match(/^on:\s*\n((?:[ \t].*(?:\n|$))*)/m)?.[1] ?? '';
-  const triggers = [...onBlock.matchAll(/^  ([A-Za-z0-9_-]+):/gm)].map((match) => match[1]);
-
+  const triggers = workflowTriggers(content);
   if (triggers.length === 1) {
     return triggers[0] === 'workflow_dispatch';
   }
