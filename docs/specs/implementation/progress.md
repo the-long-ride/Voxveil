@@ -17,6 +17,8 @@
 - Auto engine selection and graceful degradation primitives.
 - Standard/Pro System edition and platform capability contracts.
 - Manual ten-variant build matrix, tagged release workflow, SHA-256 artifact metadata, and release SBOM generation.
+- Windows Tier 1 relay, Tier 2 signed virtual-driver staging/lifecycle, and Tier 3 signed APO/CAPX source paths with scoped package ownership, reboot tombstones, post-operation Driver Store verification, and untracked-package rejection.
+- APO management is fail-closed to one endpoint-scoped install state at a time until native telemetry can prove loaded instances per endpoint; UI installation remains explicit per endpoint rather than bulk.
 
 ## Deliberately not claimed complete
 
