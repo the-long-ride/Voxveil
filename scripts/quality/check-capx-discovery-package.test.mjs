@@ -5,6 +5,7 @@ import test from 'node:test';
 const discovery = [
   'crates/voxveil-windows-audio/src/discovery.rs',
   'crates/voxveil-windows-audio/src/discovery_windows.rs',
+  'crates/voxveil-windows-audio/src/discovery_helper_windows.rs',
 ].map((path) => readFileSync(path, 'utf8')).join('\n');
 const runtimeContract = readFileSync('scripts/quality/system-audio-runtime-interface-binding.test.mjs', 'utf8');
 
