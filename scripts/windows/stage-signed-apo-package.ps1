@@ -25,13 +25,45 @@ function Assert-StagedHash {
   }
 }
 
-$package = [IO.Path]::GetFullPath($PackageDir)
-$destination = [IO.Path]::GetFullPath($Destination)
+function Get-NormalizedDirectoryPath([string]$Path) {
+  $full = [IO.Path]::GetFullPath($Path)
+  $root = [IO.Path]::GetPathRoot($full)
+  if ($full -ieq $root) {
+    return $root
+  }
+  return $full.TrimEnd([char[]]@([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar))
+}
+
+function Test-DirectoryContains([string]$Parent, [string]$Child) {
+  $parentFull = Get-NormalizedDirectoryPath $Parent
+  $childFull = Get-NormalizedDirectoryPath $Child
+  if ($parentFull -ieq $childFull) {
+    return $true
+  }
+  $prefix = if ($parentFull.EndsWith([IO.Path]::DirectorySeparatorChar.ToString())) {
+    $parentFull
+  } else {
+    $parentFull + [IO.Path]::DirectorySeparatorChar
+  }
+  return $childFull.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)
+}
+
+function Test-DirectoryOverlap([string]$Left, [string]$Right) {
+  (Test-DirectoryContains $Left $Right) -or (Test-DirectoryContains $Right $Left)
+}
+
+$package = Get-NormalizedDirectoryPath $PackageDir
+$destination = Get-NormalizedDirectoryPath $Destination
+$repoRoot = Get-NormalizedDirectoryPath (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+$distRoot = Get-NormalizedDirectoryPath (Join-Path $repoRoot 'dist')
 if (-not (Test-Path $package -PathType Container)) {
   throw "Signed APO package directory not found: $package"
 }
-if ($destination -eq $package -or $destination.StartsWith($package + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
-  throw 'Signed APO staging destination must not be the source package directory or one of its descendants.'
+if (-not (Test-DirectoryContains $distRoot $destination)) {
+  throw 'Signed APO staging destination must be under the repository dist tree.'
+}
+if (Test-DirectoryOverlap $destination $package) {
+  throw 'Signed APO staging destination must not overlap the source package directory.'
 }
 
 $verifier = Join-Path $PSScriptRoot 'verify-signed-apo-package.ps1'
