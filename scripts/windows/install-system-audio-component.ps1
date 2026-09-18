@@ -210,6 +210,15 @@ if (Test-Path $statePath -PathType Leaf) {
   if ($previousEndpointId -and $previousBindingMode -ne 'legacy-reference') {
     $previousManagedEndpointId = $previousEndpointId
   }
+  if ($previousPendingReboot -eq $true -and -not $previousBootMarker) {
+    if ($previousState.PSObject.Properties['pendingRebootBootMarker']) {
+      $previousState.pendingRebootBootMarker = $currentBootMarker
+    } else {
+      $previousState | Add-Member -NotePropertyName pendingRebootBootMarker -NotePropertyValue $currentBootMarker
+    }
+    $previousState | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
+    throw 'Restart Windows before continuing the Voxveil system-audio installation.'
+  }
   if ($previousPendingReboot -eq $true -and $previousBootMarker -and $previousBootMarker -eq $currentBootMarker) {
     throw 'Restart Windows before continuing the Voxveil system-audio installation.'
   }
