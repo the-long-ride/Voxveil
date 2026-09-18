@@ -31,3 +31,15 @@ test('virtual-driver install checkpoints missing pending-reboot boot marker befo
   assert.match(preflight, /Write-JsonStateAtomically\s+-State\s+\$previousState\s+-Path\s+\$statePath/i);
   assert.match(preflight, /Restart Windows before continuing the Voxveil virtual-driver installation/i);
 });
+
+
+test('virtual-driver install clears a proven completed-uninstall tombstone before new mutation', () => {
+  const completedGuard = installer.indexOf('if ($previousUninstallComplete)');
+  const absence = installer.indexOf('Assert-CompletedUninstallAbsent $previousState', completedGuard);
+  const clearState = installer.indexOf('Remove-Item $statePath -Force', absence);
+  const ensureDevice = installer.indexOf('& $deviceHelper ensure $inf');
+  assert.ok(completedGuard >= 0, 'completed uninstall guard must exist');
+  assert.ok(absence > completedGuard, 'completed uninstall must be proved absent first');
+  assert.ok(clearState > absence, 'proven tombstone must be cleared before starting a new install');
+  assert.ok(ensureDevice > clearState, 'new devnode mutation must follow tombstone removal');
+});
