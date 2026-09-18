@@ -81,7 +81,10 @@ function Assert-MicrosoftSignature {
   if ($identity -notmatch '(?i)Microsoft') {
     throw "$Description is not identified as Microsoft-signed: $($signature.SignerCertificate.Subject)"
   }
-  return $signature.SignerCertificate.Subject
+  [pscustomobject]@{
+    Subject = [string]$signature.SignerCertificate.Subject
+    Thumbprint = [string]$signature.SignerCertificate.Thumbprint
+  }
 }
 
 $package = [IO.Path]::GetFullPath($PackageDir)
@@ -191,9 +194,9 @@ if ($LASTEXITCODE -ne 0) {
 if ($LASTEXITCODE -ne 0) {
   throw 'VoxveilApo.dll PETrust/Authenticode verification failed.'
 }
-$apoSigner = Assert-MicrosoftSignature -File $apoDll -Description 'VoxveilApo.dll'
-$apoCatalogSigner = Assert-MicrosoftSignature -File $apoCat -Description 'VoxveilApo.cat'
-$extensionCatalogSigner = Assert-MicrosoftSignature -File $extensionCat -Description 'VoxveilApoExtension.cat'
+$apoSignature = Assert-MicrosoftSignature -File $apoDll -Description 'VoxveilApo.dll'
+$apoCatalogSignature = Assert-MicrosoftSignature -File $apoCat -Description 'VoxveilApo.cat'
+$extensionCatalogSignature = Assert-MicrosoftSignature -File $extensionCat -Description 'VoxveilApoExtension.cat'
 
 [ordered]@{
   packageDirectory = $package
@@ -202,9 +205,12 @@ $extensionCatalogSigner = Assert-MicrosoftSignature -File $extensionCat -Descrip
   apoCatalogSha256 = (Get-FileHash $apoCat.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
   extensionInfSha256 = (Get-FileHash $extensionInf.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
   extensionCatalogSha256 = (Get-FileHash $extensionCat.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-  apoSigner = $apoSigner
-  apoCatalogSigner = $apoCatalogSigner
-  extensionCatalogSigner = $extensionCatalogSigner
+  apoSigner = $apoSignature.Subject
+  apoThumbprint = $apoSignature.Thumbprint
+  apoCatalogSigner = $apoCatalogSignature.Subject
+  apoCatalogThumbprint = $apoCatalogSignature.Thumbprint
+  extensionCatalogSigner = $extensionCatalogSignature.Subject
+  extensionCatalogThumbprint = $extensionCatalogSignature.Thumbprint
   extensionId = '1D81E93D-AB81-473B-9E5E-94FAE8D2377F'
   capxContext = '63E268CE-4CBC-48E0-BEB6-55103316F477'
 } | ConvertTo-Json -Depth 3
