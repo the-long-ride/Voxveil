@@ -26,26 +26,31 @@ $OutRoot = Join-Path $DriverRoot "out\$Architecture"
 $Submission = Join-Path $OutRoot 'submission'
 $SysvadImporter = Join-Path $PSScriptRoot 'import-sysvad-source.ps1'
 
-function Find-MSBuild {
-  $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
-  if (Test-Path $vswhere) {
-    $path = & $vswhere -latest -products * -requires Microsoft.Component.MSBuild -find 'MSBuild\**\Bin\MSBuild.exe' | Select-Object -First 1
-    if ($path -and (Test-Path $path)) { return $path }
+function Get-TrustedProgramFilesX86 {
+  $path = [Environment]::GetFolderPath([Environment+SpecialFolder]::ProgramFilesX86)
+  if (-not $path -or -not (Test-Path $path -PathType Container)) {
+    throw 'Windows Program Files (x86) directory could not be resolved from the OS known-folder API.'
   }
-  $command = Get-Command msbuild.exe -ErrorAction SilentlyContinue
-  if ($command) { return $command.Source }
-  throw 'MSBuild was not found. Install Visual Studio Build Tools with C++ and the Windows Driver Kit.'
+  return [IO.Path]::GetFullPath($path)
+}
+
+function Find-MSBuild {
+  $programFilesX86 = Get-TrustedProgramFilesX86
+  $vswhere = Join-Path $programFilesX86 'Microsoft Visual Studio\Installer\vswhere.exe'
+  if (Test-Path $vswhere -PathType Leaf) {
+    $path = & $vswhere -latest -products * -requires Microsoft.Component.MSBuild -find 'MSBuild\**\Bin\MSBuild.exe' | Select-Object -First 1
+    if ($path -and (Test-Path $path -PathType Leaf)) { return [IO.Path]::GetFullPath($path) }
+  }
+  throw 'MSBuild was not found through the trusted Visual Studio Installer path. Install Visual Studio Build Tools with C++ and the Windows Driver Kit.'
 }
 
 function Find-WdkTool {
   param([Parameter(Mandatory = $true)][string]$Name)
 
-  $command = Get-Command $Name -ErrorAction SilentlyContinue
-  if ($command) { return $command.Source }
-
+  $programFilesX86 = Get-TrustedProgramFilesX86
   $searchRoots = @(
-    (Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin'),
-    (Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\Tools')
+    (Join-Path $programFilesX86 'Windows Kits\10\bin'),
+    (Join-Path $programFilesX86 'Windows Kits\10\Tools')
   )
 
   foreach ($root in $searchRoots) {

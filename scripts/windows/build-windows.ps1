@@ -11,19 +11,26 @@ Set-StrictMode -Version Latest
 $repo = Resolve-Path (Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) '..\..')
 Set-Location $repo
 
-function Find-MSBuild {
-  $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
-  if (Test-Path $vswhere) {
-    $path = & $vswhere -latest -products * -requires Microsoft.Component.MSBuild -find 'MSBuild\**\Bin\MSBuild.exe' | Select-Object -First 1
-    if ($path -and (Test-Path $path)) { return $path }
+function Get-TrustedProgramFilesX86 {
+  $path = [Environment]::GetFolderPath([Environment+SpecialFolder]::ProgramFilesX86)
+  if (-not $path -or -not (Test-Path $path -PathType Container)) {
+    throw 'Windows Program Files (x86) directory could not be resolved from the OS known-folder API.'
   }
-  $command = Get-Command msbuild.exe -ErrorAction SilentlyContinue
-  if ($command) { return $command.Source }
-  throw 'MSBuild was not found. Install Visual Studio Build Tools with Desktop development with C++ and the Windows Driver Kit.'
+  return [IO.Path]::GetFullPath($path)
+}
+
+function Find-MSBuild {
+  $programFilesX86 = Get-TrustedProgramFilesX86
+  $vswhere = Join-Path $programFilesX86 'Microsoft Visual Studio\Installer\vswhere.exe'
+  if (Test-Path $vswhere -PathType Leaf) {
+    $path = & $vswhere -latest -products * -requires Microsoft.Component.MSBuild -find 'MSBuild\**\Bin\MSBuild.exe' | Select-Object -First 1
+    if ($path -and (Test-Path $path -PathType Leaf)) { return [IO.Path]::GetFullPath($path) }
+  }
+  throw 'MSBuild was not found through the trusted Visual Studio Installer path. Install Visual Studio Build Tools with Desktop development with C++ and the Windows Driver Kit.'
 }
 
 function Assert-Wdk {
-  $kits = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\Include'
+  $kits = Join-Path (Get-TrustedProgramFilesX86) 'Windows Kits\10\Include'
   if (-not (Test-Path $kits)) {
     throw 'Windows Driver Kit headers were not found. Install the Windows 11 WDK before building VoxveilApo.dll.'
   }

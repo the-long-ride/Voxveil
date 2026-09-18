@@ -141,3 +141,12 @@ test('Windows package rechecks final signed APO files against embedded build-tim
   }
   assert.match(finalPackage, /Packaged trusted file changed after Tauri trust anchors were compiled/i);
 });
+
+test('Windows package build pins MSBuild and WDK roots to OS-known Program Files', () => {
+  const text = readFileSync('scripts/windows/build-windows.ps1', 'utf8');
+  assert.match(text, /GetFolderPath\(\[Environment\+SpecialFolder\]::ProgramFilesX86\)/i);
+  assert.match(text, /Microsoft Visual Studio\\Installer\\vswhere\.exe/i);
+  assert.match(text, /Windows Kits\\10\\Include/i);
+  assert.doesNotMatch(text, /\$env:ProgramFiles\(x86\)/i);
+  assert.doesNotMatch(text, /Get-Command\s+msbuild\.exe/i);
+});
