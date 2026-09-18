@@ -3949,6 +3949,7 @@ dependencies = [
  "voxveil-routing",
  "voxveil-types",
  "voxveil-windows-audio",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
