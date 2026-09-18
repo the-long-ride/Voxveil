@@ -10,6 +10,7 @@ const homeScreen = readFileSync('ui/features/home/HomeScreen.tsx', 'utf8');
 const stateHook = readFileSync('ui/app/useVoxveilState.ts', 'utf8');
 const systemAudioBackend = readFileSync('tauri/app/system_audio.rs', 'utf8');
 const systemAudioLauncher = readFileSync('tauri/app/system_audio_installer.rs', 'utf8');
+const discoveryHelper = readFileSync('scripts/windows/discover-system-audio-endpoints.ps1', 'utf8');
 const releaseGuide = readFileSync('docs/release/windows-apo-production-gate.md', 'utf8');
 const validationMatrix = readFileSync('docs/testing/windows-apo-capx-hlk.md', 'utf8');
 const windowsSpec = readFileSync('docs/specs/platform/windows.md', 'utf8');
@@ -563,7 +564,7 @@ test('production UAC path binds discovery and control helpers to build-time SHA-
 });
 
 
-test('production elevation resolves Windows PowerShell from the OS system directory', () => {
+test('production elevation resolves its only PowerShell host from the OS system directory', () => {
   assert.match(systemAudioLauncher, /voxveil_windows_audio::windows_system_directory\(\)/i);
   assert.doesNotMatch(systemAudioLauncher, /\bunsafe\b/i);
   assert.match(systemAudioLauncher, /WindowsPowerShell[\\/]v1\.0[\\/]powershell\.exe/i);
@@ -574,10 +575,8 @@ test('production elevation resolves Windows PowerShell from the OS system direct
   const resolverStart = installer.indexOf('function Resolve-EndpointDescriptor');
   const resolverEnd = installer.indexOf('\nAssert-Administrator\n', resolverStart);
   const resolver = installer.slice(resolverStart, resolverEnd);
-  assert.match(resolver, /\[Environment\]::SystemDirectory/i);
-  assert.match(resolver, /WindowsPowerShell\\v1\.0\\powershell\.exe/i);
+  assert.doesNotMatch(resolver, /powershell\.exe/i);
   assert.doesNotMatch(resolver, /\$env:(?:SystemRoot|windir)/i);
-  assert.doesNotMatch(resolver, /&\s+powershell\.exe/i);
 });
 
 
@@ -670,4 +669,23 @@ test('elevated APO uninstaller pins PnPUtil to the OS system directory', () => {
   const preflight = uninstaller.slice(0, deleteDriver);
   assert.match(preflight, /\[Environment\]::SystemDirectory/i);
   assert.match(preflight, /Set-Alias\s+-Name\s+'pnputil\.exe'\s+-Value\s+\$pnputilPath\s+-Scope\s+Script\s+-Option\s+ReadOnly/i);
+});
+
+
+test('elevated endpoint discovery executes from the same exclusively locked bytes it verifies', () => {
+  assert.match(discoveryHelper, /\[string\]\$InputJson/i);
+  assert.match(discoveryHelper, /PSBoundParameters\.ContainsKey\('InputJson'\)/i);
+  assert.match(discoveryHelper, /Console\]::In\.ReadToEnd\(\)/i);
+
+  const resolverStart = installer.indexOf('function Resolve-EndpointDescriptor');
+  const resolverEnd = installer.indexOf('\nAssert-Administrator\n', resolverStart);
+  const resolver = installer.slice(resolverStart, resolverEnd);
+  assert.match(resolver, /IO\.File\]::Open\(\s*\$helper/i);
+  assert.match(resolver, /IO\.FileShare\]::None/i);
+  assert.match(resolver, /ComputeHash\([^)]*helperLock/i);
+  assert.match(resolver, /helperLock\.Position\s*=\s*0/i);
+  assert.match(resolver, /ScriptBlock\]::Create/i);
+  assert.match(resolver, /-InputJson\s+\$request/i);
+  assert.doesNotMatch(resolver, /-File\s+\$helper/i);
+  assert.doesNotMatch(resolver, /\$request\s*\|\s*&\s*\$powershell/i);
 });
