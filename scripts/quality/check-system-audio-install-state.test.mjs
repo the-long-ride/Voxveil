@@ -376,3 +376,12 @@ test('APO uninstall retries a required AudioSrv restart after packages are alrea
   assert.match(finalTail, /audioServiceRestartRequired\s*=\s*\$false/i);
   assert.match(finalTail, /Set-Content\s+\$statePath\s+-Encoding\s+utf8/i);
 });
+
+
+test('APO installer refuses unfinished AudioSrv cleanup state before PnP mutation', () => {
+  const stateLoad = installer.indexOf('$previousState = Get-Content $statePath -Raw | ConvertFrom-Json');
+  const firstPnp = installer.indexOf("pnputil.exe /add-driver (Join-Path $work 'VoxveilApo.inf') /install");
+  const preflight = installer.slice(stateLoad, firstPnp);
+  assert.match(preflight, /audioServiceRestartRequired/i);
+  assert.match(preflight, /Complete the prior Voxveil APO cleanup/i);
+});
