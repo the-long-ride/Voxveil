@@ -231,3 +231,11 @@ test('virtual-driver install matches current Microsoft catalog signer to verific
   assert.match(text, /SignerCertificate\.Subject/i);
   assert.match(text, /catalog signer does not match verification\.json/i);
 });
+
+
+test('virtual-driver install binds current catalog certificate thumbprint to verification manifest', () => {
+  const text = installer();
+  assert.match(text, /catalogThumbprint/i);
+  assert.match(text, /SignerCertificate\.Thumbprint/i);
+  assert.match(text, /catalog thumbprint does not match verification\.json/i);
+});
