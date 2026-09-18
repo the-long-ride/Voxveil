@@ -372,10 +372,8 @@ catch {
     pnputil.exe /delete-driver $newPublishedInf | Out-Host
     $rollbackDeleteExitCode = $LASTEXITCODE
     if ($rollbackDeleteExitCode -ne 0 -and $rollbackDeleteExitCode -ne 3010) {
-      if ($rollbackHelperRebootRequired) {
-        Write-VirtualDriverInstallState -PublishedInf $newPublishedInf -PendingReboot $true
-      }
-      Write-Warning "Driver-store rollback failed for $newPublishedInf with exit code $rollbackDeleteExitCode; manual cleanup may be required."
+      Write-VirtualDriverInstallState -PublishedInf $newPublishedInf -PendingReboot $rollbackHelperRebootRequired
+      Write-Warning "Driver-store rollback failed for $newPublishedInf with exit code $rollbackDeleteExitCode; ownership state was kept for scoped recovery."
     } else {
       $rollbackLifecycleRebootRequired = $rollbackHelperRebootRequired -or $rollbackDeleteExitCode -eq 3010
       if ($rollbackLifecycleRebootRequired) {
