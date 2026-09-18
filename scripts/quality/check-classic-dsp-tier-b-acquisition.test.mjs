@@ -9,8 +9,8 @@ test('Tier-B acquisition helper stays inside ignored evaluation workspace and ve
   assert.match(script, /upload\.wikimedia\.org\/wikipedia\/commons\/f\/fc\/The_Muffin_Man_/i);
   assert.match(script, /1101160L/);
   assert.match(script, /0a2ff6ab77db7995c4a8b2ed868520bd80838574/i);
-  assert.match(script, /\[Security\.Cryptography\.SHA1\]::Create\(\)/i);
-  assert.match(script, /\[Security\.Cryptography\.SHA256\]::Create\(\)/i);
+  assert.match(script, /\[System\.Security\.Cryptography\.SHA1\]::Create\(\)/i);
+  assert.match(script, /\[System\.Security\.Cryptography\.SHA256\]::Create\(\)/i);
   assert.match(script, /ComputeHash\(\$stream\)/i);
   assert.doesNotMatch(script, /Get-FileHash/i);
   assert.match(script, /status\s*=\s*'approved-metadata'/i);

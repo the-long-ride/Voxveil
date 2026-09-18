@@ -42,7 +42,7 @@ function Get-Sha256 {
 
   $stream = [IO.File]::OpenRead($Path)
   try {
-    $hasher = [Security.Cryptography.SHA256]::Create()
+    $hasher = [System.Security.Cryptography.SHA256]::Create()
     try {
       return ([BitConverter]::ToString($hasher.ComputeHash($stream))).Replace('-', '').ToLowerInvariant()
     }

@@ -18,8 +18,8 @@ function Get-FileDigest {
   $stream = [IO.File]::OpenRead($Path)
   try {
     $hasher = switch ($Algorithm) {
-      'SHA1' { [Security.Cryptography.SHA1]::Create() }
-      'SHA256' { [Security.Cryptography.SHA256]::Create() }
+      'SHA1' { [System.Security.Cryptography.SHA1]::Create() }
+      'SHA256' { [System.Security.Cryptography.SHA256]::Create() }
     }
     try {
       return ([BitConverter]::ToString($hasher.ComputeHash($stream))).Replace('-', '').ToLowerInvariant()

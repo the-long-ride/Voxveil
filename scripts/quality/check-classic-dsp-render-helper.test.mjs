@@ -18,7 +18,7 @@ test('Classic DSP local renderer verifies aligned finite raw output and records 
   assert.match(script, /Latency-compensated render size mismatch/i);
   assert.match(script, /IsNaN/i);
   assert.match(script, /IsInfinity/i);
-  assert.match(script, /\[Security\.Cryptography\.SHA256\]::Create\(\)/i);
+  assert.match(script, /\[System\.Security\.Cryptography\.SHA256\]::Create\(\)/i);
   assert.match(script, /ComputeHash\(\$stream\)/i);
   assert.doesNotMatch(script, /Get-FileHash/i);
   assert.match(script, /leftRightCorrelation/i);
