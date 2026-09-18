@@ -372,13 +372,20 @@ catch {
     throw "Recorded Voxveil package $publishedInf still exists after the required restart; install state was kept for recovery."
   }
 
-  $remainingBindings = @(Get-CimInstance Win32_PnPSignedDriver |
-    Where-Object {
-      $_.DeviceID -ieq $deviceInstanceId -and
-      $_.DriverProviderName -ieq 'Voxveil' -and
-      $_.DeviceName -ieq 'Voxveil Virtual Audio'
-    })
-  if ($remainingBindings.Count -gt 0) {
+  $queryHelper = Join-Path $PSScriptRoot 'voxveil-virtual-device.exe'
+  if (-not (Test-Path $queryHelper -PathType Leaf)) {
+    throw "Voxveil root-device helper is missing: $queryHelper"
+  }
+  $queryOutput = @(& $queryHelper query $deviceInstanceId)
+  $queryExitCode = $LASTEXITCODE
+  if ($queryExitCode -ne 0) {
+    throw "Could not verify whether recorded Voxveil devnode $deviceInstanceId is absent after restart; install state was kept for recovery."
+  }
+  $queryExists = Get-HelperValue $queryOutput 'exists'
+  if ($queryExists -notin @('0', '1')) {
+    throw "Voxveil root-device helper returned invalid query metadata; install state was kept for recovery."
+  }
+  if ($queryExists -eq '1') {
     throw "Recorded Voxveil devnode $deviceInstanceId still exists after the required restart; install state was kept for recovery."
   }
 }
