@@ -18,6 +18,25 @@ function Assert-RecordedApoInfIdentity([string]$PublishedInf) {
   }
 }
 
+function Test-RecordedApoInfPresent([string]$PublishedInf) {
+  $matches = @(Get-WindowsDriver -Online |
+    Where-Object { [string]$_.Driver -ieq $PublishedInf })
+  if ($matches.Count -eq 0) {
+    return $false
+  }
+  if ($matches.Count -ne 1) {
+    throw "Recorded APO/Extension package $PublishedInf resolved to $($matches.Count) Driver Store entries; install-state.json was kept for recovery."
+  }
+
+  $package = $matches[0]
+  $originalName = [IO.Path]::GetFileName([string]$package.OriginalFileName)
+  if ([string]$package.ProviderName -ine 'Voxveil' -or
+      $originalName -notin @('VoxveilApo.inf', 'VoxveilApoExtension.inf')) {
+    throw "Recorded package $PublishedInf no longer identifies a Voxveil APO/Extension package; install-state.json was kept for recovery."
+  }
+  return $true
+}
+
 function Assert-PendingRemovedApoInfAbsent([string]$PublishedInf) {
   if ($PublishedInf -notmatch '^oem\d+\.inf$') {
     throw 'Pending removed APO/Extension package identity is invalid; install-state.json was kept for recovery.'
@@ -115,8 +134,20 @@ foreach ($inf in @($infNames)) {
   Write-Host "Removing recorded Voxveil APO/Extension driver package $inf ..."
   pnputil.exe /delete-driver $inf /uninstall /force | Out-Host
   $pnputilExitCode = $LASTEXITCODE
+  $packageStillPresent = Test-RecordedApoInfPresent $inf
   if ($pnputilExitCode -ne 0 -and $pnputilExitCode -ne 3010) {
-    throw "PnPUtil failed to remove $inf (exit $pnputilExitCode)."
+    if (-not $packageStillPresent) {
+      $infNames = @($infNames | Where-Object { $_ -ine $inf })
+      $state.installedInfNames = @($infNames)
+      $state.pendingRemovedInfName = $null
+      $state.pendingReboot = $false
+      $state.pendingRebootBootMarker = $null
+      $state | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
+    }
+    throw "PnPUtil failed to remove $inf (exit $pnputilExitCode). Driver Store ownership was refreshed and install-state.json was kept for recovery."
+  }
+  if ($pnputilExitCode -eq 0 -and $packageStillPresent) {
+    throw "PnPUtil reported success removing $inf, but the recorded Voxveil package is still present in the Driver Store; install-state.json was kept for recovery."
   }
 
   $infNames = @($infNames | Where-Object { $_ -ine $inf })
