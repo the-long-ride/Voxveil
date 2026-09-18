@@ -35,6 +35,27 @@ test('signed virtual driver stager rehashes copied files before writing verifica
   assert.match(text, /staged.*hash/i);
 });
 
+test('virtual driver installer locks signed package bytes through PnPUtil mutation', () => {
+  const text = installer();
+  const addDriver = text.indexOf('pnputil.exe /add-driver $inf /install');
+  assert.ok(addDriver >= 0, 'installer must invoke PnPUtil for the staged INF');
+  const preflight = text.slice(0, addDriver);
+  for (const [variable, artifact] of [
+    ['infLock', 'VoxveilVirtualAudio.inf'],
+    ['catLock', 'VoxveilVirtualAudio.cat'],
+    ['sysLock', 'VoxveilVirtualAudio.sys'],
+  ]) {
+    assert.match(
+      preflight,
+      new RegExp('\\$' + variable + '\\s*=\\s*Open-TrustedVerifiedReadLock[\\s\\S]*?' + artifact.replace('.', '\\.'), 'i'),
+      `${artifact} must be locked before PnPUtil mutation`,
+    );
+  }
+  assert.match(text, /foreach\s*\(\$lock\s+in\s+@\(\$infLock,\s*\$catLock,\s*\$sysLock,\s*\$deviceHelperLock\)\)/i);
+  assert.match(text, /\$lock\.Dispose\(\)/i);
+});
+
+
 test('virtual driver installer never changes TESTSIGNING or imports certificates', () => {
   const text = installer();
   assert.doesNotMatch(text, /bcdedit[^\r\n]*(?:set|deletevalue)/i);

@@ -247,6 +247,9 @@ if ($expectedDeviceHelperSha256 -notmatch '^[0-9A-Fa-f]{64}$') {
   throw 'verification.json does not contain a valid deviceHelperSha256.'
 }
 $deviceHelperLock = Open-TrustedVerifiedReadLock $deviceHelper $expectedDeviceHelperSha256 'voxveil-virtual-device.exe'
+$infLock = $null
+$catLock = $null
+$sysLock = $null
 try {
 
 if ([string]$verification.releaseChannel -eq 'retail') {
@@ -273,9 +276,9 @@ if ([string]$verification.releaseChannel -eq 'retail') {
 $inf = Join-Path $package 'VoxveilVirtualAudio.inf'
 $cat = Join-Path $package 'VoxveilVirtualAudio.cat'
 $sys = Join-Path $package 'VoxveilVirtualAudio.sys'
-Assert-StagedFileHash $inf ([string]$verification.infSha256) 'VoxveilVirtualAudio.inf'
-Assert-StagedFileHash $cat ([string]$verification.catalogSha256) 'VoxveilVirtualAudio.cat'
-Assert-StagedFileHash $sys ([string]$verification.driverSha256) 'VoxveilVirtualAudio.sys'
+$infLock = Open-TrustedVerifiedReadLock $inf ([string]$verification.infSha256) 'VoxveilVirtualAudio.inf'
+$catLock = Open-TrustedVerifiedReadLock $cat ([string]$verification.catalogSha256) 'VoxveilVirtualAudio.cat'
+$sysLock = Open-TrustedVerifiedReadLock $sys ([string]$verification.driverSha256) 'VoxveilVirtualAudio.sys'
 
 $infText = Get-Content $inf -Raw
 if ($infText -notmatch '(?im)Root\\VoxveilVirtualAudio') {
@@ -527,7 +530,9 @@ catch {
 }
 }
 finally {
-  if ($deviceHelperLock) {
-    $deviceHelperLock.Dispose()
+  foreach ($lock in @($infLock, $catLock, $sysLock, $deviceHelperLock)) {
+    if ($lock) {
+      $lock.Dispose()
+    }
   }
 }
