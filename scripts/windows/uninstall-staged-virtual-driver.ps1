@@ -262,26 +262,24 @@ $pnputilExitCode = $LASTEXITCODE
 $packageStillPresent = Test-RecordedVirtualDriverPackagePresent $publishedInf
 if ($pnputilExitCode -ne 0 -and $pnputilExitCode -ne 3010) {
   if (-not $packageStillPresent) {
-    if ($helperRebootRequired) {
-      if ($state.PSObject.Properties['pendingReboot']) {
-        $state.pendingReboot = $true
-      } else {
-        $state | Add-Member -NotePropertyName pendingReboot -NotePropertyValue $true
-      }
-      if ($state.PSObject.Properties['pendingRebootBootMarker']) {
-        $state.pendingRebootBootMarker = $currentBootMarker
-      } else {
-        $state | Add-Member -NotePropertyName pendingRebootBootMarker -NotePropertyValue $currentBootMarker
-      }
-      if ($state.PSObject.Properties['uninstallComplete']) {
-        $state.uninstallComplete = $true
-      } else {
-        $state | Add-Member -NotePropertyName uninstallComplete -NotePropertyValue $true
-      }
-      Write-JsonStateAtomically -State $state -Path $statePath
+    if ($state.PSObject.Properties['pendingReboot']) {
+      $state.pendingReboot = $true
     } else {
-      Remove-Item $statePath -Force
+      $state | Add-Member -NotePropertyName pendingReboot -NotePropertyValue $true
     }
+    if ($state.PSObject.Properties['pendingRebootBootMarker']) {
+      $state.pendingRebootBootMarker = $currentBootMarker
+    } else {
+      $state | Add-Member -NotePropertyName pendingRebootBootMarker -NotePropertyValue $currentBootMarker
+    }
+    if ($state.PSObject.Properties['uninstallComplete']) {
+      $state.uninstallComplete = $true
+    } else {
+      $state | Add-Member -NotePropertyName uninstallComplete -NotePropertyValue $true
+    }
+    Write-JsonStateAtomically -State $state -Path $statePath
+    Write-Warning "PnPUtil returned exit $pnputilExitCode for $publishedInf, but the package is already absent. Requiring a restart before lifecycle state is cleared because completion is ambiguous."
+    exit 3010
   } elseif ($helperRebootRequired) {
     if ($state.PSObject.Properties['pendingReboot']) {
       $state.pendingReboot = $true
