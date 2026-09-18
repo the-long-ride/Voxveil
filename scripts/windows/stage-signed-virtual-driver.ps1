@@ -63,6 +63,13 @@ if ($ReleaseChannel -eq 'Retail') {
     throw 'Retail staging requires release-evidence.json proving the approved WHCP/HLK or Microsoft-confirmed retail signing path.'
   }
   $evidence = Get-Content $evidencePath -Raw | ConvertFrom-Json
+  $allowedEvidenceFields = @('releaseChannel', 'signingPath', 'infSha256', 'catalogSha256', 'driverSha256')
+  $unexpectedEvidenceFields = @(
+    $evidence.PSObject.Properties.Name | Where-Object { $allowedEvidenceFields -inotcontains $_ }
+  )
+  if ($unexpectedEvidenceFields.Count -gt 0) {
+    throw "Retail release-evidence.json contains undocumented fields that must not enter the distributable package: $($unexpectedEvidenceFields -join ', ')."
+  }
   if ($evidence.releaseChannel -ne 'retail') {
     throw 'Retail release evidence must declare releaseChannel="retail".'
   }
