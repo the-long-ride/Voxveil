@@ -61,6 +61,22 @@ function Get-WindowsBootMarker {
   ([DateTime]$os.LastBootUpTime).ToUniversalTime().ToString('o')
 }
 
+function Write-JsonStateAtomically($State, [string]$Path) {
+  $directory = Split-Path -Parent $Path
+  $tempPath = Join-Path $directory ('.' + [IO.Path]::GetFileName($Path) + '.' + [Guid]::NewGuid().ToString('N') + '.tmp')
+  try {
+    $State | ConvertTo-Json -Depth 3 | Set-Content $tempPath -Encoding utf8
+    if (Test-Path $Path -PathType Leaf) {
+      [IO.File]::Replace($tempPath, $Path, $null)
+    } else {
+      [IO.File]::Move($tempPath, $Path)
+    }
+  }
+  finally {
+    Remove-Item $tempPath -Force -ErrorAction SilentlyContinue
+  }
+}
+
 function Remove-RecordedDevelopmentCertificate([string]$Thumbprint) {
   if (-not $Thumbprint) {
     return
@@ -149,7 +165,7 @@ if (Test-Path $statePath) {
     } else {
       $state | Add-Member -NotePropertyName pendingRebootBootMarker -NotePropertyValue $currentBootMarker
     }
-    $state | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
+    Write-JsonStateAtomically -State $state -Path $statePath
     throw 'Restart Windows before continuing Voxveil APO package cleanup.'
   }
   if ($pendingReboot -and $pendingBootMarker -and $pendingBootMarker -eq $currentBootMarker) {
@@ -172,7 +188,7 @@ if (Test-Path $statePath) {
     $state.pendingRemovedInfName = $null
     $state.pendingReboot = $false
     $state.pendingRebootBootMarker = $null
-    $state | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
+    Write-JsonStateAtomically -State $state -Path $statePath
   }
 }
 
@@ -199,14 +215,14 @@ if ($state -and [string]$state.bindingMode -eq 'legacy-runtime-interface' -and $
     $state | Add-Member -NotePropertyName legacyRuntimeAttached -NotePropertyValue $false
   }
   $legacyRuntimeAttached = $false
-  $state | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
+  Write-JsonStateAtomically -State $state -Path $statePath
 }
 
 if ($infNames.Count -eq 0) {
   if ($audioServiceRestartRequired) {
     Restart-Service Audiosrv -Force
     $state.audioServiceRestartRequired = $false
-    $state | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
+    Write-JsonStateAtomically -State $state -Path $statePath
   }
   Remove-RecordedDevelopmentCertificate $developmentCertificateThumbprint
   Remove-Item $statePath -Force -ErrorAction SilentlyContinue
@@ -228,7 +244,7 @@ foreach ($inf in @($infNames)) {
       $state.pendingReboot = $false
       $state.pendingRebootBootMarker = $null
       $state.audioServiceRestartRequired = ($infNames.Count -eq 0)
-      $state | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
+      Write-JsonStateAtomically -State $state -Path $statePath
     }
     throw "PnPUtil failed to remove $inf (exit $pnputilExitCode). Driver Store ownership was refreshed and install-state.json was kept for recovery."
   }
@@ -249,7 +265,7 @@ foreach ($inf in @($infNames)) {
     $state.pendingRebootBootMarker = $null
     $state.audioServiceRestartRequired = ($infNames.Count -eq 0)
   }
-  $state | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
+  Write-JsonStateAtomically -State $state -Path $statePath
 
   if ($pnputilExitCode -eq 3010) {
     Write-Warning "Voxveil APO/Extension package $inf was removed successfully, but Windows requires a restart before remaining package cleanup can continue."
@@ -260,7 +276,7 @@ foreach ($inf in @($infNames)) {
 if ($state.audioServiceRestartRequired) {
   Restart-Service Audiosrv -Force
   $state.audioServiceRestartRequired = $false
-  $state | ConvertTo-Json -Depth 3 | Set-Content $statePath -Encoding utf8
+  Write-JsonStateAtomically -State $state -Path $statePath
 }
 Remove-RecordedDevelopmentCertificate $developmentCertificateThumbprint
 Remove-Item $statePath -Force -ErrorAction SilentlyContinue
