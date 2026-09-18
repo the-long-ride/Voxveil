@@ -223,3 +223,11 @@ test('retail virtual-driver install revalidates retained qualification evidence'
   assert.match(text, /Assert-StagedFileHash\s+\$releaseEvidencePath\s+\$expectedEvidenceSha256\s+'release-evidence\.json'/i);
   assert.match(text, /Retail release evidence changed after staging/i);
 });
+
+
+test('virtual-driver install matches current Microsoft catalog signer to verification manifest', () => {
+  const text = installer();
+  assert.match(text, /catalogSigner/i);
+  assert.match(text, /SignerCertificate\.Subject/i);
+  assert.match(text, /catalog signer does not match verification\.json/i);
+});
