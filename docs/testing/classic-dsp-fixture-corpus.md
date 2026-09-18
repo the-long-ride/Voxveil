@@ -144,12 +144,24 @@ The core required fields are:
     "preparationCommand": "ffmpeg ...",
     "preparationToolVersion": "ffmpeg <version>"
   },
+  "referenceFiles": {
+    "vocal": {
+      "rawFile": "fixtures/controlled-vocalset-urmp-001-vocal-reference.f32",
+      "sha256": "<64-hex-sha256>",
+      "bytes": 7056000
+    },
+    "accompaniment": {
+      "rawFile": "fixtures/controlled-vocalset-urmp-001-accompaniment-reference.f32",
+      "sha256": "<64-hex-sha256>",
+      "bytes": 7056000
+    }
+  },
   "fixtureSha256": "<64-hex-sha256>",
   "notes": "purpose and audible characteristics"
 }
 ```
 
-The angle-bracket hash/date/version values above are documentation placeholders and must be replaced with real values before schema validation. For a `natural-mix` fixture, set `mixRecipe` to `null` because the fixture is the licensed source mix rather than a locally constructed vocal/accompaniment mixture. Do not use `null` to skip documenting preparation of a controlled fixture.
+The angle-bracket hash/date/version values above are documentation placeholders and must be replaced with real values before schema validation. Controlled fixtures also require aligned gained vocal/accompaniment `referenceFiles` so quantitative projection and accompaniment-error metrics can be reproduced from the same frozen mix recipe. For a `natural-mix` fixture, set `mixRecipe` to `null` and omit `referenceFiles` because the fixture is the licensed source mix rather than a locally constructed vocal/accompaniment mixture. Do not use `null` to skip documenting preparation of a controlled fixture.
 
 Do not reuse a result after any source hash, target rate, trim, gain, pan, or mix recipe changes. Treat that as a new fixture/version.
 
@@ -175,7 +187,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/evaluation/prepa
   -LicenseCheckedOn YYYY-MM-DD
 ```
 
-For 44.1 kHz the helper requires the VocalSet source itself to be native 44.1 kHz; for 48 kHz it requires the URMP accompaniment itself to be native 48 kHz. VocalSet input must be mono. The other source is deterministically resampled to the target rate. The helper refuses outputs that already exist unless `-Force` is explicit, writes only under the ignored workspace, hashes both sources and the final float32 WAV, and records `status: prepared` because DSP rendering/listening acceptance still has to happen.
+For 44.1 kHz the helper requires the VocalSet source itself to be native 44.1 kHz; for 48 kHz it requires the URMP accompaniment itself to be native 48 kHz. VocalSet input must be mono. The other source is deterministically resampled to the target rate. The helper refuses outputs that already exist unless `-Force` is explicit, writes only under the ignored workspace, hashes both sources and the final float32 WAV, emits aligned gained stereo-f32 vocal/accompaniment references, and records `status: prepared` because DSP rendering/listening acceptance still has to happen.
 
 Example 44.1 kHz construction, with a centered mono vocal and explicit gains. Run it from `.local-evaluation/classic-dsp/` or adjust paths while keeping all generated audio inside that ignored workspace:
 

@@ -140,7 +140,15 @@ The recorder only edits JSON under the ignored `measurements/` directory, requir
 
 ## Measurement protocol
 
-Use Tier A controlled fixtures for quantitative comparisons where the source components and mix recipe are known. Measure at minimum:
+Use Tier A controlled fixtures for quantitative comparisons where the source components and mix recipe are known. After rendering a prepared Tier-A fixture, calculate the repository-owned projection/error evidence:
+
+```powershell
+npm run evaluation:measure-tier-a -- --fixture <fixture-id> --workspace .\.local-evaluation\classic-dsp
+```
+
+The helper verifies hashes and exact byte alignment for the gained VocalSet/URMP references plus both raw renders. It records global two-source least-squares vocal attenuation, accompaniment projection gain change, accompaniment error relative to the known reference, and unexplained residual RMS for both profiles. These are reproducible evidence fields, **not** release thresholds and not a substitute for regional/listening analysis.
+
+Measure at minimum:
 
 1. **Vocal attenuation** — RMS or LUFS change of vocal-dominant regions between the original fixture and processed output, supported by the known clean vocal source.
 2. **Accompaniment damage** — difference energy and listening checks against the known accompaniment source, especially centered bass/percussion/instruments.
