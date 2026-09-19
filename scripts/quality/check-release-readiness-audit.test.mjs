@@ -10,11 +10,16 @@ const args = {
   releaseChannel: 'retail',
   classicWorkspace: '.local-evaluation/classic-dsp',
   driverWorkspace: '.local-evaluation/windows-driver',
+  packageRoot: 'dist/windows-x64/Voxveil',
 };
 
-test('release-readiness audit requires both Classic DSP and Windows driver evidence for the exact checkout', async () => {
+test('release-readiness audit requires package, Classic DSP, and Windows driver evidence for the exact checkout', async () => {
   const report = await auditReleaseReadiness(args, {
     checkoutCommit: commit,
+    packageAudit: async () => ({
+      status: 'complete',
+      issues: [],
+    }),
     classicAudit: async () => ({
       structuralComplete: true,
       issues: [],
@@ -29,15 +34,21 @@ test('release-readiness audit requires both Classic DSP and Windows driver evide
   assert.equal(report.status, 'complete');
   assert.deepEqual(report.issues, []);
   assert.equal(report.checkoutCommit, commit);
+  assert.equal(report.windowsPackage.status, 'complete');
   assert.equal(report.classicDsp.structuralComplete, true);
   assert.equal(report.windowsDriver.status, 'complete');
 });
 
 test('release-readiness audit fails closed on checkout mismatch before accepting evidence', async () => {
+  let packageCalled = false;
   let classicCalled = false;
   let driverCalled = false;
   const report = await auditReleaseReadiness(args, {
     checkoutCommit: 'b'.repeat(40),
+    packageAudit: async () => {
+      packageCalled = true;
+      return { status: 'complete', issues: [] };
+    },
     classicAudit: async () => {
       classicCalled = true;
       return { structuralComplete: true, issues: [] };
@@ -49,14 +60,19 @@ test('release-readiness audit fails closed on checkout mismatch before accepting
   });
 
   assert.equal(report.status, 'incomplete');
+  assert.equal(packageCalled, false);
   assert.equal(classicCalled, false);
   assert.equal(driverCalled, false);
   assert.ok(report.issues.some((issue) => /does not match current checkout/i.test(issue)));
 });
 
-test('release-readiness audit prefixes failures from each evidence domain', async () => {
+test('release-readiness audit prefixes failures from every evidence domain', async () => {
   const report = await auditReleaseReadiness(args, {
     checkoutCommit: commit,
+    packageAudit: async () => ({
+      status: 'incomplete',
+      issues: ['package checksum mismatch'],
+    }),
     classicAudit: async () => ({
       structuralComplete: false,
       issues: ['semantic coverage review is missing'],
@@ -68,6 +84,7 @@ test('release-readiness audit prefixes failures from each evidence domain', asyn
   });
 
   assert.equal(report.status, 'incomplete');
+  assert.ok(report.issues.includes('windows-package: package checksum mismatch'));
   assert.ok(report.issues.includes('classic-dsp: semantic coverage review is missing'));
   assert.ok(report.issues.includes('windows-driver: missing Retail qualification evidence'));
 });
@@ -76,7 +93,9 @@ test('release-readiness CLI binds the real audits and Git HEAD instead of shelli
   const source = readFileSync('scripts/evaluation/audit-release-readiness.mjs', 'utf8');
   assert.match(source, /auditWorkspace as auditClassicDspEvidence/i);
   assert.match(source, /auditWindowsDriverEvidence/i);
+  assert.match(source, /auditWindowsPackage/i);
   assert.match(source, /execFileSync\('git', \['rev-parse', 'HEAD'\]/i);
   assert.match(source, /requested commit .* does not match current checkout/i);
+  assert.match(source, /--package-root/i);
   assert.doesNotMatch(source, /npm run evaluation:audit(?:-windows-driver)?/i);
 });
