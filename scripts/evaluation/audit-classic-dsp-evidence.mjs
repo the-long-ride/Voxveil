@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createHash } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
@@ -19,6 +20,10 @@ export const manualCoverageChecks = [
 
 async function readJson(file) {
   return JSON.parse(await readFile(file, 'utf8'));
+}
+
+async function fileSha256(file) {
+  return createHash('sha256').update(await readFile(file)).digest('hex');
 }
 
 async function listJson(dir) {
@@ -160,6 +165,7 @@ export async function auditWorkspace(workspaceRoot) {
   }
 
   const controlledAcceptedByRate = new Map(RATES.map((rate) => [rate, 0]));
+  const acceptedFixtures = new Map();
   let naturalAccepted = 0;
 
   for (const { manifest } of manifests) {
@@ -213,11 +219,19 @@ export async function auditWorkspace(workspaceRoot) {
         manifest.targetSampleRate,
         (controlledAcceptedByRate.get(manifest.targetSampleRate) ?? 0) + 1,
       );
+      acceptedFixtures.set(manifest.fixtureId, {
+        manifestFile: path.join(manifestsDir, `${manifest.fixtureId}.json`),
+        renderEvidenceFile: evidenceFile,
+      });
     } else {
       if (manifest.status === 'candidate') {
         issues.push(`${manifest.fixtureId}: candidate natural mix cannot count toward acceptance`);
       } else {
         naturalAccepted += 1;
+        acceptedFixtures.set(manifest.fixtureId, {
+          manifestFile: path.join(manifestsDir, `${manifest.fixtureId}.json`),
+          renderEvidenceFile: evidenceFile,
+        });
       }
     }
   }
@@ -230,6 +244,85 @@ export async function auditWorkspace(workspaceRoot) {
   }
   if (naturalAccepted < 1) {
     issues.push('natural-mix matrix: need at least 1 accepted non-candidate natural mix; found 0');
+  }
+
+  const coverageReviewFiles = (await listJson(measurementsDir))
+    .filter((file) => path.basename(file).startsWith('classic-dsp-coverage-review-'));
+  let semanticCoverageComplete = false;
+  let coverageReviewFile = null;
+  if (coverageReviewFiles.length === 0) {
+    issues.push('semantic coverage: explicit human coverage review is missing');
+  } else {
+    const reviews = [];
+    for (const file of coverageReviewFiles) {
+      try {
+        reviews.push({ file, review: await readJson(file) });
+      } catch (error) {
+        issues.push(`semantic coverage ${path.basename(file)}: invalid JSON (${error.message})`);
+      }
+    }
+    reviews.sort((a, b) => Date.parse(b.review.reviewedAtUtc ?? 0) - Date.parse(a.review.reviewedAtUtc ?? 0));
+    const latest = reviews[0];
+    if (latest) {
+      coverageReviewFile = path.basename(latest.file);
+      const reviewIssues = [];
+      if (latest.review.schemaVersion !== 1) reviewIssues.push('schemaVersion must be 1');
+      if (!nonEmpty(latest.review.reviewMethod)) reviewIssues.push('reviewMethod is missing');
+      if (!nonEmpty(latest.review.notes)) reviewIssues.push('notes are missing');
+      if (!Number.isFinite(Date.parse(latest.review.reviewedAtUtc ?? ''))) reviewIssues.push('reviewedAtUtc is invalid');
+
+      const requiredCategories = [
+        'maleLeadVocal',
+        'femaleLeadVocal',
+        'sparseAccompaniment',
+        'denseAccompaniment',
+        'centeredLowFrequencyOrInstrument',
+        'wideStereoAmbience',
+        'monoNearMono',
+      ];
+      for (const category of requiredCategories) {
+        const entry = latest.review.categories?.[category];
+        if (entry?.status !== 'covered' || !nonEmpty(entry.fixtureId)) {
+          reviewIssues.push(`${category}: accepted fixture mapping is missing`);
+          continue;
+        }
+        const accepted = acceptedFixtures.get(entry.fixtureId);
+        if (!accepted) {
+          reviewIssues.push(`${category}: fixture ${entry.fixtureId} is not in the accepted evidence set`);
+          continue;
+        }
+        const manifestHash = await fileSha256(accepted.manifestFile);
+        const renderHash = await fileSha256(accepted.renderEvidenceFile);
+        if (entry.manifestSha256 !== manifestHash || entry.renderEvidenceSha256 !== renderHash) {
+          reviewIssues.push(`${category}: fixture evidence hashes no longer match the review`);
+        }
+      }
+
+      const harmony = latest.review.categories?.harmonyDoubleTracked;
+      if (harmony?.status === 'covered') {
+        if (!nonEmpty(harmony.fixtureId)) {
+          reviewIssues.push('harmonyDoubleTracked: fixture mapping is missing');
+        } else {
+          const accepted = acceptedFixtures.get(harmony.fixtureId);
+          if (!accepted) {
+            reviewIssues.push(`harmonyDoubleTracked: fixture ${harmony.fixtureId} is not in the accepted evidence set`);
+          } else {
+            const manifestHash = await fileSha256(accepted.manifestFile);
+            const renderHash = await fileSha256(accepted.renderEvidenceFile);
+            if (harmony.manifestSha256 !== manifestHash || harmony.renderEvidenceSha256 !== renderHash) {
+              reviewIssues.push('harmonyDoubleTracked: fixture evidence hashes no longer match the review');
+            }
+          }
+        }
+      } else if (harmony?.status === 'not-applicable') {
+        if (!nonEmpty(harmony.reason)) reviewIssues.push('harmonyDoubleTracked: not-applicable reason is missing');
+      } else {
+        reviewIssues.push('harmonyDoubleTracked: coverage or licensing-based not-applicable decision is missing');
+      }
+
+      issues.push(...reviewIssues.map((issue) => `semantic coverage: ${issue}`));
+      semanticCoverageComplete = reviewIssues.length === 0;
+    }
   }
 
   const measurementFiles = await listJson(measurementsDir);
@@ -299,6 +392,8 @@ export async function auditWorkspace(workspaceRoot) {
       controlledAccepted48000: controlledAcceptedByRate.get(48000) ?? 0,
       naturalMixAccepted: naturalAccepted,
       runtimeMatrixComplete,
+      semanticCoverageComplete,
+      coverageReviewFile,
     },
     issues,
     warnings,
@@ -330,10 +425,13 @@ function printHuman(report) {
   console.log(`Controlled accepted: 44.1 kHz=${report.summary.controlledAccepted44100}, 48 kHz=${report.summary.controlledAccepted48000}`);
   console.log(`Natural mixes accepted: ${report.summary.naturalMixAccepted}`);
   console.log(`Runtime matrix complete: ${report.summary.runtimeMatrixComplete}`);
+  console.log(`Semantic coverage review complete: ${report.summary.semanticCoverageComplete}`);
   for (const issue of report.issues) console.log(`ERROR: ${issue}`);
   for (const warning of report.warnings) console.log(`WARN: ${warning}`);
-  console.log('Manual coverage checks still required:');
-  for (const item of report.manualCoverageChecks) console.log(`- ${item}`);
+  if (!report.summary.semanticCoverageComplete) {
+    console.log('Semantic coverage categories requiring explicit human review:');
+    for (const item of report.manualCoverageChecks) console.log(`- ${item}`);
+  }
 }
 
 async function main() {

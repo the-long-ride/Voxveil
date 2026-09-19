@@ -214,9 +214,27 @@ After fixture/render/listening and runtime JSON have been recorded, run the repo
 npm run evaluation:audit -- --workspace .\.local-evaluation\classic-dsp
 ```
 
-The audit fails closed unless it finds at least two accepted controlled fixtures at 44.1 kHz, two at 48 kHz, at least one accepted non-candidate natural mix, and one **single machine/route group** containing sampled idle + processing CPU evidence for both profiles at both rates. Processing records must also contain completed dropout and end-to-end latency measurements.
+Before running the audit, record the semantic corpus review explicitly. The recorder accepts human labels only for fixtures that already have completed accepted listening evidence, and binds each label to the exact manifest/render hashes:
 
-This is only a structural gate. It deliberately does **not** infer singer gender, sparse/dense arrangement, centered-instrument content, stereo ambience, mono compatibility, or harmony/double coverage from file names or notes; those semantic corpus checks remain explicit human review items.
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/evaluation/record-classic-dsp-coverage-review.ps1 `
+  -MaleLeadVocalFixture <fixture-id> `
+  -FemaleLeadVocalFixture <fixture-id> `
+  -SparseAccompanimentFixture <fixture-id> `
+  -DenseAccompanimentFixture <fixture-id> `
+  -CenteredInstrumentFixture <fixture-id> `
+  -WideStereoAmbienceFixture <fixture-id> `
+  -MonoNearMonoFixture <fixture-id> `
+  -HarmonyDoubleTrackedFixture <fixture-id> `
+  -ReviewMethod '<how the corpus was reviewed>' `
+  -Notes '<coverage rationale>'
+```
+
+If no independently licensed harmony/double-tracked fixture is available, omit `-HarmonyDoubleTrackedFixture` and provide `-HarmonyCoverageNotApplicableReason '<licensing reason>'` instead. The recorder does not classify audio or infer semantic labels.
+
+The audit fails closed unless it finds at least two accepted controlled fixtures at 44.1 kHz, two at 48 kHz, at least one accepted non-candidate natural mix, one **single machine/route group** containing sampled idle + processing CPU evidence for both profiles at both rates, and a current semantic coverage review whose fixture hashes still match accepted evidence. Processing records must also contain completed dropout and end-to-end latency measurements.
+
+Semantic categories remain human judgments, but the judgment is now explicit and hash-bound rather than an untracked prose checklist.
 
 ## Result template
 

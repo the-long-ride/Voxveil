@@ -218,6 +218,8 @@ The quantitative acceptance set should contain, at minimum:
 
 Where practical, include more than one vocal/accompaniment pairing so profile tuning is not driven by one singer or one arrangement.
 
+Before treating the matrix as release evidence, use `scripts/evaluation/record-classic-dsp-coverage-review.ps1` to explicitly map the male/female, sparse/dense, centered-instrument, wide-ambience, and mono/near-mono categories to already accepted fixture evidence. Harmony/double-tracked coverage must either reference an accepted fixture or carry an explicit licensing-based not-applicable reason. The review stores hashes of the referenced manifest/render evidence so later fixture changes invalidate the semantic coverage record.
+
 ## Acceptance evidence
 
 For every release-tuning decision, retain:

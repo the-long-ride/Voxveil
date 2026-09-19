@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, rm, writeFile, unlink } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { mkdtemp, mkdir, readFile, rm, writeFile, unlink } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -10,6 +11,10 @@ const HASH = 'a'.repeat(64);
 async function writeJson(file, value) {
   await mkdir(path.dirname(file), { recursive: true });
   await writeFile(file, JSON.stringify(value, null, 2));
+}
+
+async function hashFile(file) {
+  return createHash('sha256').update(await readFile(file)).digest('hex');
 }
 
 function manifest(fixtureId, tier, rate, status = tier === 'controlled' ? 'prepared' : 'approved-metadata') {
@@ -181,9 +186,42 @@ async function createCompleteWorkspace(root) {
       }
     }
   }
+
+  const fixtureFor = {
+    maleLeadVocal: 'controlled-44-a',
+    femaleLeadVocal: 'controlled-44-b',
+    sparseAccompaniment: 'controlled-44-a',
+    denseAccompaniment: 'controlled-48-a',
+    centeredLowFrequencyOrInstrument: 'controlled-48-b',
+    wideStereoAmbience: 'natural-44-a',
+    monoNearMono: 'natural-44-a',
+  };
+  const categories = {};
+  for (const [category, fixtureId] of Object.entries(fixtureFor)) {
+    const manifestPath = path.join(manifests, `${fixtureId}.json`);
+    const fixture = JSON.parse(await readFile(manifestPath, 'utf8'));
+    const evidencePath = path.join(measurements, `${fixtureId}-${fixture.targetSampleRate}-render-evidence.json`);
+    categories[category] = {
+      status: 'covered',
+      fixtureId,
+      manifestSha256: await hashFile(manifestPath),
+      renderEvidenceSha256: await hashFile(evidencePath),
+    };
+  }
+  categories.harmonyDoubleTracked = {
+    status: 'not-applicable',
+    reason: 'No independently licensed harmony/double natural mix was available for this release evidence set.',
+  };
+  await writeJson(path.join(measurements, 'classic-dsp-coverage-review-test.json'), {
+    schemaVersion: 1,
+    reviewedAtUtc: '2026-09-19T00:00:00.000Z',
+    reviewMethod: 'explicit fixture-by-fixture human review',
+    notes: 'Semantic coverage labels were reviewed against accepted fixtures.',
+    categories,
+  });
 }
 
-test('evidence audit accepts a structurally complete matrix without claiming semantic coverage', async () => {
+test('evidence audit accepts a structurally complete matrix with explicit semantic coverage review', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'voxveil-evidence-'));
   try {
     await createCompleteWorkspace(root);
@@ -194,6 +232,8 @@ test('evidence audit accepts a structurally complete matrix without claiming sem
     assert.equal(report.summary.controlledAccepted48000, 2);
     assert.equal(report.summary.naturalMixAccepted, 1);
     assert.equal(report.summary.runtimeMatrixComplete, true);
+    assert.equal(report.summary.semanticCoverageComplete, true);
+    assert.match(report.summary.coverageReviewFile, /classic-dsp-coverage-review/i);
     assert.ok(manualCoverageChecks.some((item) => /male and female/i.test(item)));
     assert.ok(manualCoverageChecks.some((item) => /sparse and dense/i.test(item)));
   } finally {
@@ -210,6 +250,20 @@ test('evidence audit fails closed when one runtime processing record is missing'
     assert.equal(report.structuralComplete, false);
     assert.equal(report.summary.runtimeMatrixComplete, false);
     assert.ok(report.issues.some((issue) => /48000\/balanced\/processing/i.test(issue)));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('evidence audit fails closed when semantic coverage review is missing', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'voxveil-evidence-'));
+  try {
+    await createCompleteWorkspace(root);
+    await unlink(path.join(root, 'measurements', 'classic-dsp-coverage-review-test.json'));
+    const report = await auditWorkspace(root);
+    assert.equal(report.structuralComplete, false);
+    assert.equal(report.summary.semanticCoverageComplete, false);
+    assert.ok(report.issues.some((issue) => /semantic coverage.*missing/i.test(issue)));
   } finally {
     await rm(root, { recursive: true, force: true });
   }
