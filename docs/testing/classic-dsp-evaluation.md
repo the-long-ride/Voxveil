@@ -236,6 +236,14 @@ The audit fails closed unless it finds at least two accepted controlled fixtures
 
 Semantic categories remain human judgments, but the judgment is now explicit and hash-bound rather than an untracked prose checklist.
 
+For a release-candidate checkout, do not stop at the DSP-only audit. Once the signed-driver evidence set is also available, run the unified exact-checkout gate:
+
+```powershell
+npm run evaluation:audit-release -- --commit <40-hex-exact-commit> --architecture x64 --release-channel retail
+```
+
+This command imports both evidence auditors directly, verifies that `--commit` equals the current Git `HEAD`, and reports incomplete unless both Classic DSP and Windows-driver evidence pass for that release candidate. It does not substitute for the underlying listening, hardware, licensing, or Microsoft qualification work.
+
 ## Result template
 
 | Fixture | Tier | Rate | Profile | Vocal | Vocal reduction | Center-instrument damage | Artifacts | Stereo change | CPU | E2E latency | Decision/notes |
