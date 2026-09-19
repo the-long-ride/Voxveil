@@ -1,0 +1,7 @@
+{
+  "classicPriority": "Classic DSP priority",
+  "musicPreservation": "Music preservation",
+  "balanced": "Balanced",
+  "musicPreservationDescription": "Protect centered instruments as much as possible; some vocal may remain when separation is ambiguous.",
+  "balancedDescription": "Reduce vocals more strongly while keeping centered instruments audible and avoiding full center deletion."
+}

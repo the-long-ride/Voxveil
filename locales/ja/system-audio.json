@@ -1,16 +1,24 @@
 {
   "title": "Windows システムオーディオ",
-  "description": "検出された再生出力",
-  "backendDescription": "Voxveil が下に Windows の再生出力を検出しました。ドライバーのバインドと互換性は自動的に解決されます。",
+  "description": "検出された再生出力とシステム全体のルーティング",
+  "backendDescription": "Voxveil は、読み込み済みのネイティブ APO、検証済みの独自仮想エンドポイント、または標準 VB-CABLE を使ってシステム全体の音声を処理できます。",
   "default": "既定",
   "readyToInstall": "インストール可能",
   "signedComponentRequired": "署名済みコンポーネントが必要",
   "ambiguous": "ドライバートポロジーが不明確",
   "install": "インストール",
   "installing": "インストール中…",
-  "installAll": "互換性のあるすべての出力にインストール",
   "refresh": "更新",
   "refreshing": "更新中…",
   "detecting": "再生出力を検出中…",
-  "none": "再生出力が検出されませんでした。"
+  "none": "再生出力が検出されませんでした。",
+  "routeTitle": "システム全体のルート",
+  "vbCableMissing": "システム全体の処理を有効にするには、標準の VB-CABLE 仮想オーディオデバイスをインストールしてください。",
+  "getVbCable": "VB-CABLE を入手",
+  "routeInstructionVbCable": "CABLE Input を Windows の出力に設定し、下で物理出力を選択してから Voxveil に戻ってください。",
+  "routeInstructionVoxveilCable": "Voxveil Input を Windows の出力に設定し、下で物理出力を選択してから Voxveil に戻ってください。",
+  "routeActive": "システム音声は処理され、選択した物理出力へ送信されています。",
+  "openSoundSettings": "サウンド設定を開く",
+  "physicalOutput": "物理出力",
+  "selectPhysicalOutput": "物理出力を選択"
 }

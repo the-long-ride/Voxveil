@@ -23,7 +23,6 @@ export function AppShell({ themeMode, onThemeModeChange }: AppShellProps) {
   const [route, setRoute] = useState<RouteId>('home');
   const model = useVoxveilState();
   const aiModel = useAiModelManager(() => model.setEngine('auto'));
-  const processingReady = model.state.backendStatus === 'ready';
   const screens = {
     home: <HomeScreen model={model} aiModelReady={aiModel.status.installed && aiModel.status.runtimeAvailable} />,
     apps: <AppsScreen model={model} />,
@@ -44,7 +43,7 @@ export function AppShell({ themeMode, onThemeModeChange }: AppShellProps) {
               checked={model.state.masterEnabled}
               onChange={model.setMasterEnabled}
               label={t('processing.master')}
-              disabled={!processingReady}
+              disabled={!model.canStartProcessing}
             />
           </div>
         </header>

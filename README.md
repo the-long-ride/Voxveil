@@ -9,30 +9,58 @@ This source tree contains:
 - responsive Editorial Monochrome UI with light/dark/system themes;
 - English, Vietnamese, Chinese, Korean, Japanese, Spanish, and French bundles;
 - local-only state and a narrow typed Tauri command bridge;
-- Classic DSP mid/side vocal suppression with no AI dependency;
+- Classic DSP adaptive stereo-center suppression with user-selectable **Music preservation** and **Balanced** profiles and no AI dependency;
 - stem-agnostic optional AI interface with no model bundled;
 - global/per-app routing policy and communication-audio bypass rules;
 - fixed-capacity audio buffering and runtime degradation primitives;
 - Standard/Pro System edition metadata and platform capability contracts;
-- dependency, LOC, i18n, network-surface, coverage, license, repository-hygiene, and workflow-free policy gates;
+- dependency, LOC, i18n, network-surface, coverage, license, repository-hygiene, and automatic-workflow-free policy gates;
 - a Windows x64 componentized Audio Processing Object implementation under `native/windows/apo`;
-- workflow-free local/manual Windows application + APO staging via `npm run build:windows`.
+- a render-only first-party Windows virtual-driver source/package boundary derived from a pinned and cryptographically identified Microsoft SysVAD subtree;
+- local/manual-only Windows application + native component staging via `npm run build:windows`.
 
 ### Windows system audio
 
-The Windows backend no longer treats a SysVAD/virtual render endpoint as the production processing path. `VoxveilApo.dll` is an in-process SFX APO intended to be loaded by Windows AudioDG on the selected physical render endpoint. The UI/backend controls it through `VoxveilControl.dll` and `voxveil-control.exe`; backend readiness requires an actual loaded APO instance rather than merely detecting a virtual endpoint.
+Windows interception uses explicit backend precedence:
 
-The APO uses the Windows componentized-audio package model:
+1. **Endpoint-scoped loaded Voxveil APO** — `VoxveilApo.dll` must have a real non-discovery AudioDG instance and `install-state.json` must show that Voxveil installed/bound the APO on the current Windows default render endpoint. A stale loaded instance on another endpoint does not win backend selection.
+2. **Voxveil virtual endpoint relay** — otherwise, if a verified Voxveil virtual render endpoint is installed, it is preferred as the relay source.
+3. **Standard VB-CABLE relay** — otherwise, standard VB-Audio `CABLE Input` can provide the same relay path.
+
+When Windows changes the default output away from an APO-installed physical endpoint while an old AudioDG graph remains alive, Voxveil does not treat the process-wide `loaded>0` counter as proof that the APO covers the new route. The APO app gate is disabled before virtual-relay processing so a stale instance cannot suppress relay fallback or double-process the relay destination.
+
+The relay path is:
+
+```text
+Windows applications
+  -> controlled virtual render endpoint
+  -> WASAPI loopback capture
+  -> Voxveil Rust DSP / optional AI
+  -> selected physical output
+```
+
+The Classic DSP relay retains a persistent 512-frame / 128-hop spectral-center processor. It estimates center likelihood from stereo magnitude balance and phase coherence, protects bass/high-frequency detail and transients, and uses non-zero suppression floors so maximum vocal reduction does not hard-delete the center. **Music preservation** is the default; **Balanced** trades more centered-instrument attenuation for stronger vocal reduction. See `docs/specs/audio/classic-dsp.md`.
+
+The selected physical output is stored by endpoint ID, virtual endpoints are excluded from the physical-output list, and Voxveil rejects a route that would render back into the interception endpoint. `ready` is reported only while the selected interception strategy is actually active. A missing supported virtual endpoint is `component-required`; installed-but-not-default routing or a missing safe sink is `routing-required`; relay startup/runtime failures are `faulted`.
+
+Voxveil does **not** bundle, redistribute, silently download, or silently install VB-CABLE. When it is needed, the UI can open the official VB-Audio page and Windows Sound settings. The relay intentionally does not mutate Windows defaults through undocumented `PolicyConfig` interfaces.
+
+The first-party virtual driver exposes one render endpoint (`Voxveil Input`), no capture/microphone endpoint, and a stereo 48 kHz float32 path compatible with the same user-mode relay. Its INF applicability follows the exact pinned SysVAD sample boundary and is restricted to Windows 11 build 22621 (22H2) or later; Windows 10 system-wide processing remains available through the Tier 1 relay path where supported. The local WDK project does not test-sign itself. Its Microsoft SysVAD dependency is materialized only at build time after verifying both the pinned upstream commit and exact `audio/sysvad` tree SHA; the materialized source tree is ignored and is not vendored into this repository. Driver build tooling prepares and validates x64/Arm64 unsigned submission directories. Attestation CAB creation is an explicit release-boundary operation through `scripts/windows/new-driver-attestation-cab.ps1`, after which returned Microsoft-signed packages are independently verified and pilot versus retail staging remains separate. Microsoft attestation signing is treated as a pilot/direct-validation path, not as Windows Certified retail qualification.
+
+The componentized APO uses the Windows 11 CAPX model while retaining older initialization compatibility:
 
 - `native/windows/package/VoxveilApo.inf` installs the APO software component and COM/audio-engine registration;
-- `native/windows/package/VoxveilApoExtension.inf.template` adds that APO component to a selected render driver;
-- runtime endpoint discovery resolves the exact `KSCATEGORY_TOPOLOGY` interface plus its `KSCATEGORY_AUDIO` alias with SetupAPI and treats both paths as opaque;
-- the elevated installer revalidates those exact interfaces against the expected PnP instance, then `voxveil-control.exe attach-effects` opens each interface registry key through SetupAPI and appends Voxveil's SFX registration without deleting OEM effects;
-- `scripts/windows/new-apo-extension-inf.ps1` generates a runtime-binding development Extension INF from the selected hardware ID alone;
-- OEM INF `AddInterface` reference parsing is retained only as a fallback for devices where the runtime interface pair cannot be safely resolved;
-- `scripts/windows/uninstall-system-audio-component.ps1` removes Voxveil's runtime FX CLSID before uninstalling only Voxveil-owned driver packages.
+- `native/windows/package/VoxveilApoExtension.inf.template` supports signed endpoint-interface CAPX binding;
+- the Windows 11 CAPX context is `{63E268CE-4CBC-48E0-BEB6-55103316F477}`;
+- the controllable Voxveil vocal-suppression effect is `{B9FD554E-8F72-4B20-9AB1-13F8E8BFDD02}`;
+- discovery-only `IAudioSystemEffects3` instances increment `capx` diagnostics but never the `loaded` real-processing counter;
+- Windows system-effect state and the Voxveil app master state are independent processing gates;
+- production Windows 11 packages use the context-qualified CAPX association under `FX\0\{context}`;
+- direct `voxveil-control.exe attach-effects` root-`FX\0` mutation is retained only for explicit development/legacy flows and is not the production CAPX path;
+- `scripts/windows/probe-apo-capx.ps1` reads `loaded`, `capx`, `system-effect`, and heartbeat state without mutating the system;
+- APO uninstall is scoped to the APO/Extension INF names recorded by its installer and does not fall back to deleting every Voxveil driver, so the independent first-party virtual driver is not removed accidentally.
 
-The normal UI does not ask the user for hardware IDs or topology reference strings. A development runtime-binding install still requires a dedicated Windows/WDK test machine, TESTSIGNING where appropriate, and a driver-compatible extension package. Normal Secure Boot/end-user distribution requires production-signed APO/catalog files and a per-driver compatible Extension INF. The repository does not represent an unsigned/test-signed package as production-ready.
+The repository never represents unsigned or test-signed kernel/audio packages as retail-ready. Certificate purchase, identity vetting, Partner Center submission, Microsoft signing, HLK/WHCP qualification, and release validation are external release operations tied to the exact artifacts being shipped.
 
 Build the Windows development package from an x64 Developer PowerShell with Visual Studio C++ Build Tools and the Windows Driver Kit installed:
 
@@ -40,13 +68,28 @@ Build the Windows development package from an x64 Developer PowerShell with Visu
 npm run build:windows
 ```
 
-The staged output is written to `dist/windows-x64/Voxveil` by default. The manual builder runs the Windows-audio Rust tests and repository quality tests, builds the native control/APO projects, builds the Tauri executable with `--no-bundle`, and writes SHA-256 checksums.
+The staged output is written to `dist/windows-x64/Voxveil` by default. The `npm run build:windows` entrypoint performs a clean dependency install, runs `cargo test --workspace`, the UI/Node test suite, TypeScript typechecking, and the full repository quality gate, then compiles and validates the x64 first-party virtual-driver submission before invoking the Windows desktop packager with only dependency installation skipped. The packager reruns its focused Windows-audio and quality checks and builds/executes the native APO policy tests before compiling the control/APO projects, virtual-device helper, and Tauri executable and writing SHA-256 checksums. The unsigned driver submission is verification output only and is not silently staged as a distributable signed driver.
 
-Other privileged native platform hooks and a commercially cleared AI checkpoint remain separate platform milestones.
+For a standalone virtual-driver build, use `npm run build:windows-driver:x64` (or the Arm64 variant). That command materializes the exact pinned SysVAD source after commit/tree verification, compiles the driver, and validates the submission directory; it does not perform certificate, Partner Center, or automatic attestation-CAB operations. See `docs/release/windows-driver-signing.md` for the explicit submission workflow.
+
+For release-candidate staging, signed native packages are opt-in inputs and are verified before they replace development artifacts in the staged desktop package. Set only the inputs that are available for the release being assembled:
+
+```powershell
+$env:VOXVEIL_SIGNED_APO_DIR = 'C:\path\to\microsoft-signed-apo-package'
+$env:VOXVEIL_SIGNED_DRIVER_DIR = 'C:\path\to\microsoft-signed-virtual-driver-package'
+$env:VOXVEIL_SIGNED_DRIVER_RELEASE_CHANNEL = 'Retail'
+npm run build:windows
+```
+
+`VOXVEIL_SIGNED_APO_DIR` must contain the matching production `VoxveilApo.inf`, `VoxveilApo.dll`, `VoxveilApo.cat`, `VoxveilApoExtension.inf`, and `VoxveilApoExtension.cat`. The build invokes `verify-signed-apo-package.ps1` through the staging wrapper, checks the fixed CAPX/Extension identities, catalog membership, x64 PE architecture, Microsoft catalog signatures, and the APO DLL PETrust/Authenticode signature before copying those files into `system-audio`. The stager also writes `apo-verification.json`; endpoint discovery requires that marker, and the elevated installer re-hashes all five signed artifacts against it immediately before PnP installation. If this variable is absent, the locally built APO artifacts remain development artifacts and must not be treated as a production-signed APO package.
+
+`VOXVEIL_SIGNED_DRIVER_DIR` is independently validated by the virtual-driver staging gate. Retail is the default signed-driver release channel and requires matching external release evidence; pilot use must be selected explicitly with `VOXVEIL_SIGNED_DRIVER_RELEASE_CHANNEL=Pilot`.
+
+Real Windows audio behavior still requires the hardware/OS verification matrices under `docs/testing/` before release. Retail claims additionally require the release gates under `docs/release/`.
 
 ## Privacy and networking
 
-Voxveil processing is designed to work with no network connection. The application has no telemetry, analytics, remote fonts, cloud audio processing, or generic Tauri HTTP capability. Network-dependent developer operations such as package installation, advisory lookup, and release publishing are build-time/repository operations rather than app runtime behavior.
+Voxveil processing is designed to work with no network connection. The application has no telemetry, analytics, remote fonts, cloud audio processing, or generic Tauri HTTP capability. Network-dependent developer operations such as package installation, advisory lookup, driver-source import, signing submission, and release publishing are build-time/repository operations rather than app runtime behavior.
 
 ### Optional AI model
 

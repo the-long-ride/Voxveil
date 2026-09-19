@@ -1,11 +1,14 @@
-use std::ffi::c_void;
+use std::{ffi::c_void, os::windows::ffi::OsStringExt, path::PathBuf};
 
 use windows::{
     Win32::{
         Media::Audio::{IDeviceTopology, IMMDeviceEnumerator, MMDeviceEnumerator},
-        System::Com::{
-            CLSCTX_ALL, COINIT_MULTITHREADED, CoCreateInstance, CoInitializeEx, CoTaskMemFree,
-            CoUninitialize,
+        System::{
+            Com::{
+                CLSCTX_ALL, COINIT_MULTITHREADED, CoCreateInstance, CoInitializeEx, CoTaskMemFree,
+                CoUninitialize,
+            },
+            SystemInformation::GetSystemDirectoryW,
         },
     },
     core::{HSTRING, PWSTR},
@@ -15,6 +18,16 @@ const RPC_E_CHANGED_MODE: i32 = 0x8001_0106u32 as i32;
 
 pub(crate) fn normalize_device_id(value: &str) -> String {
     value.trim().to_ascii_lowercase()
+}
+
+pub(crate) fn windows_system_directory() -> Result<PathBuf, String> {
+    let mut buffer = vec![0u16; 32_768];
+    let length = unsafe { GetSystemDirectoryW(Some(buffer.as_mut_slice())) } as usize;
+    if length == 0 || length >= buffer.len() {
+        return Err("Windows could not resolve the trusted system directory.".into());
+    }
+    buffer.truncate(length);
+    Ok(PathBuf::from(std::ffi::OsString::from_wide(&buffer)))
 }
 
 pub(crate) fn resolve_adapter_device_id(endpoint_id: &str) -> Result<Option<String>, String> {

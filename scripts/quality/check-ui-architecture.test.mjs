@@ -84,12 +84,18 @@ test('disabled segmented options have an explicit visual state', async () => {
   assert.match(css, /\.segmented button:disabled/);
 });
 
-test('native processing switch is disabled until the backend is ready', async () => {
+test('native processing switch can start a configured relay but stays guarded otherwise', async () => {
   const shell = await read('ui/app/AppShell.tsx');
+  const hook = await read('ui/app/useVoxveilState.ts');
   const types = await read('ui/lib/types.ts');
   const home = await read('ui/features/home/HomeScreen.tsx');
   assert.match(types, /ProcessingBackendStatus/);
-  assert.match(shell, /backendStatus\s*===\s*'ready'/);
-  assert.match(shell, /disabled=\{!processingReady\}/);
+  assert.match(hook, /function\s+canRequestProcessingStart/);
+  assert.match(hook, /backendStatus\s*===\s*'ready'/);
+  assert.match(hook, /backendStatus\s*!==\s*'routing-required'/);
+  assert.match(hook, /physicalOutputEndpointId\s*===\s*null/);
+  assert.match(hook, /'vb-cable-relay'/);
+  assert.match(hook, /'voxveil-cable-relay'/);
+  assert.match(shell, /disabled=\{!model\.canStartProcessing\}/);
   assert.match(home, /backend-notice/);
 });

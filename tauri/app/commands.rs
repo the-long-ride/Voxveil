@@ -1,13 +1,14 @@
 use tauri::{AppHandle, State};
 use voxveil_types::{
-    AudioBypassReason, OutputMode, ProcessingBackendStatus, ProcessingEngineKind, ProcessingMode,
+    AudioBypassReason, ClassicSuppressionProfile, OutputMode, ProcessingBackendStatus,
+    ProcessingEngineKind, ProcessingMode,
 };
 
 use super::{
-    dto::{AppSourceDto, AppViewState},
+    dto::{AppSourceDto, AppViewState, AudioOutputDto},
     state::AppState,
 };
-use crate::platform::ProcessingController;
+use crate::platform::{PhysicalOutput, ProcessingController};
 
 fn validate_percent(value: u8) -> Result<u8, String> {
     if value <= 100 {
@@ -22,6 +23,14 @@ fn validate_output_mode(mode: OutputMode, virtual_available: bool) -> Result<Out
         Err("virtual output is unavailable".into())
     } else {
         Ok(mode)
+    }
+}
+
+fn audio_output_dto(output: PhysicalOutput) -> AudioOutputDto {
+    AudioOutputDto {
+        endpoint_id: output.endpoint_id,
+        display_name: output.display_name,
+        is_default: output.is_default,
     }
 }
 
@@ -92,6 +101,42 @@ pub fn set_engine(
 }
 
 #[tauri::command]
+pub fn set_classic_suppression_profile(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    controller: State<'_, ProcessingController>,
+    profile: ClassicSuppressionProfile,
+) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        let previous_profile = state.lock()?.classic_suppression_profile;
+        let mut preferences = crate::config::windows_audio::load(&app)?;
+
+        controller.set_classic_suppression_profile(profile)?;
+        preferences.classic_suppression_profile = profile;
+        if let Err(error) = crate::config::windows_audio::save(&app, &preferences) {
+            return Err(match controller.set_classic_suppression_profile(previous_profile) {
+                Ok(()) => error,
+                Err(rollback_error) => format!(
+                    "{error}; failed to restore previous Classic DSP profile: {rollback_error}"
+                ),
+            });
+        }
+
+        state.lock()?.classic_suppression_profile = profile;
+        return Ok(());
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = app;
+        controller.set_classic_suppression_profile(profile)?;
+        state.lock()?.classic_suppression_profile = profile;
+        Ok(())
+    }
+}
+
+#[tauri::command]
 pub fn set_vocal_level(
     state: State<'_, AppState>,
     controller: State<'_, ProcessingController>,
@@ -117,8 +162,12 @@ pub fn list_audio_sources(state: State<'_, AppState>) -> Result<Vec<AppSourceDto
 #[tauri::command]
 pub fn list_audio_outputs(
     controller: State<'_, ProcessingController>,
-) -> Result<Vec<String>, String> {
-    Ok(controller.physical_outputs())
+) -> Result<Vec<AudioOutputDto>, String> {
+    Ok(controller
+        .physical_outputs()?
+        .into_iter()
+        .map(audio_output_dto)
+        .collect())
 }
 
 #[tauri::command]
@@ -157,6 +206,18 @@ mod tests {
         assert_eq!(validate_percent(0), Ok(0));
         assert_eq!(validate_percent(100), Ok(100));
         assert!(validate_percent(101).is_err());
+    }
+
+    #[test]
+    fn maps_physical_output_to_stable_dto() {
+        let dto = audio_output_dto(PhysicalOutput {
+            endpoint_id: "endpoint-id".into(),
+            display_name: "Speakers".into(),
+            is_default: true,
+        });
+        assert_eq!(dto.endpoint_id, "endpoint-id");
+        assert_eq!(dto.display_name, "Speakers");
+        assert!(dto.is_default);
     }
 
     #[test]

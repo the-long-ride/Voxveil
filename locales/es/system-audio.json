@@ -1,16 +1,24 @@
 {
   "title": "Audio del sistema de Windows",
-  "description": "Salidas de reproducción detectadas",
-  "backendDescription": "Voxveil detectó abajo las salidas de reproducción de Windows. La vinculación del controlador y la compatibilidad se resuelven automáticamente.",
+  "description": "Salidas de reproducción y enrutamiento de todo el sistema detectados",
+  "backendDescription": "Voxveil puede usar su APO nativo cuando está cargado, su endpoint virtual verificado o el VB-CABLE estándar para procesar el audio de todo el sistema.",
   "default": "Predeterminada",
   "readyToInstall": "Listo para instalar",
   "signedComponentRequired": "Se requiere un componente firmado",
   "ambiguous": "Topología del controlador ambigua",
   "install": "Instalar",
   "installing": "Instalando…",
-  "installAll": "Instalar en todas las salidas compatibles",
   "refresh": "Actualizar",
   "refreshing": "Actualizando…",
   "detecting": "Detectando salidas de reproducción…",
-  "none": "No se detectaron salidas de reproducción."
+  "none": "No se detectaron salidas de reproducción.",
+  "routeTitle": "Ruta de todo el sistema",
+  "vbCableMissing": "Instala el dispositivo de audio virtual VB-CABLE estándar para habilitar el procesamiento de todo el sistema.",
+  "getVbCable": "Obtener VB-CABLE",
+  "routeInstructionVbCable": "Configura CABLE Input como salida de Windows, elige la salida física abajo y vuelve a Voxveil.",
+  "routeInstructionVoxveilCable": "Configura Voxveil Input como salida de Windows, elige la salida física abajo y vuelve a Voxveil.",
+  "routeActive": "El audio del sistema se está procesando y enviando a la salida física seleccionada.",
+  "openSoundSettings": "Abrir configuración de sonido",
+  "physicalOutput": "Salida física",
+  "selectPhysicalOutput": "Seleccionar una salida física"
 }

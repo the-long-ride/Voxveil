@@ -50,6 +50,16 @@ describe('App', () => {
     expect(screen.getByText(/does not bundle AI weights/i)).toBeInTheDocument();
   });
 
+  it('lets the user choose classic DSP suppression priority', () => {
+    render(<App />);
+    open('Engine');
+    const musicPreservation = screen.getByRole('button', { name: 'Music preservation' });
+    const balanced = screen.getByRole('button', { name: 'Balanced' });
+    expect(musicPreservation).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(balanced);
+    expect(balanced).toHaveAttribute('aria-pressed', 'true');
+  });
+
   it('persists explicit theme choice and language locally', async () => {
     render(<App />);
     open('Settings');

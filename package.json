@@ -11,7 +11,9 @@
     "dev": "npm run dev --workspace @voxveil/tauri-shell",
     "dev:windows": "scripts\\dev-windows.cmd",
     "build": "npm run build --workspace @voxveil/tauri-shell",
-    "build:windows": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/windows/build-windows.ps1",
+    "build:windows": "npm ci --ignore-scripts --no-fund --no-audit && cargo test --workspace && npm test && npm run typecheck && npm run quality && npm run build:windows-driver:x64 && powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/windows/build-windows.ps1 -SkipNpmInstall",
+    "build:windows-driver:x64": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/windows/build-virtual-driver.ps1 -Architecture x64 -Configuration Release",
+    "build:windows-driver:arm64": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/windows/build-virtual-driver.ps1 -Architecture ARM64 -Configuration Release",
     "build:ui": "npm run build --workspace @voxveil/ui",
     "dev:ui": "npm run dev --workspace @voxveil/ui",
     "tauri": "npm run tauri --workspace @voxveil/tauri-shell --",
@@ -29,7 +31,13 @@
     "quality:tauri-security": "node scripts/quality/check-tauri-security.mjs .",
     "quality:hygiene": "node scripts/quality/check-repository-hygiene.mjs .",
     "quality:model-delivery": "node scripts/quality/check-model-delivery.mjs .",
-    "windows:sound": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/windows/open-sound-settings.ps1"
+    "windows:sound": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/windows/open-sound-settings.ps1",
+    "evaluation:audit": "node scripts/evaluation/audit-classic-dsp-evidence.mjs",
+    "evaluation:measure-tier-a": "node scripts/evaluation/measure-tier-a-controlled-fixture.mjs",
+    "evaluation:audit-windows-driver": "node scripts/evaluation/audit-windows-driver-release-evidence.mjs",
+    "evaluation:audit-release": "node scripts/evaluation/audit-release-readiness.mjs",
+    "evaluation:audit-windows-apo": "node scripts/evaluation/audit-windows-apo-release-evidence.mjs",
+    "evaluation:export-release-evidence": "node scripts/evaluation/export-release-evidence-manifest.mjs"
   },
   "engines": {
     "node": "^24.15.0",
