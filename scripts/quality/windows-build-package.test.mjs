@@ -55,7 +55,7 @@ test('Windows package output cleanup is preflighted against repository and signe
   assert.match(preflight, /Assert-SafeOutputDirectory/i);
   assert.match(preflight, /\$repoPath/i);
   assert.match(preflight, /\$distRoot/i);
-  assert.match(preflight, /SignedInputDirectories\s+@\(\$signedApoDir,\s*\$signedDriverDir\)/i);
+  assert.match(preflight, /SignedInputDirectories\s+@\(\$signedApoDir,\s*\$signedDriverDir,\s*\$signedDriverManifestDirectory\)/i);
   assert.match(buildScript.slice(0, outputResolve), /\$signedApoDir\s*=\s*\$env:VOXVEIL_SIGNED_APO_DIR/i);
   assert.match(preflight, /\$signedDriverDir\s*=\s*\$env:VOXVEIL_SIGNED_DRIVER_DIR/i);
   assert.match(buildScript, /must not overlap signed input directory/i);
