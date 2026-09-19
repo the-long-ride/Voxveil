@@ -161,6 +161,8 @@ export async function auditWindowsPackage(args) {
     architecture: args.architecture,
     releaseChannel: args.releaseChannel,
     filesChecked: packageFiles.length,
+    signedApoPresent: manifest?.signedApo?.present === true,
+    signedVirtualDriverPresent: manifest?.signedVirtualDriver?.present === true,
     issues,
   };
 }

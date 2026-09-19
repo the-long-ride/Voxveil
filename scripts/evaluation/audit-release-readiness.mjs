@@ -4,6 +4,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { auditWorkspace as auditClassicDspEvidence } from './audit-classic-dsp-evidence.mjs';
+import { auditWindowsApoEvidence } from './audit-windows-apo-release-evidence.mjs';
 import { auditWindowsDriverEvidence } from './audit-windows-driver-release-evidence.mjs';
 import { auditWindowsPackage } from './audit-windows-package.mjs';
 
@@ -14,6 +15,7 @@ function parseArgs(argv) {
     releaseChannel: 'pilot',
     classicWorkspace: '.local-evaluation/classic-dsp',
     driverWorkspace: '.local-evaluation/windows-driver',
+    apoWorkspace: '.local-evaluation/windows-apo',
     packageRoot: null,
     json: false,
   };
@@ -31,6 +33,7 @@ function parseArgs(argv) {
     else if (token === '--release-channel') args.releaseChannel = value.toLowerCase();
     else if (token === '--classic-workspace') args.classicWorkspace = value;
     else if (token === '--driver-workspace') args.driverWorkspace = value;
+    else if (token === '--apo-workspace') args.apoWorkspace = value;
     else if (token === '--package-root') args.packageRoot = value;
     else throw new Error(`Unknown argument: ${token}`);
     index += 1;
@@ -69,6 +72,7 @@ export async function auditReleaseReadiness(args, dependencies = {}) {
   const checkoutCommit = dependencies.checkoutCommit ?? currentCheckoutCommit();
   const classicAudit = dependencies.classicAudit ?? auditClassicDspEvidence;
   const driverAudit = dependencies.driverAudit ?? auditWindowsDriverEvidence;
+  const apoAudit = dependencies.apoAudit ?? auditWindowsApoEvidence;
   const packageAudit = dependencies.packageAudit ?? auditWindowsPackage;
 
   const issues = [];
@@ -80,6 +84,7 @@ export async function auditReleaseReadiness(args, dependencies = {}) {
 
   let classicDsp = null;
   let windowsDriver = null;
+  let windowsApo = null;
   let windowsPackage = null;
 
   if (issues.length === 0) {
@@ -93,6 +98,26 @@ export async function auditReleaseReadiness(args, dependencies = {}) {
       for (const issue of windowsPackage?.issues ?? ['Windows package evidence is incomplete']) {
         issues.push(`windows-package: ${issue}`);
       }
+    }
+
+    if (windowsPackage?.signedApoPresent === true) {
+      windowsApo = apoAudit({
+        workspace: args.apoWorkspace,
+        packageRoot: args.packageRoot,
+        commit: args.commit,
+        architecture: args.architecture,
+        releaseChannel: args.releaseChannel,
+      });
+      if (windowsApo?.status !== 'complete') {
+        for (const issue of windowsApo?.issues ?? ['Windows APO evidence is incomplete']) {
+          issues.push(`windows-apo: ${issue}`);
+        }
+      }
+    } else {
+      windowsApo = {
+        status: 'not-applicable',
+        issues: [],
+      };
     }
 
     classicDsp = await classicAudit(args.classicWorkspace);
@@ -122,10 +147,11 @@ export async function auditReleaseReadiness(args, dependencies = {}) {
     architecture: args.architecture,
     releaseChannel: args.releaseChannel,
     windowsPackage,
+    windowsApo,
     classicDsp,
     windowsDriver,
     issues,
-    statement: 'Complete means the final Windows package plus both repository evidence audits passed for the exact current checkout; it does not replace the underlying human, hardware, licensing, or Microsoft qualification work.',
+    statement: 'Complete means the final Windows package, Classic DSP evidence, Windows-driver evidence, and—when packaged—signed APO real-machine/qualification evidence passed for the exact current checkout; it does not replace the underlying human, hardware, licensing, or Microsoft qualification work.',
   };
 }
 
@@ -137,6 +163,9 @@ function printHuman(report) {
   console.log(`Release channel: ${report.releaseChannel}`);
   if (report.windowsPackage) {
     console.log(`Windows package evidence: ${report.windowsPackage.status}`);
+  }
+  if (report.windowsApo) {
+    console.log(`Windows APO evidence: ${report.windowsApo.status}`);
   }
   if (report.classicDsp) {
     console.log(`Classic DSP evidence: ${report.classicDsp.structuralComplete ? 'complete' : 'incomplete'}`);
