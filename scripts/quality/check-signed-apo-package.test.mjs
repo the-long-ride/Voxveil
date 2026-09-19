@@ -197,3 +197,25 @@ test('production endpoint discovery requires complete staged APO signer provenan
   assert.match(text, /value\.len\(\)\s*==\s*40/i);
   assert.match(text, /!verification\.apo_signer\.trim\(\)\.is_empty\(\)/i);
 });
+
+test('signed APO package carries an exact commit marker through verification, staging, discovery, and install', () => {
+  const verifier = read('scripts/windows/verify-signed-apo-package.ps1');
+  const stager = read('scripts/windows/stage-signed-apo-package.ps1');
+  const installer = read('scripts/windows/install-system-audio-component.ps1');
+  const discovery = read('crates/voxveil-windows-audio/src/discovery_windows.rs');
+  const dllmain = read('native/windows/apo/dllmain.cpp');
+  const project = read('native/windows/apo/VoxveilApo.vcxproj');
+
+  assert.match(dllmain, /VOXVEIL_BUILD_COMMIT=/i);
+  assert.match(dllmain, /VoxveilBuildCommitMarker/i);
+  assert.match(project, /VOXVEIL_BUILD_COMMIT=\$\(VoxveilCommit\)/i);
+  assert.match(verifier, /Get-VoxveilBuildCommit/i);
+  assert.match(verifier, /VOXVEIL_BUILD_COMMIT=/i);
+  assert.match(verifier, /voxveilCommit\s*=\s*\$voxveilCommit/i);
+  assert.match(stager, /rev-parse HEAD/i);
+  assert.match(stager, /verification\.voxveilCommit\s+-ne\s+\$currentCommit/i);
+  assert.match(stager, /voxveilCommit\s*=\s*\$currentCommit/i);
+  assert.match(installer, /verification\.voxveilCommit[\s\S]*40/i);
+  assert.match(discovery, /voxveil_commit:\s*String/i);
+  assert.match(discovery, /is_commit_sha\(&verification\.voxveil_commit\)/i);
+});

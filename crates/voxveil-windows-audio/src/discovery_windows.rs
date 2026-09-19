@@ -50,6 +50,7 @@ pub(super) struct ResolvedEndpoint {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ApoVerification {
+    voxveil_commit: String,
     apo_inf_sha256: String,
     apo_dll_sha256: String,
     apo_catalog_sha256: String,
@@ -199,6 +200,10 @@ fn is_sha256(value: &str) -> bool {
     value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
+fn is_commit_sha(value: &str) -> bool {
+    value.len() == 40 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
 fn is_certificate_thumbprint(value: &str) -> bool {
     value.len() == 40 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
@@ -209,6 +214,7 @@ fn verified_apo_stage_matches(directory: &Path) -> bool {
     let Ok(verification) = serde_json::from_slice::<ApoVerification>(&bytes) else { return false; };
     verification.extension_id.eq_ignore_ascii_case(EXPECTED_EXTENSION_ID)
         && verification.capx_context.eq_ignore_ascii_case(EXPECTED_CAPX_CONTEXT)
+        && is_commit_sha(&verification.voxveil_commit)
         && is_sha256(&verification.apo_inf_sha256)
         && is_sha256(&verification.apo_dll_sha256)
         && is_sha256(&verification.apo_catalog_sha256)

@@ -159,3 +159,16 @@ test('Windows signed-driver packaging requires the retained exact-submission man
   assert.match(buildScript, /-SubmissionManifest\s+\$signedDriverSubmissionManifest/i);
   assert.match(buildScript, /SignedInputDirectories\s+@\(\$signedApoDir,\s*\$signedDriverDir,\s*\$signedDriverManifestDirectory\)/i);
 });
+
+test('Windows package binds APO compilation and final release manifest to exact Git HEAD', () => {
+  assert.match(buildScript, /git\.exe is required to bind the Windows package and signed APO/i);
+  assert.match(buildScript, /rev-parse HEAD/i);
+  assert.match(buildScript, /\/p:VoxveilCommit=\$currentCommit/i);
+  assert.match(buildScript, /verifiedApo\.voxveilCommit\s+-ne\s+\$currentCommit/i);
+  assert.match(buildScript, /release-manifest\.json/i);
+  assert.match(buildScript, /voxveilCommit\s*=\s*\$currentCommit/i);
+  assert.match(buildScript, /packageFilesHashedBy\s*=\s*'SHA256SUMS\.txt'/i);
+  const manifestWrite = buildScript.indexOf("release-manifest.json");
+  const hashEnumeration = buildScript.indexOf("$hashFiles = Get-ChildItem $output -Recurse -File");
+  assert.ok(manifestWrite >= 0 && hashEnumeration > manifestWrite, 'release manifest must be staged before SHA256SUMS enumeration');
+});
