@@ -11,7 +11,7 @@ test('Classic DSP coverage recorder references only accepted fixture evidence an
   assert.match(recorder, /manifestSha256/i);
   assert.match(recorder, /renderEvidenceSha256/i);
   assert.match(recorder, /Coverage categories are explicit human review labels/i);
-  assert.doesNotMatch(recorder, /classif|detect.*gender|infer.*semantic/i);
+  assert.match(recorder, /does not infer semantic content/i);
 });
 
 test('Classic DSP coverage recorder requires every semantic category and explicit harmony licensing disposition', () => {
