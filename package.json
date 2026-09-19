@@ -34,7 +34,8 @@
     "windows:sound": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/windows/open-sound-settings.ps1",
     "evaluation:audit": "node scripts/evaluation/audit-classic-dsp-evidence.mjs",
     "evaluation:measure-tier-a": "node scripts/evaluation/measure-tier-a-controlled-fixture.mjs",
-    "evaluation:audit-windows-driver": "node scripts/evaluation/audit-windows-driver-release-evidence.mjs"
+    "evaluation:audit-windows-driver": "node scripts/evaluation/audit-windows-driver-release-evidence.mjs",
+    "evaluation:audit-release": "node scripts/evaluation/audit-release-readiness.mjs"
   },
   "engines": {
     "node": "^24.15.0",
