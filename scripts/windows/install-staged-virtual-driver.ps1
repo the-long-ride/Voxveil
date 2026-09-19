@@ -241,6 +241,50 @@ if ([string]$verification.architecture -notin @('x64', 'ARM64')) {
 }
 Assert-StagedArchitecture -PackageArchitecture ([string]$verification.architecture)
 
+$expectedSubmissionManifestSha256 = [string]$verification.submissionManifestSha256
+$expectedVoxveilCommit = [string]$verification.voxveilCommit
+$expectedUnsignedCatalogSha256 = [string]$verification.unsignedCatalogSha256
+$expectedUnsignedPdbSha256 = [string]$verification.unsignedPdbSha256
+if ($expectedSubmissionManifestSha256 -notmatch '^[0-9A-Fa-f]{64}$' -or
+    $expectedVoxveilCommit -notmatch '^[0-9A-Fa-f]{40}$' -or
+    $expectedUnsignedCatalogSha256 -notmatch '^[0-9A-Fa-f]{64}$' -or
+    $expectedUnsignedPdbSha256 -notmatch '^[0-9A-Fa-f]{64}$') {
+  throw 'verification.json does not contain complete exact-submission provenance.'
+}
+$submissionManifestPath = Join-Path $package 'submission-manifest.json'
+Assert-StagedFileHash $submissionManifestPath $expectedSubmissionManifestSha256 'submission-manifest.json'
+$submission = Get-Content -LiteralPath $submissionManifestPath -Raw | ConvertFrom-Json
+$allowedSubmissionFields = @(
+  'schemaVersion',
+  'voxveilCommit',
+  'architecture',
+  'configuration',
+  'windowsDriverSamplesRevision',
+  'sysvadTreeSha',
+  'infSha256',
+  'catalogSha256',
+  'driverSha256',
+  'pdbSha256'
+)
+$unexpectedSubmissionFields = @(
+  $submission.PSObject.Properties.Name | Where-Object { $allowedSubmissionFields -inotcontains $_ }
+)
+if ($unexpectedSubmissionFields.Count -gt 0) {
+  throw "Staged submission-manifest.json contains undocumented fields: $($unexpectedSubmissionFields -join ', ')."
+}
+if ($submission.schemaVersion -ne 1 -or
+    [string]$submission.voxveilCommit -ine $expectedVoxveilCommit -or
+    [string]$submission.architecture -ine [string]$verification.architecture -or
+    [string]$submission.configuration -ine 'Release' -or
+    [string]$submission.windowsDriverSamplesRevision -ine '67d81f217bc01edf7a4320e4911c11065635acfa' -or
+    [string]$submission.sysvadTreeSha -ine '6fa502f5bfb3de1395a6c9ffe71e322fd9e28926' -or
+    [string]$submission.infSha256 -ine [string]$verification.infSha256 -or
+    [string]$submission.driverSha256 -ine [string]$verification.driverSha256 -or
+    [string]$submission.catalogSha256 -ine $expectedUnsignedCatalogSha256 -or
+    [string]$submission.pdbSha256 -ine $expectedUnsignedPdbSha256) {
+  throw 'Staged submission-manifest.json changed after release staging or no longer matches verification.json.'
+}
+
 $deviceHelper = Join-Path $PSScriptRoot 'voxveil-virtual-device.exe'
 $expectedDeviceHelperSha256 = [string]$verification.deviceHelperSha256
 if ($expectedDeviceHelperSha256 -notmatch '^[0-9A-Fa-f]{64}$') {

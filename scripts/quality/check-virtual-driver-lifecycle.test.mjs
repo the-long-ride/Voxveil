@@ -330,3 +330,16 @@ test('virtual-driver uninstall derives the INF directory from the OS system dire
   assert.match(text, /Join-Path\s+\$trustedWindowsDirectory\s+"INF\\\$PublishedInf"/i);
   assert.doesNotMatch(text, /\$env:(?:windir|SystemRoot)/i);
 });
+
+test('virtual driver install revalidates exact unsigned-submission provenance', () => {
+  const text = installer();
+  assert.match(text, /submissionManifestSha256/i);
+  assert.match(text, /submission-manifest\.json/i);
+  assert.match(text, /voxveilCommit/i);
+  assert.match(text, /unsignedCatalogSha256/i);
+  assert.match(text, /unsignedPdbSha256/i);
+  assert.match(text, /windowsDriverSamplesRevision/i);
+  assert.match(text, /sysvadTreeSha/i);
+  assert.match(text, /Assert-StagedFileHash\s+\$submissionManifestPath\s+\$expectedSubmissionManifestSha256\s+'submission-manifest\.json'/i);
+  assert.match(text, /changed after release staging or no longer matches verification\.json/i);
+});
