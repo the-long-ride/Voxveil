@@ -78,6 +78,21 @@ function Get-PeMachine {
   }
 }
 
+function Get-VoxveilBuildCommit {
+  param([Parameter(Mandatory = $true)][string]$Path)
+
+  $bytes = [IO.File]::ReadAllBytes($Path)
+  $ascii = [Text.Encoding]::ASCII.GetString($bytes)
+  $matches = [Text.RegularExpressions.Regex]::Matches(
+    $ascii,
+    'VOXVEIL_BUILD_COMMIT=([0-9a-fA-F]{40})'
+  )
+  if ($matches.Count -ne 1) {
+    throw "VoxveilApo.dll must contain exactly one exact-build commit marker; found $($matches.Count)."
+  }
+  return $matches[0].Groups[1].Value.ToLowerInvariant()
+}
+
 function Assert-MicrosoftSignature {
   param(
     [Parameter(Mandatory = $true)][IO.FileInfo]$File,
@@ -205,12 +220,14 @@ if ($LASTEXITCODE -ne 0) {
 if ($LASTEXITCODE -ne 0) {
   throw 'VoxveilApo.dll PETrust/Authenticode verification failed.'
 }
+$voxveilCommit = Get-VoxveilBuildCommit -Path $apoDll.FullName
 $apoSignature = Assert-MicrosoftSignature -File $apoDll -Description 'VoxveilApo.dll'
 $apoCatalogSignature = Assert-MicrosoftSignature -File $apoCat -Description 'VoxveilApo.cat'
 $extensionCatalogSignature = Assert-MicrosoftSignature -File $extensionCat -Description 'VoxveilApoExtension.cat'
 
 [ordered]@{
   packageDirectory = $package
+  voxveilCommit = $voxveilCommit
   apoInfSha256 = (Get-FileHash $apoInf.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
   apoDllSha256 = (Get-FileHash $apoDll.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
   apoCatalogSha256 = (Get-FileHash $apoCat.FullName -Algorithm SHA256).Hash.ToLowerInvariant()

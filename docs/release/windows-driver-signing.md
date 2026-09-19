@@ -159,14 +159,6 @@ Before starting the release-blocking real-machine checklist, capture the exact r
 
 After the real-machine lifecycle and qualification work is performed, record it with the local-only lifecycle/qualification evidence helpers and run `npm run evaluation:audit-windows-driver -- --commit <sha> --architecture <arch> --release-channel <pilot|retail>`. A successful structural audit is required before treating the evidence set as complete; it does not replace the underlying human/Microsoft results.
 
-For the final release-candidate evidence check, run the combined gate from the exact checkout:
-
-```powershell
-npm run evaluation:audit-release -- --commit <40-hex-exact-commit> --architecture x64 --release-channel retail
-```
-
-The combined audit fails closed if the requested SHA is not the current Git `HEAD`, if the Classic DSP evidence matrix/semantic review is incomplete, or if the signed-driver lifecycle/qualification evidence is incomplete. A successful result means the repository evidence sets are structurally complete for that exact checkout; it is not an independent certification of human observations or Microsoft qualification.
-
 ## Release-blocking validation checklist
 
 - [ ] The exact source revision and Voxveil commit are recorded.

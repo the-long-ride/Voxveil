@@ -24,13 +24,14 @@
     <TargetName>VoxveilApo</TargetName>
     <OutDir>$(ProjectDir)bin\x64\Release\</OutDir>
     <IntDir>$(ProjectDir)obj\x64\Release\</IntDir>
+    <VoxveilCommit Condition="'$(VoxveilCommit)'==''">development</VoxveilCommit>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <WarningLevel>Level4</WarningLevel>
       <TreatWarningAsError>true</TreatWarningAsError>
-      <PreprocessorDefinitions>_WINDLL;_USRDLL;UNICODE;_UNICODE;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_WINDLL;_USRDLL;UNICODE;_UNICODE;NDEBUG;VOXVEIL_BUILD_COMMIT=$(VoxveilCommit);%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>false</ExceptionHandling>
     </ClCompile>
     <Link>
