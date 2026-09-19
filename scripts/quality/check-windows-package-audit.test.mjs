@@ -91,3 +91,56 @@ test('Windows package audit fails closed after package byte tampering', async ()
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test('Windows package audit accepts PowerShell 5.1 UTF-8 BOM JSON manifests', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'voxveil-package-audit-'));
+  try {
+    await writeCompletePackage(root);
+    for (const file of [
+      'release-manifest.json',
+      'system-audio/apo-verification.json',
+      'system-audio/virtual-driver/verification.json',
+    ]) {
+      const target = path.join(root, ...file.split('/'));
+      const bytes = await readFile(target);
+      await writeFile(target, Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), bytes]));
+    }
+
+    const files = (await listFiles(root)).filter((file) => file !== 'SHA256SUMS.txt');
+    const lines = [];
+    for (const file of files) {
+      const bytes = await readFile(path.join(root, ...file.split('/')));
+      lines.push(`${createHash('sha256').update(bytes).digest('hex')}  ${file}`);
+    }
+    await writeFile(path.join(root, 'SHA256SUMS.txt'), lines.join('\n') + '\n', 'ascii');
+
+    const releaseBytes = await readFile(path.join(root, 'release-manifest.json'));
+    const release = JSON.parse(releaseBytes.toString('utf8').replace(/^\uFEFF/, ''));
+    const apoBytes = await readFile(path.join(root, 'system-audio', 'apo-verification.json'));
+    const driverBytes = await readFile(path.join(root, 'system-audio', 'virtual-driver', 'verification.json'));
+    release.signedApo.verificationSha256 = createHash('sha256').update(apoBytes).digest('hex');
+    release.signedVirtualDriver.verificationSha256 = createHash('sha256').update(driverBytes).digest('hex');
+    await writeFile(path.join(root, 'release-manifest.json'), Buffer.concat([
+      Buffer.from([0xef, 0xbb, 0xbf]),
+      Buffer.from(JSON.stringify(release, null, 2) + '\n'),
+    ]));
+
+    const finalFiles = (await listFiles(root)).filter((file) => file !== 'SHA256SUMS.txt');
+    const finalLines = [];
+    for (const file of finalFiles) {
+      const bytes = await readFile(path.join(root, ...file.split('/')));
+      finalLines.push(`${createHash('sha256').update(bytes).digest('hex')}  ${file}`);
+    }
+    await writeFile(path.join(root, 'SHA256SUMS.txt'), finalLines.join('\n') + '\n', 'ascii');
+
+    const report = await auditWindowsPackage({
+      packageRoot: root,
+      commit,
+      architecture: 'x64',
+      releaseChannel: 'retail',
+    });
+    assert.equal(report.status, 'complete', report.issues.join('\n'));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

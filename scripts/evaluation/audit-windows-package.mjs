@@ -50,9 +50,13 @@ function parseChecksums(text) {
   return { entries, issues };
 }
 
+function parseJsonBytes(bytes) {
+  return JSON.parse(bytes.toString('utf8').replace(/^\uFEFF/, ''));
+}
+
 async function readJson(file, label, issues) {
   try {
-    return JSON.parse(await readFile(file, 'utf8'));
+    return parseJsonBytes(await readFile(file));
   } catch (error) {
     issues.push(`${label}: missing or invalid JSON (${error.code === 'ENOENT' ? 'not found' : error.message})`);
     return null;
@@ -116,7 +120,7 @@ export async function auditWindowsPackage(args) {
           if (sha256(bytes) !== manifest.signedApo.verificationSha256) {
             issues.push('release-manifest.json: signed APO verification hash mismatch');
           }
-          const apo = JSON.parse(bytes.toString('utf8'));
+          const apo = parseJsonBytes(bytes);
           if (apo.voxveilCommit !== args.commit) issues.push('apo-verification.json: exact commit mismatch');
         } catch (error) {
           issues.push(`apo-verification.json: missing or invalid (${error.code === 'ENOENT' ? 'not found' : error.message})`);
@@ -140,7 +144,7 @@ export async function auditWindowsPackage(args) {
           if (sha256(bytes) !== manifest.signedVirtualDriver.verificationSha256) {
             issues.push('release-manifest.json: signed virtual-driver verification hash mismatch');
           }
-          const driver = JSON.parse(bytes.toString('utf8'));
+          const driver = parseJsonBytes(bytes);
           if (driver.voxveilCommit !== args.commit) issues.push('virtual-driver/verification.json: exact commit mismatch');
           if (driver.releaseChannel !== args.releaseChannel) issues.push('virtual-driver/verification.json: release channel mismatch');
         } catch (error) {
