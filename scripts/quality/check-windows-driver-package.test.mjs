@@ -142,3 +142,15 @@ test('virtual driver validator requires canonical package filenames used by stag
   assert.match(text, /VoxveilVirtualAudio\.sys/i);
   assert.match(text, /canonical package filenames/i);
 });
+
+test('signed driver staging requires exact unsigned-submission provenance', () => {
+  const text = readFileSync('scripts/windows/stage-signed-virtual-driver.ps1', 'utf8');
+  assert.match(text, /SubmissionManifest/i);
+  assert.match(text, /rev-parse HEAD/i);
+  assert.match(text, /windowsDriverSamplesRevision/i);
+  assert.match(text, /sysvadTreeSha/i);
+  assert.match(text, /Returned Microsoft-signed package INF\/SYS do not match the exact unsigned submission manifest/i);
+  assert.match(text, /submissionManifestSha256\s*=\s*\$submissionManifestSha256/i);
+  assert.match(text, /voxveilCommit\s*=\s*\$currentCommit/i);
+  assert.match(text, /submission-manifest\.json/i);
+});

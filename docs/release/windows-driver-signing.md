@@ -102,6 +102,7 @@ The repository must not contain or automate access to:
 
    ```powershell
    $env:VOXVEIL_SIGNED_DRIVER_DIR = '<returned-package>'
+   $env:VOXVEIL_SIGNED_DRIVER_SUBMISSION_MANIFEST = '<downloaded-unsigned-artifact>\submission-manifest.json'
    $env:VOXVEIL_SIGNED_DRIVER_RELEASE_CHANNEL = 'Pilot'
    npm run build:windows
    ```
@@ -135,6 +136,7 @@ A retail build then uses:
 
 ```powershell
 $env:VOXVEIL_SIGNED_DRIVER_DIR = '<verified-retail-package>'
+$env:VOXVEIL_SIGNED_DRIVER_SUBMISSION_MANIFEST = '<downloaded-unsigned-artifact>\submission-manifest.json'
 $env:VOXVEIL_SIGNED_DRIVER_RELEASE_CHANNEL = 'Retail'
 npm run build:windows
 ```

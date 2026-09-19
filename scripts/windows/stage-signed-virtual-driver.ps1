@@ -4,6 +4,10 @@ param(
   [ValidateNotNullOrEmpty()]
   [string]$PackageDir,
 
+  [Parameter(Mandatory = $true)]
+  [ValidateNotNullOrEmpty()]
+  [string]$SubmissionManifest,
+
   [ValidateSet('x64', 'ARM64')]
   [string]$Architecture = 'x64',
 
@@ -58,8 +62,54 @@ function Assert-NoReparsePointInPath([string]$Path, [string]$Boundary) {
 }
 
 $package = [IO.Path]::GetFullPath($PackageDir)
+$submissionManifestPath = [IO.Path]::GetFullPath($SubmissionManifest)
 $destination = [IO.Path]::GetFullPath($Destination)
 $repoRoot = [IO.Path]::GetFullPath((Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path)
+
+if (-not (Test-Path -LiteralPath $submissionManifestPath -PathType Leaf)) {
+  throw "Unsigned submission manifest was not found: $submissionManifestPath"
+}
+$submissionManifestSha256 = (Get-FileHash $submissionManifestPath -Algorithm SHA256).Hash.ToLowerInvariant()
+$submission = Get-Content -LiteralPath $submissionManifestPath -Raw | ConvertFrom-Json
+$allowedSubmissionFields = @(
+  'schemaVersion',
+  'voxveilCommit',
+  'architecture',
+  'configuration',
+  'windowsDriverSamplesRevision',
+  'sysvadTreeSha',
+  'infSha256',
+  'catalogSha256',
+  'driverSha256',
+  'pdbSha256'
+)
+$unexpectedSubmissionFields = @(
+  $submission.PSObject.Properties.Name | Where-Object { $allowedSubmissionFields -inotcontains $_ }
+)
+if ($unexpectedSubmissionFields.Count -gt 0) {
+  throw "Unsigned submission manifest contains undocumented fields: $($unexpectedSubmissionFields -join ', ')."
+}
+$git = Get-Command git.exe -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $git) {
+  throw 'git.exe is required to bind signed-driver staging to the exact Voxveil checkout.'
+}
+$currentCommit = (& $git.Source -C $repoRoot rev-parse HEAD).Trim().ToLowerInvariant()
+if ($LASTEXITCODE -ne 0 -or $currentCommit -notmatch '^[a-f0-9]{40}$') {
+  throw 'Could not resolve the exact Voxveil commit for signed-driver staging.'
+}
+if ($submission.schemaVersion -ne 1 -or
+    $submission.voxveilCommit -ne $currentCommit -or
+    $submission.architecture -ne $Architecture -or
+    $submission.configuration -ne 'Release' -or
+    $submission.windowsDriverSamplesRevision -ne '67d81f217bc01edf7a4320e4911c11065635acfa' -or
+    $submission.sysvadTreeSha -ne '6fa502f5bfb3de1395a6c9ffe71e322fd9e28926') {
+  throw 'Unsigned submission manifest identity does not match the exact release checkout/architecture/pinned SysVAD provenance.'
+}
+foreach ($hashField in @('infSha256', 'catalogSha256', 'driverSha256', 'pdbSha256')) {
+  if ([string]$submission.$hashField -notmatch '^[a-f0-9]{64}$') {
+    throw "Unsigned submission manifest contains an invalid $hashField."
+  }
+}
 $distArchitecture = if ($Architecture -eq 'ARM64') { 'windows-arm64' } else { 'windows-x64' }
 $distRoot = [IO.Path]::GetFullPath((Join-Path $repoRoot ('dist\' + $distArchitecture)))
 $submissionRoot = [IO.Path]::GetFullPath((Join-Path $repoRoot 'native\windows\driver\out'))
@@ -100,6 +150,10 @@ if ($LASTEXITCODE -ne 0) {
   throw 'Signed virtual driver verification failed.'
 }
 $verification = $verificationJson | ConvertFrom-Json
+if ($submission.infSha256 -ne $verification.infSha256 -or
+    $submission.driverSha256 -ne $verification.driverSha256) {
+  throw 'Returned Microsoft-signed package INF/SYS do not match the exact unsigned submission manifest.'
+}
 $verifiedSigningPath = 'attestation-pilot'
 $releaseEvidenceSha256 = $null
 $evidencePath = $null
@@ -157,7 +211,8 @@ $allowedDestinationNames = @(
   'VoxveilVirtualAudio.cat',
   'VoxveilVirtualAudio.sys',
   'verification.json',
-  'release-evidence.json'
+  'release-evidence.json',
+  'submission-manifest.json'
 )
 $destinationEntries = @(Get-ChildItem $destination -Force)
 $unexpectedDestinationEntries = @(
@@ -176,6 +231,7 @@ foreach ($file in @($inf, $cat, $sys)) {
 if ($evidencePath) {
   Copy-Item $evidencePath (Join-Path $destination 'release-evidence.json')
 }
+Copy-Item $submissionManifestPath (Join-Path $destination 'submission-manifest.json')
 
 $stagedInf = Join-Path $destination $inf.Name
 $stagedCat = Join-Path $destination $cat.Name
@@ -186,12 +242,17 @@ Assert-StagedHash -Path $stagedSys -Expected $verification.driverSha256 -Label '
 if ($evidencePath) {
   Assert-StagedHash -Path (Join-Path $destination 'release-evidence.json') -Expected $releaseEvidenceSha256 -Label 'release evidence'
 }
+Assert-StagedHash -Path (Join-Path $destination 'submission-manifest.json') -Expected $submissionManifestSha256 -Label 'submission manifest'
 Assert-StagedHash -Path $deviceHelper -Expected $deviceHelperSha256 -Label 'virtual-device helper'
 
 @{
   releaseChannel = $ReleaseChannel.ToLowerInvariant()
   signingPath = $verifiedSigningPath
   releaseEvidenceSha256 = $releaseEvidenceSha256
+  submissionManifestSha256 = $submissionManifestSha256
+  voxveilCommit = $currentCommit
+  unsignedCatalogSha256 = $submission.catalogSha256
+  unsignedPdbSha256 = $submission.pdbSha256
   architecture = $Architecture
   deviceHelperSha256 = $deviceHelperSha256
   infSha256 = $verification.infSha256

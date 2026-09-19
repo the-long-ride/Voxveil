@@ -69,11 +69,12 @@ Build the desktop package with the exact verified driver input:
 
 ```powershell
 $env:VOXVEIL_SIGNED_DRIVER_DIR = '<verified-returned-package>'
+$env:VOXVEIL_SIGNED_DRIVER_SUBMISSION_MANIFEST = '<downloaded-unsigned-artifact>\submission-manifest.json'
 $env:VOXVEIL_SIGNED_DRIVER_RELEASE_CHANNEL = 'Retail'
 npm run build:windows
 ```
 
-Verify `dist/windows-x64/Voxveil/system-audio/virtual-driver/` contains the staged INF/CAT/SYS plus `verification.json`; Retail staging must also retain the validated `release-evidence.json` whose SHA-256 is recorded in `verification.json`. The manifest must also contain `deviceHelperSha256` for the packaged `system-audio/voxveil-virtual-device.exe`. Then verify the package also contains:
+Release staging fails unless the retained unsigned `submission-manifest.json` matches the current checkout, architecture, pinned SysVAD provenance, and returned INF/SYS. Verify `dist/windows-x64/Voxveil/system-audio/virtual-driver/` contains the staged INF/CAT/SYS, retained `submission-manifest.json`, and `verification.json`; Retail staging must also retain the validated `release-evidence.json`. `verification.json` records the submission-manifest SHA-256, exact Voxveil commit, unsigned CAT/PDB hashes, and `deviceHelperSha256`. Then verify the package also contains:
 
 ```text
 system-audio/voxveil-virtual-device.exe

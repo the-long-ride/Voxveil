@@ -253,11 +253,26 @@ $output = [IO.Path]::GetFullPath($OutputDirectory)
 $repoPath = [IO.Path]::GetFullPath($repo.Path)
 $distRoot = [IO.Path]::GetFullPath((Join-Path $repoPath 'dist\windows-x64'))
 $signedDriverDir = $env:VOXVEIL_SIGNED_DRIVER_DIR
+$signedDriverSubmissionManifest = $env:VOXVEIL_SIGNED_DRIVER_SUBMISSION_MANIFEST
+if ($signedDriverDir -and -not $signedDriverSubmissionManifest) {
+  throw 'VOXVEIL_SIGNED_DRIVER_SUBMISSION_MANIFEST is required when VOXVEIL_SIGNED_DRIVER_DIR is set.'
+}
+if ($signedDriverSubmissionManifest -and -not $signedDriverDir) {
+  throw 'VOXVEIL_SIGNED_DRIVER_SUBMISSION_MANIFEST must not be set without VOXVEIL_SIGNED_DRIVER_DIR.'
+}
+$signedDriverManifestDirectory = $null
+if ($signedDriverSubmissionManifest) {
+  $signedDriverSubmissionManifest = [IO.Path]::GetFullPath($signedDriverSubmissionManifest)
+  if (-not (Test-Path -LiteralPath $signedDriverSubmissionManifest -PathType Leaf)) {
+    throw "Signed-driver submission manifest was not found: $signedDriverSubmissionManifest"
+  }
+  $signedDriverManifestDirectory = Split-Path -Parent $signedDriverSubmissionManifest
+}
 Assert-SafeOutputDirectory `
   -Output $output `
   -RepoPath $repoPath `
   -DistRoot $distRoot `
-  -SignedInputDirectories @($signedApoDir, $signedDriverDir)
+  -SignedInputDirectories @($signedApoDir, $signedDriverDir, $signedDriverManifestDirectory)
 Assert-NoReparsePointInPath -Path $output -Boundary $repoPath
 
 $systemAudio = Join-Path $output 'system-audio'
@@ -304,6 +319,7 @@ if ($signedDriverDir) {
   $driverStage = Join-Path $systemAudio 'virtual-driver'
   & (Join-Path $PSScriptRoot 'stage-signed-virtual-driver.ps1') `
     -PackageDir $signedDriverDir `
+    -SubmissionManifest $signedDriverSubmissionManifest `
     -Architecture 'x64' `
     -Destination $driverStage `
     -ReleaseChannel $releaseChannel `
@@ -378,7 +394,7 @@ Voxveil Windows x64 package
 - Runtime device-interface paths are treated as opaque and are revalidated against their owning PnP instance immediately before legacy development mutation.
 - The normal UI never asks for Hardware IDs or topology reference strings.
 - The APO uses the Windows componentized-audio model; it does NOT install a virtual output device.
-- A first-party virtual driver is staged only when VOXVEIL_SIGNED_DRIVER_DIR points to a package that passes Microsoft-signature verification.
+- A first-party virtual driver is staged only when VOXVEIL_SIGNED_DRIVER_DIR points to a Microsoft-verified package and VOXVEIL_SIGNED_DRIVER_SUBMISSION_MANIFEST points to the retained exact-SHA unsigned submission manifest.
 - system-audio/install-staged-virtual-driver.ps1 first ensures exactly one Root\VoxveilVirtualAudio devnode, installs the verified driver package, and records both the exact device instance ID and published INF.
 - system-audio/uninstall-staged-virtual-driver.ps1 revalidates and removes only that recorded devnode before deleting its verified driver-store package.
 - Virtual-driver lifecycle tooling never enables TESTSIGNING, imports local certificates, redistributes DevCon, or performs provider-wide deletion.

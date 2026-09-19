@@ -151,3 +151,11 @@ test('Windows package build pins MSBuild and WDK roots to OS-known Program Files
   assert.doesNotMatch(text, /\$env:ProgramFiles\(x86\)/i);
   assert.doesNotMatch(text, /Get-Command\s+msbuild\.exe/i);
 });
+
+test('Windows signed-driver packaging requires the retained exact-submission manifest', () => {
+  assert.match(buildScript, /VOXVEIL_SIGNED_DRIVER_SUBMISSION_MANIFEST/i);
+  assert.match(buildScript, /required when VOXVEIL_SIGNED_DRIVER_DIR is set/i);
+  assert.match(buildScript, /must not be set without VOXVEIL_SIGNED_DRIVER_DIR/i);
+  assert.match(buildScript, /-SubmissionManifest\s+\$signedDriverSubmissionManifest/i);
+  assert.match(buildScript, /SignedInputDirectories\s+@\(\$signedApoDir,\s*\$signedDriverDir,\s*\$signedDriverManifestDirectory\)/i);
+});
