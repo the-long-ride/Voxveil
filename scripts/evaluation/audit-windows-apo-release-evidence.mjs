@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import process from 'node:process';
+import { pathToFileURL } from 'node:url';
 
 const REQUIRED_SCENARIOS = [
   'capx-discovery',
@@ -130,7 +132,7 @@ function validateEvidenceFiles(files, { required = false } = {}) {
   return issues;
 }
 
-function validateScenario(item, identity, scenario) {
+function validateScenario(item, identity, scenario, boundValidation) {
   if (!item) return [`missing APO validation scenario: ${scenario}`];
   if (item.error) return [`${item.name}: invalid JSON`];
   const x = item.data;
@@ -165,7 +167,20 @@ function validateScenario(item, identity, scenario) {
     .map((issue) => `${scenario}: ${issue}`));
 
   if (scenario === 'reboot-resume') {
-    if (!validHash(x.priorEvidenceSha256)) issues.push('reboot-resume: prior evidence hash is invalid');
+    if (!validHash(x.priorEvidenceSha256)) {
+      issues.push('reboot-resume: prior evidence hash is invalid');
+    } else {
+      const prior = boundValidation.find((candidate) =>
+        !candidate.error && sha256(readFileSync(candidate.file)) === x.priorEvidenceSha256
+      );
+      if (!prior) {
+        issues.push('reboot-resume: prior evidence hash does not identify a bound validation record');
+      } else {
+        if (prior.data?.result !== 'pass') issues.push('reboot-resume: prior evidence is not passing');
+        if (prior.data?.scenario !== x.priorScenario) issues.push('reboot-resume: prior scenario does not match the hashed record');
+        if (prior.data?.machine?.bootMarker !== x.priorBootMarker) issues.push('reboot-resume: prior boot marker does not match the hashed record');
+      }
+    }
     if (typeof x.priorScenario !== 'string' || !x.priorScenario) issues.push('reboot-resume: prior scenario is missing');
     if (typeof x.priorBootMarker !== 'string' || !x.priorBootMarker) issues.push('reboot-resume: prior boot marker is missing');
     if (x.priorBootMarker === x?.machine?.bootMarker) issues.push('reboot-resume: boot marker did not change');
@@ -223,7 +238,7 @@ export function auditWindowsApoEvidence(args) {
   for (const scenario of REQUIRED_SCENARIOS) {
     const item = latest(validation.filter((candidate) => candidate.data?.scenario === scenario));
     scenarioRecords[scenario] = item?.name ?? null;
-    issues.push(...validateScenario(item, identity, scenario));
+    issues.push(...validateScenario(item, identity, scenario, validation));
   }
 
   let qualification = null;
@@ -245,4 +260,64 @@ export function auditWindowsApoEvidence(args) {
     qualification,
     issues,
   };
+}
+
+
+function parseArgs(argv) {
+  const args = {
+    workspace: '.local-evaluation/windows-apo',
+    packageRoot: null,
+    commit: null,
+    architecture: 'x64',
+    releaseChannel: 'pilot',
+    json: false,
+  };
+  for (let index = 0; index < argv.length; index += 1) {
+    const token = argv[index];
+    if (token === '--json') {
+      args.json = true;
+      continue;
+    }
+    const value = argv[index + 1];
+    if (!value) throw new Error(`Missing value for ${token}`);
+    if (token === '--workspace') args.workspace = value;
+    else if (token === '--package-root') args.packageRoot = value;
+    else if (token === '--commit') args.commit = value.toLowerCase();
+    else if (token === '--architecture') args.architecture = value;
+    else if (token === '--release-channel') args.releaseChannel = value.toLowerCase();
+    else throw new Error(`Unknown argument: ${token}`);
+    index += 1;
+  }
+  if (!args.commit || !/^[a-f0-9]{40}$/.test(args.commit)) {
+    throw new Error('--commit must be the exact 40-hex Voxveil commit.');
+  }
+  if (!['x64', 'ARM64'].includes(args.architecture)) {
+    throw new Error('--architecture must be x64 or ARM64.');
+  }
+  if (!['pilot', 'retail'].includes(args.releaseChannel)) {
+    throw new Error('--release-channel must be pilot or retail.');
+  }
+  if (!args.packageRoot) {
+    args.packageRoot = args.architecture === 'ARM64'
+      ? 'dist/windows-arm64/Voxveil'
+      : 'dist/windows-x64/Voxveil';
+  }
+  return args;
+}
+
+const invoked = process.argv[1] ? pathToFileURL(path.resolve(process.argv[1])).href : '';
+if (invoked === import.meta.url) {
+  try {
+    const args = parseArgs(process.argv.slice(2));
+    const report = auditWindowsApoEvidence(args);
+    if (args.json) process.stdout.write(JSON.stringify(report, null, 2) + '\n');
+    else {
+      process.stdout.write(`Windows APO release evidence: ${report.status}\n`);
+      for (const issue of report.issues) process.stdout.write(`- ${issue}\n`);
+    }
+    process.exitCode = report.status === 'complete' ? 0 : 1;
+  } catch (error) {
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    process.exitCode = 2;
+  }
 }
