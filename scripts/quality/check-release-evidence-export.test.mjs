@@ -141,3 +141,12 @@ test('evidence-set hash is stable across export timestamps for unchanged evidenc
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test('release evidence archive remains ignored and documented as external release metadata', async () => {
+  const gitignore = await readFile('.gitignore', 'utf8');
+  const guide = await readFile('docs/release/windows-release-evidence.md', 'utf8');
+  assert.match(gitignore, /^release-metadata\/\s*$/m);
+  assert.match(guide, /evaluation:export-release-evidence/i);
+  assert.match(guide, /evidenceSetSha256/i);
+  assert.match(guide, /must not be committed/i);
+});
