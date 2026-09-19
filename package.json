@@ -36,7 +36,8 @@
     "evaluation:measure-tier-a": "node scripts/evaluation/measure-tier-a-controlled-fixture.mjs",
     "evaluation:audit-windows-driver": "node scripts/evaluation/audit-windows-driver-release-evidence.mjs",
     "evaluation:audit-release": "node scripts/evaluation/audit-release-readiness.mjs",
-    "evaluation:audit-windows-apo": "node scripts/evaluation/audit-windows-apo-release-evidence.mjs"
+    "evaluation:audit-windows-apo": "node scripts/evaluation/audit-windows-apo-release-evidence.mjs",
+    "evaluation:export-release-evidence": "node scripts/evaluation/export-release-evidence-manifest.mjs"
   },
   "engines": {
     "node": "^24.15.0",
