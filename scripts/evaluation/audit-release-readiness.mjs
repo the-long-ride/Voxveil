@@ -5,6 +5,7 @@ import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { auditWorkspace as auditClassicDspEvidence } from './audit-classic-dsp-evidence.mjs';
 import { auditWindowsDriverEvidence } from './audit-windows-driver-release-evidence.mjs';
+import { auditWindowsPackage } from './audit-windows-package.mjs';
 
 function parseArgs(argv) {
   const args = {
@@ -13,6 +14,7 @@ function parseArgs(argv) {
     releaseChannel: 'pilot',
     classicWorkspace: '.local-evaluation/classic-dsp',
     driverWorkspace: '.local-evaluation/windows-driver',
+    packageRoot: null,
     json: false,
   };
 
@@ -29,6 +31,7 @@ function parseArgs(argv) {
     else if (token === '--release-channel') args.releaseChannel = value.toLowerCase();
     else if (token === '--classic-workspace') args.classicWorkspace = value;
     else if (token === '--driver-workspace') args.driverWorkspace = value;
+    else if (token === '--package-root') args.packageRoot = value;
     else throw new Error(`Unknown argument: ${token}`);
     index += 1;
   }
@@ -41,6 +44,11 @@ function parseArgs(argv) {
   }
   if (!['pilot', 'retail'].includes(args.releaseChannel)) {
     throw new Error('--release-channel must be pilot or retail.');
+  }
+  if (!args.packageRoot) {
+    args.packageRoot = args.architecture === 'ARM64'
+      ? 'dist/windows-arm64/Voxveil'
+      : 'dist/windows-x64/Voxveil';
   }
   return args;
 }
@@ -61,6 +69,7 @@ export async function auditReleaseReadiness(args, dependencies = {}) {
   const checkoutCommit = dependencies.checkoutCommit ?? currentCheckoutCommit();
   const classicAudit = dependencies.classicAudit ?? auditClassicDspEvidence;
   const driverAudit = dependencies.driverAudit ?? auditWindowsDriverEvidence;
+  const packageAudit = dependencies.packageAudit ?? auditWindowsPackage;
 
   const issues = [];
   if (!/^[a-f0-9]{40}$/.test(checkoutCommit)) {
@@ -71,8 +80,21 @@ export async function auditReleaseReadiness(args, dependencies = {}) {
 
   let classicDsp = null;
   let windowsDriver = null;
+  let windowsPackage = null;
 
   if (issues.length === 0) {
+    windowsPackage = await packageAudit({
+      packageRoot: args.packageRoot,
+      commit: args.commit,
+      architecture: args.architecture,
+      releaseChannel: args.releaseChannel,
+    });
+    if (windowsPackage?.status !== 'complete') {
+      for (const issue of windowsPackage?.issues ?? ['Windows package evidence is incomplete']) {
+        issues.push(`windows-package: ${issue}`);
+      }
+    }
+
     classicDsp = await classicAudit(args.classicWorkspace);
     if (!classicDsp?.structuralComplete) {
       for (const issue of classicDsp?.issues ?? ['Classic DSP evidence is incomplete']) {
@@ -99,10 +121,11 @@ export async function auditReleaseReadiness(args, dependencies = {}) {
     checkoutCommit,
     architecture: args.architecture,
     releaseChannel: args.releaseChannel,
+    windowsPackage,
     classicDsp,
     windowsDriver,
     issues,
-    statement: 'Complete means both repository evidence audits passed for the exact current checkout; it does not replace the underlying human, hardware, licensing, or Microsoft qualification work.',
+    statement: 'Complete means the final Windows package plus both repository evidence audits passed for the exact current checkout; it does not replace the underlying human, hardware, licensing, or Microsoft qualification work.',
   };
 }
 
@@ -112,6 +135,9 @@ function printHuman(report) {
   console.log(`Checkout commit: ${report.checkoutCommit}`);
   console.log(`Architecture: ${report.architecture}`);
   console.log(`Release channel: ${report.releaseChannel}`);
+  if (report.windowsPackage) {
+    console.log(`Windows package evidence: ${report.windowsPackage.status}`);
+  }
   if (report.classicDsp) {
     console.log(`Classic DSP evidence: ${report.classicDsp.structuralComplete ? 'complete' : 'incomplete'}`);
   }
