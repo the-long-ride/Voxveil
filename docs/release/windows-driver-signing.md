@@ -165,7 +165,9 @@ For the final release-candidate evidence check, run the combined gate from the e
 npm run evaluation:audit-release -- --commit <40-hex-exact-commit> --architecture x64 --release-channel retail
 ```
 
-The combined audit fails closed if the requested SHA is not the current Git `HEAD`, if the Classic DSP evidence matrix/semantic review is incomplete, or if the signed-driver lifecycle/qualification evidence is incomplete. A successful result means the repository evidence sets are structurally complete for that exact checkout; it is not an independent certification of human observations or Microsoft qualification.
+The combined audit fails closed if the requested SHA is not the current Git `HEAD`, if the final Windows package identity/checksum audit is incomplete, if the Classic DSP evidence matrix/semantic review is incomplete, if the signed-driver lifecycle/qualification evidence is incomplete, or—when the final package contains a signed APO—if the APO/CAPX real-machine/qualification evidence is incomplete. If Tier 3 is intentionally omitted, the APO domain is reported as not applicable rather than blocking Tier 1/Tier 2. A successful result means the repository evidence sets are structurally complete for that exact checkout; it is not an independent certification of human observations or Microsoft qualification.
+
+After the unified audit reports `complete`, export the deterministic release-record index with `npm run evaluation:export-release-evidence -- --commit <sha> --architecture x64 --release-channel retail` and archive that manifest/sidecar with the exact package, unsigned signing submission, returned signed packages, and externally retained evidence described in `docs/release/windows-release-evidence.md`.
 
 ## Release-blocking validation checklist
 
