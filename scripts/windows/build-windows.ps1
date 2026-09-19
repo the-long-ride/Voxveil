@@ -151,6 +151,15 @@ function Assert-SafeOutputDirectory(
 $msbuild = Find-MSBuild
 Assert-Wdk
 
+$git = Get-Command git.exe -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $git) {
+  throw 'git.exe is required to bind the Windows package and signed APO to the exact Voxveil checkout.'
+}
+$currentCommit = (& $git.Source -C $repo.Path rev-parse HEAD).Trim().ToLowerInvariant()
+if ($LASTEXITCODE -ne 0 -or $currentCommit -notmatch '^[a-f0-9]{40}$') {
+  throw 'Could not resolve the exact Voxveil commit for the Windows package.'
+}
+
 if (-not $SkipNpmInstall) {
   npm ci --ignore-scripts --no-fund --no-audit
   if ($LASTEXITCODE -ne 0) { throw "npm ci failed with exit code $LASTEXITCODE" }
@@ -180,7 +189,11 @@ if (-not $SkipTests) {
 
 foreach ($project in @('VoxveilControl.vcxproj', 'VoxveilControlCli.vcxproj', 'VoxveilApo.vcxproj')) {
   Write-Host "Building $project ..."
-  & $msbuild (Join-Path $native $project) /m /t:Rebuild /p:Configuration=Release /p:Platform=x64 /verbosity:minimal
+  $projectArgs = @('/m', '/t:Rebuild', '/p:Configuration=Release', '/p:Platform=x64', '/verbosity:minimal')
+  if ($project -eq 'VoxveilApo.vcxproj') {
+    $projectArgs += "/p:VoxveilCommit=$currentCommit"
+  }
+  & $msbuild (Join-Path $native $project) @projectArgs
   if ($LASTEXITCODE -ne 0) { throw "$project failed with exit code $LASTEXITCODE" }
 }
 
@@ -219,6 +232,9 @@ if ($signedApoDir) {
   $apoVerifier = Join-Path $PSScriptRoot 'verify-signed-apo-package.ps1'
   $verifiedApoJson = (& $apoVerifier -PackageDir $signedApoDir | Out-String)
   $verifiedApo = $verifiedApoJson | ConvertFrom-Json
+  if ([string]$verifiedApo.voxveilCommit -ne $currentCommit) {
+    throw 'Signed APO package was not built from the exact current Voxveil checkout.'
+  }
   $env:VOXVEIL_APO_INF_SHA256 = [string]$verifiedApo.apoInfSha256
   $env:VOXVEIL_APO_DLL_SHA256 = [string]$verifiedApo.apoDllSha256
   $env:VOXVEIL_APO_CATALOG_SHA256 = [string]$verifiedApo.apoCatalogSha256
@@ -307,6 +323,7 @@ if ($signedApoDir) {
   if ($LASTEXITCODE -ne 0) { throw 'Signed APO package staging failed.' }
 }
 
+$releaseChannel = $null
 if ($signedDriverDir) {
   $releaseChannel = if ($env:VOXVEIL_SIGNED_DRIVER_RELEASE_CHANNEL) {
     $env:VOXVEIL_SIGNED_DRIVER_RELEASE_CHANNEL
@@ -400,9 +417,29 @@ Voxveil Windows x64 package
 - Virtual-driver lifecycle tooling never enables TESTSIGNING, imports local certificates, redistributes DevCon, or performs provider-wide deletion.
 - Pilot driver staging must be explicitly selected with VOXVEIL_SIGNED_DRIVER_RELEASE_CHANNEL=Pilot.
 - Retail driver staging defaults to Retail and requires matching WHCP/HLK or Microsoft-approved retail release evidence.
+- release-manifest.json records the exact Voxveil commit plus signed APO/virtual-driver presence and is itself covered by SHA256SUMS.txt.
 - Normal endpoint installation is offered only when the package contains a compatible production-signed CAPX Extension INF/catalog set.
 - The raw -HardwareId/-ReferenceString/-TestSign parameters remain only for legacy/focused driver-development diagnostics; manual mode requires -TestSign.
 '@ | Set-Content (Join-Path $output 'README-WINDOWS.txt') -Encoding utf8
+
+$apoVerificationPath = Join-Path $systemAudio 'apo-verification.json'
+$driverVerificationPath = Join-Path $systemAudio 'virtual-driver\verification.json'
+$releaseManifest = [ordered]@{
+  schemaVersion = 1
+  voxveilCommit = $currentCommit
+  architecture = 'x64'
+  signedApo = [ordered]@{
+    present = [bool]$signedApoDir
+    verificationSha256 = if (Test-Path -LiteralPath $apoVerificationPath -PathType Leaf) { Get-Sha256Hex $apoVerificationPath } else { $null }
+  }
+  signedVirtualDriver = [ordered]@{
+    present = [bool]$signedDriverDir
+    releaseChannel = if ($releaseChannel) { $releaseChannel.ToLowerInvariant() } else { $null }
+    verificationSha256 = if (Test-Path -LiteralPath $driverVerificationPath -PathType Leaf) { Get-Sha256Hex $driverVerificationPath } else { $null }
+  }
+  packageFilesHashedBy = 'SHA256SUMS.txt'
+}
+$releaseManifest | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $output 'release-manifest.json') -Encoding utf8
 
 $hashFiles = Get-ChildItem $output -Recurse -File | Where-Object { $_.Name -ne 'SHA256SUMS.txt' }
 $hashLines = foreach ($file in $hashFiles) {

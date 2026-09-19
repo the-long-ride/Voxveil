@@ -76,6 +76,14 @@ function Assert-NoReparsePointInPath([string]$Path, [string]$Boundary) {
 $package = Get-NormalizedDirectoryPath $PackageDir
 $destination = Get-NormalizedDirectoryPath $Destination
 $repoRoot = Get-NormalizedDirectoryPath ((Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path)
+$git = Get-Command git.exe -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $git) {
+  throw 'git.exe is required to bind signed APO staging to the exact Voxveil checkout.'
+}
+$currentCommit = (& $git.Source -C $repoRoot rev-parse HEAD).Trim().ToLowerInvariant()
+if ($LASTEXITCODE -ne 0 -or $currentCommit -notmatch '^[a-f0-9]{40}$') {
+  throw 'Could not resolve the exact Voxveil commit for signed APO staging.'
+}
 $distRoot = Get-NormalizedDirectoryPath (Join-Path $repoRoot 'dist\windows-x64')
 if (-not (Test-Path $package -PathType Container)) {
   throw "Signed APO package directory not found: $package"
@@ -98,6 +106,9 @@ if ($LASTEXITCODE -ne 0) {
   throw 'Signed APO package verification failed.'
 }
 $verification = $verificationJson | ConvertFrom-Json
+if ([string]$verification.voxveilCommit -ne $currentCommit) {
+  throw 'Signed APO package build marker does not match the exact current Voxveil checkout.'
+}
 
 $expectedFiles = @(
   'VoxveilApo.inf',
@@ -135,6 +146,7 @@ Assert-StagedHash -Path $stagedExtensionInf -Expected $verification.extensionInf
 Assert-StagedHash -Path $stagedExtensionCat -Expected $verification.extensionCatalogSha256 -Label 'Extension catalog'
 
 [ordered]@{
+  voxveilCommit = $currentCommit
   apoInfSha256 = $verification.apoInfSha256
   apoDllSha256 = $verification.apoDllSha256
   apoCatalogSha256 = $verification.apoCatalogSha256

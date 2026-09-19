@@ -278,6 +278,9 @@ function Assert-StagedProductionApo([string]$Root) {
     throw 'Production install requires apo-verification.json created by the signed APO staging gate.'
   }
   $verification = Get-Content $manifestPath -Raw | ConvertFrom-Json
+  if ([string]$verification.voxveilCommit -notmatch '^[0-9a-fA-F]{40}$') {
+    throw 'apo-verification.json is missing the exact Voxveil build commit.'
+  }
   if ([string]$verification.extensionId -ine '1D81E93D-AB81-473B-9E5E-94FAE8D2377F') {
     throw 'apo-verification.json does not match the committed Voxveil extension servicing lineage.'
   }
