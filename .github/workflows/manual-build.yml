@@ -61,7 +61,7 @@ jobs:
           path: native/windows/driver/out/x64/submission/
           if-no-files-found: error
           compression-level: 0
-          retention-days: 7
+          retention-days: 30
 
   linux:
     name: Linux x64
