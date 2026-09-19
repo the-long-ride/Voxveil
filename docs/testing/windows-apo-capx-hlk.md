@@ -133,6 +133,41 @@ For a retail production claim:
 
 The repository does not contain EV private keys, Partner Center credentials, HLK result bundles, or downloaded signed release artifacts.
 
+## Machine-readable release evidence
+
+Record each real-machine scenario against the exact final Windows package rather than editing JSON by hand:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/evaluation/record-windows-apo-validation-evidence.ps1 `
+  -PackageRoot .\dist\windows-x64\Voxveil `
+  -Scenario real-processing `
+  -Result pass `
+  -Method 'CAPX probe + playback observation' `
+  -Notes 'Real non-discovery processing instance loaded on the managed default endpoint.'
+```
+
+The required signed-APO scenarios are `capx-discovery`, `real-processing`, `effect-state-gating`, `raw-mode`, `default-endpoint-handoff`, `graph-teardown`, `install-uninstall-coexistence`, `reboot-resume`, and `supported-hardware-matrix`. Every record is bound to the exact final `release-manifest.json` and `apo-verification.json` hashes and rechecks Windows build/architecture, Secure Boot, TESTSIGNING, and the current boot marker. `reboot-resume` additionally requires `-PriorEvidence` from the same package and a changed boot marker. `supported-hardware-matrix` requires at least one externally retained matrix/result artifact, recorded only by file name, size, and SHA-256.
+
+For a Retail signed APO, record the applicable Microsoft qualification evidence separately:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/evaluation/record-windows-apo-qualification-evidence.ps1 `
+  -PackageRoot .\dist\windows-x64\Voxveil `
+  -QualificationType whcp-hlk `
+  -Result pass `
+  -Method 'Windows HLK Studio/package review' `
+  -Notes 'Applicable APO/audio qualification evidence retained under release records policy.' `
+  -EvidenceFile <path-to-hlkx-or-approved-evidence>
+```
+
+Then audit the APO evidence set:
+
+```powershell
+npm run evaluation:audit-windows-apo -- --commit <40-hex-exact-commit> --architecture x64 --release-channel retail
+```
+
+The audit fails closed unless the latest record for every required scenario passes and, for Retail, a passing `whcp-hlk` or `microsoft-approved-retail` qualification record is bound to the same final package. The recorder/audit only preserves evidence identity and completeness; it does not infer or fabricate CAPX, hardware, or Microsoft qualification outcomes.
+
 ## Stop conditions
 
 Do not mark the APO production-qualified if any of these are true:

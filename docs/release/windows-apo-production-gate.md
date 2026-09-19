@@ -137,6 +137,10 @@ Store release evidence outside the source repository and record at minimum:
 
 Do not store private signing keys, EV certificate material, account credentials, or secret tokens in the repository.
 
+Use `record-windows-apo-validation-evidence.ps1` for the real-machine CAPX/handoff/lifecycle scenarios and `record-windows-apo-qualification-evidence.ps1` for Retail HLK/WHCP or another explicitly Microsoft-approved route. Both record types bind to the exact final package's `release-manifest.json` and `apo-verification.json` hashes. Run `npm run evaluation:audit-windows-apo -- --commit <sha> --architecture x64 --release-channel <pilot|retail>` before making an APO validation claim.
+
+The unified `npm run evaluation:audit-release` gate now invokes this APO audit automatically whenever `release-manifest.json` says a signed APO is present. If the final package intentionally omits the optional signed APO, the APO evidence domain is reported as not applicable rather than blocking the Tier 1/Tier 2 release paths.
+
 ## Release decision
 
 A build may be called **repository-complete** when source, tests, scripts, and documentation are present.
