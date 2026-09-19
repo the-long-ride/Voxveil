@@ -157,6 +157,8 @@ If SetupAPI reports restart-required devnode removal but PnPUtil then hard-fails
 
 Before starting the release-blocking real-machine checklist, capture the exact returned-package and machine pre-install identity with `scripts/evaluation/collect-windows-driver-validation-evidence.ps1`. This produces ignored local evidence tied to the exact Voxveil checkout and fails closed on Windows build, architecture, Secure Boot, TESTSIGNING, Microsoft signature, and retail release-evidence requirements. It does not replace the lifecycle or HLK/WHCP checks below.
 
+After the real-machine lifecycle and qualification work is performed, record it with the local-only lifecycle/qualification evidence helpers and run `npm run evaluation:audit-windows-driver -- --commit <sha> --architecture <arch> --release-channel <pilot|retail>`. A successful structural audit is required before treating the evidence set as complete; it does not replace the underlying human/Microsoft results.
+
 ## Release-blocking validation checklist
 
 - [ ] The exact source revision and Voxveil commit are recorded.

@@ -191,6 +191,43 @@ pnputil /delete-driver <oemN.inf>
 
 Do not replace the shipped lifecycle scripts with provider-wide or wildcard cleanup.
 
+## Machine-readable lifecycle and qualification evidence
+
+After collecting the verified pre-install snapshot, record each real-machine scenario as an explicit human observation rather than editing JSON by hand:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/evaluation/record-windows-driver-lifecycle-evidence.ps1 `
+  -PreInstallEvidence .\.local-evaluation\windows-driver\measurements\<preinstall>.json `
+  -Scenario clean-install `
+  -Result pass `
+  -Method 'Device Manager + Windows Sound + Voxveil diagnostics' `
+  -Notes 'Exact signed package installed; endpoint and relay checks passed.'
+```
+
+The required lifecycle scenarios are `clean-install`, `reboot-resume`, `same-package-repair`, `uninstall`, `reinstall`, and `package-replacement`. A `reboot-resume` record additionally requires `-PriorLifecycleEvidence`; the recorder proves the Windows boot marker changed before accepting the record. Every lifecycle record rechecks the current Windows build/version/architecture, Secure Boot, and TESTSIGNING state against the bound pre-install evidence. Optional `-EvidenceFile` attachments are hashed by file name/size/SHA-256 only; paths and account identifiers are not written to the JSON.
+
+For a Retail claim, retain the actual HLK/WHCP package or Microsoft-approved alternative evidence outside the repository, then record only its local cryptographic identity:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/evaluation/record-windows-driver-qualification-evidence.ps1 `
+  -PreInstallEvidence .\.local-evaluation\windows-driver\measurements\<preinstall>.json `
+  -QualificationType whcp-hlk `
+  -Result pass `
+  -Method 'Windows HLK Studio/package review' `
+  -Notes 'Required target playlist completed; evidence retained under release records policy.' `
+  -EvidenceFile <path-to-hlkx-or-exported-evidence>
+```
+
+The recorder requires the qualification type to match the verified Retail `signingPath` and stores only evidence file names, sizes, and SHA-256 hashes. It never copies qualification bundles, credentials, or certificate material into the repository.
+
+Finally, audit the structural release evidence matrix:
+
+```powershell
+npm run evaluation:audit-windows-driver -- --commit <40-hex-exact-commit> --architecture x64 --release-channel retail
+```
+
+The audit fails closed unless one verified pre-install snapshot has the full latest passing lifecycle matrix bound to its SHA-256. Retail also requires a latest passing qualification record whose type matches the verified signing path and includes at least one hashed external evidence artifact. This audit verifies evidence structure and identity; it does not independently judge whether a human observation or Microsoft qualification result is truthful.
+
 ## Repository verification
 
 On the configured Windows development machine run:
