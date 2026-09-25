@@ -15,7 +15,25 @@
     "apps": "Ứng dụng",
     "routing": "Định tuyến",
     "engine": "Bộ xử lý",
+    "playback": "Trình phát",
     "settings": "Cài đặt"
+  },
+  "playback": {
+    "title": "Phát tệp trong Voxveil",
+    "description": "Mở tệp MP3, WAV, FLAC hoặc Ogg Vorbis và chỉ xử lý âm thanh của tệp đó bằng DSP Cổ điển trước khi phát ra thiết bị vật lý.",
+    "controls": "Điều khiển phát",
+    "open": "Mở tệp nhạc",
+    "pause": "Tạm dừng",
+    "resume": "Tiếp tục",
+    "stop": "Dừng",
+    "output": "Thiết bị đầu ra vật lý",
+    "outputDescription": "Âm thanh đã xử lý chỉ được gửi đến thiết bị này.",
+    "chooseOutput": "Chọn thiết bị đầu ra",
+    "seek": "Tua",
+    "noFile": "Chưa mở tệp",
+    "noOutput": "Chưa chọn đầu ra",
+    "onlyFile": "Chỉ tệp được mở tại đây được xử lý. Các ứng dụng khác vẫn phát âm thanh bình thường.",
+    "status": { "stopped": "Đã dừng", "loading": "Đang tải", "playing": "Đang phát", "paused": "Đã tạm dừng", "ended": "Đã phát xong", "faulted": "Lỗi phát âm thanh" }
   },
   "home": {
     "eyeline": "Điều khiển giọng hát thời gian thực",

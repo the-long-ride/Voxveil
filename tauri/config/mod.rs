@@ -4,6 +4,8 @@ pub enum Edition {
     ProSystem,
 }
 
+pub mod windows_audio;
+
 impl Edition {
     pub const fn as_str(self) -> &'static str {
         match self {

@@ -10,6 +10,11 @@ pub mod routing;
 pub mod security;
 pub mod separation;
 
+#[cfg(any(target_os = "windows", test))]
+fn saved_physical_output_is_stale_error(error: &str) -> bool {
+    error == "The selected physical playback endpoint is no longer available"
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let controller = platform::ProcessingController::default();
@@ -22,13 +27,85 @@ pub fn run() {
         .manage(state)
         .manage(controller)
         .manage(model_manager)
+        .setup(|app| {
+            #[cfg(target_os = "windows")]
+            {
+                use tauri::Manager;
+
+                // Audio endpoint IDs and Classic DSP priority are intentionally
+                // persistent, but stale/nonessential preferences must never stop
+                // the application from starting.
+                let (mut prefs, mut route_error) =
+                    match config::windows_audio::load(app.handle()) {
+                        Ok(prefs) => (prefs, None),
+                        Err(error) => (config::windows_audio::WindowsAudioPreferences::default(), Some(error)),
+                    };
+                let controller = app.state::<platform::ProcessingController>();
+                let state = app.state::<app::state::AppState>();
+
+                match controller
+                    .set_interception_policy(prefs.route_choice.interception_policy())
+                {
+                    Ok(snapshot) => {
+                        if let Ok(mut current) = state.lock() {
+                            current.audio_route_choice = prefs.route_choice;
+                            current.apply_backend(&snapshot);
+                            if prefs.route_choice
+                                == voxveil_types::AudioRouteChoice::OwnedFilePlayback
+                            {
+                                current.engine = voxveil_types::ProcessingEngineKind::Dsp;
+                            }
+                        }
+                    }
+                    Err(error) => route_error = Some(error),
+                }
+                if let Ok(mut current) = state.lock() {
+                    current.audio_route_error = route_error;
+                }
+
+                if controller
+                    .set_classic_suppression_profile(prefs.classic_suppression_profile)
+                    .is_ok()
+                {
+                    if let Ok(mut current) = state.lock() {
+                        current.classic_suppression_profile = prefs.classic_suppression_profile;
+                    }
+                }
+
+                // Devices can be unplugged or removed between runs. Clear the saved
+                // endpoint only when it is actually gone; transient enumeration or
+                // teardown faults must not destroy a still-valid preference.
+                if let Some(endpoint_id) = prefs.physical_output_endpoint_id.clone() {
+                    match controller.set_physical_output(Some(endpoint_id)) {
+                        Ok(_) => {}
+                        Err(error) if saved_physical_output_is_stale_error(&error) => {
+                            prefs.physical_output_endpoint_id = None;
+                            let _ = config::windows_audio::save(app.handle(), &prefs);
+                        }
+                        Err(_) => {}
+                    }
+                }
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             app::commands::get_app_state,
+            app::audio_routes::set_audio_route,
+            app::playback::open_audio_file,
+            app::playback::get_playback_state,
+            app::playback::pause_playback,
+            app::playback::resume_playback,
+            app::playback::seek_playback,
+            app::playback::stop_playback,
             app::system_audio::list_system_audio_endpoints,
             app::system_audio::install_system_audio_component,
+            app::system_audio_actions::set_physical_audio_output,
+            app::system_audio_actions::open_windows_sound_settings,
+            app::system_audio_actions::open_vb_cable_download,
             app::commands::set_master_enabled,
             app::commands::set_processing_mode,
             app::commands::set_engine,
+            app::commands::set_classic_suppression_profile,
             app::commands::set_vocal_level,
             app::commands::set_quality_preference,
             app::commands::list_audio_sources,
@@ -41,4 +118,22 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("Voxveil failed to start");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::saved_physical_output_is_stale_error;
+
+    #[test]
+    fn only_missing_saved_endpoint_is_treated_as_stale() {
+        assert!(saved_physical_output_is_stale_error(
+            "The selected physical playback endpoint is no longer available"
+        ));
+        assert!(!saved_physical_output_is_stale_error(
+            "Windows endpoint enumeration panicked"
+        ));
+        assert!(!saved_physical_output_is_stale_error(
+            "failed to stop Windows audio relay"
+        ));
+    }
 }

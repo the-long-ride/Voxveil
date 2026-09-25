@@ -1,4 +1,6 @@
-export type RouteId = 'home' | 'apps' | 'routing' | 'engine' | 'settings';
+import type { AudioRouteChoice } from '../lib/types';
+
+export type RouteId = 'home' | 'apps' | 'routing' | 'engine' | 'settings' | 'playback';
 
 export interface NavigationItem {
   id: RouteId;
@@ -14,6 +16,27 @@ export const NAVIGATION: readonly NavigationItem[] = [
   { id: 'settings', labelKey: 'nav.settings', mobile: true },
 ] as const;
 
-export function mobileNavigation(): readonly NavigationItem[] {
-  return NAVIGATION.filter((item) => item.mobile);
+const PLAYBACK_NAVIGATION_ITEM: NavigationItem = {
+  id: 'playback',
+  labelKey: 'nav.playback',
+  mobile: true,
+};
+
+export function navigationForAudioRoute(route: AudioRouteChoice): readonly NavigationItem[] {
+  return route === 'owned-file-playback'
+    ? [...NAVIGATION.slice(0, 3), PLAYBACK_NAVIGATION_ITEM, ...NAVIGATION.slice(3)]
+    : NAVIGATION;
+}
+
+export function routeAfterAudioRouteChoiceChanged(
+  currentRoute: RouteId,
+  audioRouteChoice: AudioRouteChoice,
+): RouteId {
+  return currentRoute === 'playback' && audioRouteChoice !== 'owned-file-playback'
+    ? 'home'
+    : currentRoute;
+}
+
+export function mobileNavigation(route: AudioRouteChoice = 'physical-apo'): readonly NavigationItem[] {
+  return navigationForAudioRoute(route).filter((item) => item.mobile);
 }

@@ -27,6 +27,41 @@ on:
 jobs: {}
 `;
 
+const verificationPushWorkflow = validManualWorkflow.replace(
+  '  workflow_dispatch:\n',
+  '  push:\n    branches:\n      - feat/windows-signed-audio-paths\n  workflow_dispatch:\n',
+);
+
+const realisticVerificationWorkflow = `name: Manual Build
+
+on:
+  push:
+    branches:
+      - feat/windows-signed-audio-paths
+  workflow_dispatch:
+    inputs:
+      windows:
+        description: Build the Windows x64 package
+        required: false
+        type: boolean
+        default: true
+      linux:
+        description: Build Linux bundles
+        required: false
+        type: boolean
+        default: false
+      macos:
+        description: Build macOS bundles
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs: {}
+`;
+
 test('accepts a repository with no workflow directory', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'voxveil-workflows-'));
   assert.deepEqual(await auditWorkflows(root), []);
@@ -42,6 +77,23 @@ test('accepts the single manual-build workflow with the required platform toggle
   const root = await mkdtemp(path.join(os.tmpdir(), 'voxveil-workflows-'));
   await writeWorkflow(root, 'manual-build.yml', validManualWorkflow);
   assert.deepEqual(await auditWorkflows(root), []);
+});
+
+test('accepts the exact feature-branch verification push alongside manual dispatch', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'voxveil-workflows-'));
+  await writeWorkflow(root, 'manual-build.yml', verificationPushWorkflow);
+  assert.deepEqual(await auditWorkflows(root), []);
+});
+
+test('accepts the exact verification push in the real workflow shape and CRLF form', async () => {
+  for (const content of [
+    realisticVerificationWorkflow,
+    realisticVerificationWorkflow.replaceAll('\n', '\r\n'),
+  ]) {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'voxveil-workflows-'));
+    await writeWorkflow(root, 'manual-build.yml', content);
+    assert.deepEqual(await auditWorkflows(root), []);
+  }
 });
 
 test('rejects any additional YAML workflow file', async () => {
@@ -63,7 +115,31 @@ test('rejects automatic triggers in manual-build.yml', async () => {
   await writeWorkflow(root, 'manual-build.yml', automaticWorkflow);
 
   assert.deepEqual(await auditWorkflows(root), [
-    'manual-build.yml must be workflow_dispatch-only',
+    'manual-build.yml must be workflow_dispatch-only except for the exact feat/windows-signed-audio-paths verification push',
+  ]);
+});
+
+test('rejects a verification push scoped to any other branch', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'voxveil-workflows-'));
+  const wrongBranch = verificationPushWorkflow.replace(
+    '      - feat/windows-signed-audio-paths\n',
+    '      - main\n',
+  );
+  await writeWorkflow(root, 'manual-build.yml', wrongBranch);
+  assert.deepEqual(await auditWorkflows(root), [
+    'manual-build.yml must be workflow_dispatch-only except for the exact feat/windows-signed-audio-paths verification push',
+  ]);
+});
+
+test('rejects an additional branch from the verification push', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'voxveil-workflows-'));
+  const broadPush = verificationPushWorkflow.replace(
+    '      - feat/windows-signed-audio-paths\n',
+    '      - feat/windows-signed-audio-paths\n      - main\n',
+  );
+  await writeWorkflow(root, 'manual-build.yml', broadPush);
+  assert.deepEqual(await auditWorkflows(root), [
+    'manual-build.yml must be workflow_dispatch-only except for the exact feat/windows-signed-audio-paths verification push',
   ]);
 });
 

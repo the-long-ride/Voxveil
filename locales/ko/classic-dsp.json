@@ -1,0 +1,9 @@
+{
+  "classicPriority": "클래식 DSP 우선순위",
+  "musicPreservation": "음악 보존",
+  "balanced": "균형",
+  "strong": "강한 감소",
+  "musicPreservationDescription": "중앙에 배치된 악기를 최대한 보호합니다. 분리가 불명확하면 일부 보컬이 남을 수 있습니다.",
+  "balancedDescription": "보컬을 더 강하게 줄이면서 중앙 악기를 들을 수 있게 유지하고 중앙 성분의 완전 삭제를 피합니다.",
+  "strongDescription": "중앙 악기도 줄어들 수 있습니다. 거의 모노인 오디오는 더 많이 보호됩니다. Vocal 0은 최대 감소이며 무음을 보장하지 않습니다."
+}

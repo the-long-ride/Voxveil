@@ -31,28 +31,46 @@ function backendDescription(status: Exclude<ProcessingBackendStatus, 'ready'>, t
 export function HomeScreen({ model, aiModelReady }: { model: VoxveilModel; aiModelReady: boolean }) {
   const { t } = useTranslation();
   const { state } = model;
-  const showSystemAudio = state.backendStatus === 'component-required' || model.systemAudioEndpoints.length > 0;
+  const fileRouteSelected = state.audioRouteChoice === 'owned-file-playback';
+  const showSystemAudio = !fileRouteSelected && (state.backendStatus === 'component-required'
+    || state.backendStatus === 'routing-required'
+    || state.backendKind !== null
+    || model.systemAudioEndpoints.length > 0);
 
   return (
     <section className="screen" aria-labelledby="home-title">
       <ScreenIntro id="home-title" title={t('home.title')} description={t('home.description')} />
 
-      {state.backendStatus !== 'ready' && (
+      {state.audioRouteError && <div className="backend-notice" role="alert">{state.audioRouteError}</div>}
+
+      {fileRouteSelected ? (
+        <div className="backend-notice" role="status">
+          <strong>{t('systemAudio.ownedPlaybackRoute')}</strong>
+          <span>{t('systemAudio.ownedPlaybackDescription')}</span>
+        </div>
+      ) : state.backendStatus !== 'ready' && (
         <div className="backend-notice" role="status">
           <strong>{t('processing.backendUnavailable')}</strong>
-          <span>{backendDescription(state.backendStatus, t)}</span>
+          <span>{state.backendDetail ?? backendDescription(state.backendStatus, t)}</span>
         </div>
       )}
 
       {showSystemAudio && (
         <SystemAudioEndpoints
           endpoints={model.systemAudioEndpoints}
+          backendStatus={state.backendStatus}
+          backendKind={state.backendKind}
+          audioRouteChoice={state.audioRouteChoice}
+          physicalOutputs={model.physicalOutputs}
+          selectedPhysicalOutputId={state.physicalOutputEndpointId}
           busy={model.systemAudioEndpointsBusy}
           installBusyId={model.systemAudioInstallBusyId}
           error={model.systemAudioInstallError}
           onRefresh={model.refreshSystemAudioEndpoints}
           onInstall={model.installSystemAudioEndpoint}
-          onInstallAll={model.installAllSystemAudioEndpoints}
+          onSelectPhysicalOutput={model.selectPhysicalOutput}
+          onOpenSoundSettings={model.openWindowsSoundSettings}
+          onGetVbCable={model.openVbCableDownload}
         />
       )}
 
@@ -64,12 +82,12 @@ export function HomeScreen({ model, aiModelReady }: { model: VoxveilModel; aiMod
       <div className="control-grid">
         <SegmentedControl label={t('processing.mode')} value={state.processingMode} onChange={model.setProcessingMode} options={[
           { value: 'all', label: t('processing.allOutput') },
-          { value: 'per-app', label: t('processing.perApp'), disabled: !state.perAppProcessingAvailable },
+          { value: 'per-app', label: t('processing.perApp'), disabled: fileRouteSelected || !state.perAppProcessingAvailable },
         ]} />
         <SegmentedControl label={t('processing.engine')} value={state.engine} onChange={model.setEngine} options={[
-          { value: 'auto', label: t('engine.auto') },
+          { value: 'auto', label: t('engine.auto'), disabled: fileRouteSelected },
           { value: 'dsp', label: t('engine.dsp') },
-          { value: 'ai', label: t('engine.ai'), disabled: !aiModelReady },
+          { value: 'ai', label: t('engine.ai'), disabled: fileRouteSelected || !aiModelReady },
         ]} />
       </div>
 

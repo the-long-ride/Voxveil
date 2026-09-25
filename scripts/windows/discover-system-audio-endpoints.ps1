@@ -1,7 +1,20 @@
 [CmdletBinding()]
-param()
+param(
+  [string]$InputJson
+)
 
 $ErrorActionPreference = 'Stop'
+
+$trustedSystemDirectoryForModules = [Environment]::SystemDirectory
+if (-not $trustedSystemDirectoryForModules) {
+  throw 'Windows system directory could not be resolved for PowerShell module loading.'
+}
+$trustedModulePath = Join-Path $trustedSystemDirectoryForModules 'WindowsPowerShell\v1.0\Modules'
+if (-not (Test-Path $trustedModulePath -PathType Container)) {
+  throw "Trusted Windows PowerShell module directory was not found: $trustedModulePath"
+}
+$env:PSModulePath = $trustedModulePath
+$trustedWindowsDirectory = Split-Path -Parent $trustedSystemDirectoryForModules
 Set-StrictMode -Version Latest
 $TopologyGuid = '{DDA54A40-1E4C-11D1-A050-405705C10000}'
 $AudioGuid = '{6994AD04-93EF-11D0-A3CC-00A0C9223196}'
@@ -159,12 +172,16 @@ function Get-OptionalProperty($Object, [string]$Name) {
   return $null
 }
 
-$inputJson = [Console]::In.ReadToEnd()
+$inputJson = if ($PSBoundParameters.ContainsKey('InputJson')) {
+  $InputJson
+} else {
+  [Console]::In.ReadToEnd()
+}
 $trimmedInput = $inputJson.Trim()
 if (-not $trimmedInput) { throw 'Expected Core Audio endpoint JSON on stdin.' }
 if ($trimmedInput -match '^\[\s*\]$') {
   Write-Output '[]'
-  exit 0
+  return
 }
 $parsedEndpoints = ConvertFrom-Json $inputJson
 $coreEndpoints = [Collections.Generic.List[object]]::new()
@@ -218,7 +235,7 @@ foreach ($endpoint in $coreEndpoints) {
     continue
   }
 
-  $infPath = Join-Path $env:windir ('INF\' + $metadata.DriverInf)
+  $infPath = Join-Path $trustedWindowsDirectory ('INF\' + $metadata.DriverInf)
   $topology = @(Get-TopologyReferences $infPath $metadata.HardwareIds $runtimeAliasMatch)
   if ($topology.Count -gt 1) {
     $detail = 'Multiple same-device interface reference strings matched; Voxveil will not guess.'

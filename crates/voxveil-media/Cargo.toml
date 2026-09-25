@@ -1,0 +1,13 @@
+[package]
+name = "voxveil-media"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+claxon = { version = "=0.4.3", default-features = false }
+hound = { version = "=3.5.1", default-features = false }
+lewton = { version = "=0.10.2", default-features = false, features = ["ogg"] }
+nanomp3 = { version = "=0.1.1", default-features = false }

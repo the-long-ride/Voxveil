@@ -15,7 +15,25 @@
     "apps": "应用",
     "routing": "路由",
     "engine": "引擎",
+    "playback": "播放器",
     "settings": "设置"
+  },
+  "playback": {
+    "title": "在 Voxveil 中播放文件",
+    "description": "打开 MP3、WAV、FLAC 或 Ogg Vorbis 文件，仅通过经典 DSP 处理其音频，然后发送到物理输出设备。",
+    "controls": "播放控制",
+    "open": "打开音乐文件",
+    "pause": "暂停",
+    "resume": "继续",
+    "stop": "停止",
+    "output": "物理输出",
+    "outputDescription": "处理后的音频只发送到此输出设备。",
+    "chooseOutput": "选择输出设备",
+    "seek": "定位",
+    "noFile": "未打开文件",
+    "noOutput": "未选择输出设备",
+    "onlyFile": "仅处理在此打开的文件。其他应用仍可正常播放。",
+    "status": { "stopped": "已停止", "loading": "正在加载", "playing": "正在播放", "paused": "已暂停", "ended": "已完成", "faulted": "播放错误" }
   },
   "home": {
     "eyeline": "实时人声控制",

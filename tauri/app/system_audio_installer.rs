@@ -1,0 +1,171 @@
+use std::os::windows::process::CommandExt;
+use std::path::{Path, PathBuf};
+
+use sha2::{Digest, Sha256};
+
+use super::powershell_single_quoted;
+
+const TRUSTED_SYSTEM_AUDIO_INSTALLER: &[u8] =
+    include_bytes!("../../scripts/windows/install-system-audio-component.ps1");
+
+const TRUSTED_DISCOVERY_SHA256: Option<&str> = option_env!("VOXVEIL_DISCOVERY_SHA256");
+const TRUSTED_CONTROL_SHA256: Option<&str> = option_env!("VOXVEIL_CONTROL_SHA256");
+const TRUSTED_CONTROL_DLL_SHA256: Option<&str> = option_env!("VOXVEIL_CONTROL_DLL_SHA256");
+
+const TRUSTED_APO_INF_SHA256: Option<&str> = option_env!("VOXVEIL_APO_INF_SHA256");
+const TRUSTED_APO_DLL_SHA256: Option<&str> = option_env!("VOXVEIL_APO_DLL_SHA256");
+const TRUSTED_APO_CATALOG_SHA256: Option<&str> = option_env!("VOXVEIL_APO_CATALOG_SHA256");
+const TRUSTED_APO_EXTENSION_INF_SHA256: Option<&str> =
+    option_env!("VOXVEIL_APO_EXTENSION_INF_SHA256");
+const TRUSTED_APO_EXTENSION_CATALOG_SHA256: Option<&str> =
+    option_env!("VOXVEIL_APO_EXTENSION_CATALOG_SHA256");
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum InstallerLaunchOutcome {
+    Completed,
+    RebootRequired,
+}
+
+pub(super) fn installer_launch_outcome(
+    exit_code: Option<i32>,
+) -> Result<InstallerLaunchOutcome, String> {
+    match exit_code {
+        Some(0) => Ok(InstallerLaunchOutcome::Completed),
+        Some(3010) => Ok(InstallerLaunchOutcome::RebootRequired),
+        _ => Err("The system-audio installer was cancelled or exited with an error.".into()),
+    }
+}
+
+pub(super) fn sha256_hex(bytes: &[u8]) -> String {
+    use std::fmt::Write as _;
+
+    let digest = Sha256::digest(bytes);
+    let mut output = String::with_capacity(digest.len() * 2);
+    for byte in digest {
+        write!(&mut output, "{byte:02x}").expect("writing to String cannot fail");
+    }
+    output
+}
+
+fn windows_powershell_path() -> Result<PathBuf, String> {
+    let system_directory = voxveil_windows_audio::windows_system_directory()?;
+    let path = system_directory.join(r"WindowsPowerShell\v1.0\powershell.exe");
+    if !path.is_file() {
+        return Err(format!("Windows PowerShell was not found at {}.", path.display()));
+    }
+    Ok(path)
+}
+
+fn verify_trusted_installer(script: &Path) -> Result<String, String> {
+    let expected = sha256_hex(TRUSTED_SYSTEM_AUDIO_INSTALLER);
+    let actual_bytes = std::fs::read(script)
+        .map_err(|error| format!("failed to read bundled system-audio installer: {error}"))?;
+    let actual = sha256_hex(&actual_bytes);
+    if actual != expected {
+        return Err("Bundled system-audio installer failed integrity verification.".into());
+    }
+    Ok(expected)
+}
+
+fn embedded_sha256(value: Option<&'static str>, description: &str) -> Result<String, String> {
+    let value = value.ok_or_else(|| {
+        format!("Voxveil was built without the trusted {description} SHA-256.")
+    })?;
+    if value.len() != 64 || !value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(format!("Voxveil contains an invalid trusted {description} SHA-256."));
+    }
+    Ok(value.to_ascii_lowercase())
+}
+
+fn verify_trusted_packaged_file(
+    path: &Path,
+    expected_sha256: &str,
+    description: &str,
+) -> Result<(), String> {
+    let bytes = std::fs::read(path)
+        .map_err(|error| format!("failed to read packaged {description}: {error}"))?;
+    if sha256_hex(&bytes) != expected_sha256 {
+        return Err(format!("Packaged {description} failed integrity verification."));
+    }
+    Ok(())
+}
+
+pub(super) fn launch_system_audio_installer(
+    script: &Path,
+    descriptor: &Path,
+    descriptor_sha256: &str,
+) -> Result<InstallerLaunchOutcome, String> {
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    let powershell_path = windows_powershell_path()?;
+    let powershell = powershell_single_quoted(&powershell_path.to_string_lossy());
+    let script_sha256 = verify_trusted_installer(script)?;
+    let system_audio_dir = script
+        .parent()
+        .ok_or_else(|| "Bundled system-audio installer has no parent directory.".to_string())?;
+    let discovery_sha256 = embedded_sha256(TRUSTED_DISCOVERY_SHA256, "endpoint discovery helper")?;
+    let control_sha256 = embedded_sha256(TRUSTED_CONTROL_SHA256, "control executable")?;
+    let control_dll_sha256 = embedded_sha256(TRUSTED_CONTROL_DLL_SHA256, "control DLL")?;
+    let apo_inf_sha256 = embedded_sha256(TRUSTED_APO_INF_SHA256, "APO INF")?;
+    let apo_dll_sha256 = embedded_sha256(TRUSTED_APO_DLL_SHA256, "APO DLL")?;
+    let apo_catalog_sha256 = embedded_sha256(TRUSTED_APO_CATALOG_SHA256, "APO catalog")?;
+    let extension_inf_sha256 =
+        embedded_sha256(TRUSTED_APO_EXTENSION_INF_SHA256, "APO Extension INF")?;
+    let extension_catalog_sha256 = embedded_sha256(
+        TRUSTED_APO_EXTENSION_CATALOG_SHA256,
+        "APO Extension catalog",
+    )?;
+    verify_trusted_packaged_file(
+        &system_audio_dir.join("discover-system-audio-endpoints.ps1"),
+        &discovery_sha256,
+        "endpoint discovery helper",
+    )?;
+    verify_trusted_packaged_file(
+        &system_audio_dir.join("voxveil-control.exe"),
+        &control_sha256,
+        "control executable",
+    )?;
+    verify_trusted_packaged_file(
+        &system_audio_dir.join("VoxveilControl.dll"),
+        &control_dll_sha256,
+        "control DLL",
+    )?;
+    verify_trusted_packaged_file(
+        &system_audio_dir.join("VoxveilApo.inf"),
+        &apo_inf_sha256,
+        "APO INF",
+    )?;
+    verify_trusted_packaged_file(
+        &system_audio_dir.join("VoxveilApo.dll"),
+        &apo_dll_sha256,
+        "APO DLL",
+    )?;
+    verify_trusted_packaged_file(
+        &system_audio_dir.join("VoxveilApo.cat"),
+        &apo_catalog_sha256,
+        "APO catalog",
+    )?;
+    verify_trusted_packaged_file(
+        &system_audio_dir.join("VoxveilApoExtension.inf"),
+        &extension_inf_sha256,
+        "APO Extension INF",
+    )?;
+    verify_trusted_packaged_file(
+        &system_audio_dir.join("VoxveilApoExtension.cat"),
+        &extension_catalog_sha256,
+        "APO Extension catalog",
+    )?;
+    let script = powershell_single_quoted(&script.to_string_lossy());
+    let package_root = powershell_single_quoted(&system_audio_dir.to_string_lossy());
+    let descriptor = powershell_single_quoted(&descriptor.to_string_lossy());
+    let descriptor_sha256 = powershell_single_quoted(descriptor_sha256);
+    let script_sha256 = powershell_single_quoted(&script_sha256);
+    let launch = format!(
+        r#"$ErrorActionPreference='Stop'; $powershell='{powershell}'; $script='{script}'; $packageRoot='{package_root}'; $descriptor='{descriptor}'; $descriptorSha256='{descriptor_sha256}'; $scriptSha256='{script_sha256}'; $scriptB64=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($script)); $packageRootB64=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($packageRoot)); $descriptorB64=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($descriptor)); $elevatedCommand="`$ErrorActionPreference='Stop'; `$script=[Text.Encoding]::Unicode.GetString([Convert]::FromBase64String('$scriptB64')); `$packageRoot=[Text.Encoding]::Unicode.GetString([Convert]::FromBase64String('$packageRootB64')); `$descriptor=[Text.Encoding]::Unicode.GetString([Convert]::FromBase64String('$descriptorB64')); `$scriptLock=[IO.File]::Open(`$script,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::None); try {{ `$sha=[Security.Cryptography.SHA256]::Create(); try {{ `$actualScriptSha256=([BitConverter]::ToString(`$sha.ComputeHash(`$scriptLock))).Replace('-','').ToLowerInvariant() }} finally {{ `$sha.Dispose() }}; if (`$actualScriptSha256 -ne '$scriptSha256') {{ Write-Error 'Bundled system-audio installer integrity check failed.'; exit 1 }}; `$scriptLock.Position=0; `$reader=[IO.StreamReader]::new(`$scriptLock,[Text.Encoding]::UTF8,`$true,4096,`$true); try {{ `$scriptText=`$reader.ReadToEnd() }} finally {{ `$reader.Dispose() }}; `$scriptBlock=[ScriptBlock]::Create(`$scriptText); & `$scriptBlock -TrustedPackageRoot `$packageRoot -EndpointDescriptor `$descriptor -EndpointDescriptorSha256 '$descriptorSha256' -DiscoveryHelperSha256 '{discovery_sha256}' -ControlHelperSha256 '{control_sha256}' -ControlDllSha256 '{control_dll_sha256}' -ExpectedApoInfSha256 '{apo_inf_sha256}' -ExpectedApoDllSha256 '{apo_dll_sha256}' -ExpectedApoCatalogSha256 '{apo_catalog_sha256}' -ExpectedExtensionInfSha256 '{extension_inf_sha256}' -ExpectedExtensionCatalogSha256 '{extension_catalog_sha256}'; `$installerExit=`$LASTEXITCODE }} finally {{ `$scriptLock.Dispose() }}; exit `$installerExit"; $encodedCommand=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($elevatedCommand)); try {{ $process=Start-Process -FilePath $powershell -Verb RunAs -Wait -PassThru -ArgumentList @('-NoLogo','-NoProfile','-ExecutionPolicy','Bypass','-EncodedCommand',$encodedCommand); exit $process.ExitCode }} catch {{ Write-Error $_; exit 1 }}"#,
+    );
+    let status = std::process::Command::new(&powershell_path)
+        .args(["-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &launch])
+        .creation_flags(CREATE_NO_WINDOW)
+        .status()
+        .map_err(|error| format!("failed to open the system-audio installer: {error}"))?;
+    installer_launch_outcome(status.code())
+}

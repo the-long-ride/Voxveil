@@ -15,7 +15,25 @@
     "apps": "Aplicaciones",
     "routing": "Enrutamiento",
     "engine": "Motor",
+    "playback": "Reproductor",
     "settings": "Ajustes"
+  },
+  "playback": {
+    "title": "Reproducir archivos en Voxveil",
+    "description": "Abre archivos MP3, WAV, FLAC u Ogg Vorbis y procesa solo su audio con DSP clásico antes de enviarlo a una salida física.",
+    "controls": "Controles de reproducción",
+    "open": "Abrir archivo de música",
+    "pause": "Pausar",
+    "resume": "Reanudar",
+    "stop": "Detener",
+    "output": "Salida física",
+    "outputDescription": "El audio procesado se envía únicamente a esta salida.",
+    "chooseOutput": "Elegir una salida",
+    "seek": "Buscar",
+    "noFile": "No hay ningún archivo abierto",
+    "noOutput": "No se ha elegido una salida",
+    "onlyFile": "Solo se procesa el archivo abierto aquí. Las demás aplicaciones siguen reproduciendo con normalidad.",
+    "status": { "stopped": "Detenido", "loading": "Cargando", "playing": "Reproduciendo", "paused": "En pausa", "ended": "Finalizado", "faulted": "Error de reproducción" }
   },
   "home": {
     "eyeline": "Control vocal en tiempo real",

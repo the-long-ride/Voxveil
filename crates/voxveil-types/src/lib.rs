@@ -6,7 +6,8 @@ pub mod routing;
 
 pub use audio::{ChannelCount, SampleRate};
 pub use processing::{
-    ProcessingBackendStatus, ProcessingEngineKind, ProcessingLoad, ProcessingMode,
-    QualityPreference, UnitValue, VocalLevel,
+    AudioPlaybackSnapshot, AudioPlaybackStatus, AudioRouteChoice, ClassicSuppressionProfile, ProcessingBackendStatus, ProcessingEngineKind,
+    ProcessingLoad, ProcessingMode, QualityPreference, UnitValue, VocalLevel,
+    WindowsInterceptionPolicy,
 };
 pub use routing::{AudioBypassReason, AudioSourceCategory, OutputMode};

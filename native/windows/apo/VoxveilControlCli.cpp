@@ -12,7 +12,9 @@ namespace {
 
 using SetEnabledFn = int(__stdcall*)(int);
 using SetVocalFn = int(__stdcall*)(unsigned int);
+using SetProfileFn = int(__stdcall*)(unsigned int);
 using GetStateFn = int(__stdcall*)(int*, unsigned int*, unsigned int*, unsigned int*);
+using GetCapxStateFn = int(__stdcall*)(int*, unsigned int*);
 
 constexpr wchar_t kFxKey[] = L"FX\\0";
 constexpr wchar_t kFxAssociation[] = L"{D04E05A6-594B-4FB6-A80D-01AF5EED7D1D},0";
@@ -23,6 +25,11 @@ constexpr wchar_t kKsNodeTypeAny[] = L"{00000000-0000-0000-0000-000000000000}";
 constexpr wchar_t kModeDefault[] = L"{C18E2F7E-933D-4965-B7D1-1EEF228D2AF3}";
 constexpr wchar_t kModeMedia[] = L"{4780004E-7133-41D8-8C74-660DADD2C0EE}";
 constexpr wchar_t kModeMovie[] = L"{B26FEB0D-EC94-477C-9494-D1AB8E753F6E}";
+
+constexpr GUID kKsCategoryTopology{
+    0xdda54a40, 0x1e4c, 0x11d1, {0xa0, 0x50, 0x40, 0x57, 0x05, 0xc1, 0x00, 0x00}};
+constexpr GUID kKsCategoryAudio{
+    0x6994ad04, 0x93ef, 0x11d0, {0xa3, 0xcc, 0x00, 0xa0, 0xc9, 0x22, 0x31, 0x96}};
 
 std::filesystem::path ControlDllPath() {
     wchar_t buffer[MAX_PATH]{};
@@ -63,6 +70,7 @@ int ReadDeviceInstanceId(HDEVINFO set, SP_DEVINFO_DATA& deviceInfo, std::wstring
 int OpenInterfaceFxKey(
     const wchar_t* expectedInstanceId,
     const wchar_t* interfacePath,
+    const GUID& expectedInterfaceClass,
     bool create,
     HKEY* fxKey) {
     *fxKey = nullptr;
@@ -77,6 +85,10 @@ int OpenInterfaceFxKey(
         const int error = static_cast<int>(GetLastError());
         SetupDiDestroyDeviceInfoList(set);
         return error;
+    }
+    if (!IsEqualGUID(interfaceData.InterfaceClassGuid, expectedInterfaceClass)) {
+        SetupDiDestroyDeviceInfoList(set);
+        return ERROR_INVALID_PARAMETER;
     }
 
     DWORD required = 0;
@@ -286,7 +298,12 @@ int MutateRuntimeInterfaces(
     const wchar_t* audioPath) {
     HKEY topologyKey = nullptr;
     HKEY audioKey = nullptr;
-    int result = OpenInterfaceFxKey(expectedInstanceId, topologyPath, attach, &topologyKey);
+    int result = OpenInterfaceFxKey(
+        expectedInstanceId,
+        topologyPath,
+        kKsCategoryTopology,
+        attach,
+        &topologyKey);
     if (!attach && result == ERROR_FILE_NOT_FOUND) {
         result = ERROR_SUCCESS;
     }
@@ -294,7 +311,12 @@ int MutateRuntimeInterfaces(
         return result;
     }
 
-    result = OpenInterfaceFxKey(expectedInstanceId, audioPath, attach, &audioKey);
+    result = OpenInterfaceFxKey(
+        expectedInstanceId,
+        audioPath,
+        kKsCategoryAudio,
+        attach,
+        &audioKey);
     if (!attach && result == ERROR_FILE_NOT_FOUND) {
         result = ERROR_SUCCESS;
     }
@@ -335,14 +357,17 @@ int MutateRuntimeInterfaces(
 void PrintUsage() {
     std::wcerr
         << L"usage: voxveil-control status | enabled <0|1> | vocal <0..100> | "
+        << L"profile <music-preservation|balanced|strong> | "
         << L"attach-effects <binding-instance-id> <topology-interface-path> <audio-interface-path> | "
-        << L"detach-effects <binding-instance-id> <topology-interface-path> <audio-interface-path>\n";
+        << L"detach-effects <binding-instance-id> <topology-interface-path> <audio-interface-path>\n"
+        << L"attach-effects/detach-effects are legacy development operations; they are not the Windows 11 CAPX production path.\n";
 }
 
 } // namespace
 
 int wmain(int argc, wchar_t** argv) {
     if (argc == 5 && std::wstring(argv[1]) == L"attach-effects") {
+        std::wcerr << L"warning: attach-effects writes legacy FX\\0 properties for development/legacy use only; it is not CAPX production binding.\n";
         const int result = MutateRuntimeInterfaces(true, argv[2], argv[3], argv[4]);
         if (result != ERROR_SUCCESS) {
             std::wcerr << L"runtime interface attachment failed: " << result << L'\n';
@@ -365,8 +390,10 @@ int wmain(int argc, wchar_t** argv) {
 
     auto setEnabled = reinterpret_cast<SetEnabledFn>(GetProcAddress(module, "VoxveilSetEnabled"));
     auto setVocal = reinterpret_cast<SetVocalFn>(GetProcAddress(module, "VoxveilSetVocalLevel"));
+    auto setProfile = reinterpret_cast<SetProfileFn>(GetProcAddress(module, "VoxveilSetSuppressionProfile"));
     auto getState = reinterpret_cast<GetStateFn>(GetProcAddress(module, "VoxveilGetState"));
-    if (setEnabled == nullptr || setVocal == nullptr || getState == nullptr) {
+    auto getCapxState = reinterpret_cast<GetCapxStateFn>(GetProcAddress(module, "VoxveilGetCapxState"));
+    if (setEnabled == nullptr || setVocal == nullptr || setProfile == nullptr || getState == nullptr) {
         std::wcerr << L"VoxveilControl.dll is missing required exports\n";
         FreeLibrary(module);
         return 3;
@@ -383,7 +410,18 @@ int wmain(int argc, wchar_t** argv) {
             std::wcout << L"enabled=" << enabled
                        << L" vocal=" << vocal
                        << L" heartbeat=" << heartbeat
-                       << L" loaded=" << loaded << L'\n';
+                       << L" loaded=" << loaded;
+
+            if (getCapxState != nullptr) {
+                int systemEffectEnabled = 0;
+                unsigned int capxInstances = 0;
+                const int capxResult = getCapxState(&systemEffectEnabled, &capxInstances);
+                if (capxResult == ERROR_SUCCESS) {
+                    std::wcout << L" system-effect=" << systemEffectEnabled
+                               << L" capx=" << capxInstances;
+                }
+            }
+            std::wcout << L'\n';
         }
     } else if (argc == 3 && std::wstring(argv[1]) == L"enabled") {
         const std::wstring value(argv[2]);
@@ -395,6 +433,15 @@ int wmain(int argc, wchar_t** argv) {
         result = ParsePercent(argv[2], &percent);
         if (result == ERROR_SUCCESS) {
             result = setVocal(percent);
+        }
+    } else if (argc == 3 && std::wstring(argv[1]) == L"profile") {
+        const std::wstring value(argv[2]);
+        if (value == L"music-preservation") {
+            result = setProfile(0);
+        } else if (value == L"balanced") {
+            result = setProfile(1);
+        } else if (value == L"strong") {
+            result = setProfile(2);
         }
     } else {
         PrintUsage();

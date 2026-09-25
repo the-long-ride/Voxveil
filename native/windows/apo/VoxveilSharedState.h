@@ -5,21 +5,30 @@
 
 namespace voxveil {
 
-constexpr wchar_t kSharedStateName[] = L"Local\\VoxveilApoControl-v1";
-constexpr LONG kSharedStateAbi = 1;
+constexpr wchar_t kSharedStateName[] = L"Local\\VoxveilApoControl-v4";
+constexpr LONG kSharedStateAbi = 4;
+constexpr LONG kSharedStateInitializing = -1;
+constexpr LONG kMusicPreservationProfile = 0;
+constexpr LONG kBalancedProfile = 1;
+constexpr LONG kStrongProfile = 2;
 
 struct SharedState {
     volatile LONG abi;
     volatile LONG enabled;
+    volatile LONG systemEffectEnabled;
     volatile LONG vocalPercent;
+    volatile LONG suppressionProfile;
     volatile LONG heartbeat;
     volatile LONG loadedInstances;
+    volatile LONG capxInstances;
 };
 
 inline SharedState* OpenOrCreateSharedState(HANDLE* mappingOut) noexcept {
     if (mappingOut == nullptr) {
         return nullptr;
     }
+
+    *mappingOut = nullptr;
 
     PSECURITY_DESCRIPTOR descriptor = nullptr;
     SECURITY_ATTRIBUTES attributes{};
@@ -34,6 +43,7 @@ inline SharedState* OpenOrCreateSharedState(HANDLE* mappingOut) noexcept {
         attributes.lpSecurityDescriptor = descriptor;
     }
 
+    SetLastError(ERROR_SUCCESS);
     HANDLE mapping = CreateFileMappingW(
         INVALID_HANDLE_VALUE,
         attributes.lpSecurityDescriptor != nullptr ? &attributes : nullptr,
@@ -41,6 +51,7 @@ inline SharedState* OpenOrCreateSharedState(HANDLE* mappingOut) noexcept {
         0,
         sizeof(SharedState),
         kSharedStateName);
+    const DWORD createError = GetLastError();
 
     if (descriptor != nullptr) {
         LocalFree(descriptor);
@@ -56,11 +67,31 @@ inline SharedState* OpenOrCreateSharedState(HANDLE* mappingOut) noexcept {
         return nullptr;
     }
 
-    if (InterlockedCompareExchange(&state->abi, kSharedStateAbi, 0) == 0) {
+    if (createError != ERROR_ALREADY_EXISTS) {
+        InterlockedExchange(&state->abi, kSharedStateInitializing);
         InterlockedExchange(&state->enabled, 0);
+        InterlockedExchange(&state->systemEffectEnabled, 1);
         InterlockedExchange(&state->vocalPercent, 100);
+        InterlockedExchange(&state->suppressionProfile, kMusicPreservationProfile);
         InterlockedExchange(&state->heartbeat, 0);
         InterlockedExchange(&state->loadedInstances, 0);
+        InterlockedExchange(&state->capxInstances, 0);
+        MemoryBarrier();
+        InterlockedExchange(&state->abi, kSharedStateAbi);
+    } else {
+        LONG observedAbi = InterlockedCompareExchange(&state->abi, 0, 0);
+        for (unsigned int attempt = 0;
+             attempt < 100 && (observedAbi == 0 || observedAbi == kSharedStateInitializing);
+             ++attempt) {
+            Sleep(1);
+            observedAbi = InterlockedCompareExchange(&state->abi, 0, 0);
+        }
+        if (observedAbi != kSharedStateAbi) {
+            UnmapViewOfFile(state);
+            CloseHandle(mapping);
+            SetLastError(ERROR_REVISION_MISMATCH);
+            return nullptr;
+        }
     }
 
     *mappingOut = mapping;

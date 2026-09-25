@@ -15,7 +15,25 @@
     "apps": "Apps",
     "routing": "Routing",
     "engine": "Engine",
+    "playback": "Player",
     "settings": "Settings"
+  },
+  "playback": {
+    "title": "Play files in Voxveil",
+    "description": "Open MP3, WAV, FLAC, or Ogg Vorbis files and process only their audio through Classic DSP before sending it to a physical output.",
+    "controls": "Playback controls",
+    "open": "Open music file",
+    "pause": "Pause",
+    "resume": "Resume",
+    "stop": "Stop",
+    "output": "Physical output",
+    "outputDescription": "Processed audio is sent only to this output.",
+    "chooseOutput": "Choose an output",
+    "seek": "Seek",
+    "noFile": "No file open",
+    "noOutput": "No output selected",
+    "onlyFile": "Only the file opened here is processed. Other apps continue to play normally.",
+    "status": { "stopped": "Stopped", "loading": "Loading", "playing": "Playing", "paused": "Paused", "ended": "Finished", "faulted": "Playback error" }
   },
   "home": {
     "eyeline": "Real-time vocal control",

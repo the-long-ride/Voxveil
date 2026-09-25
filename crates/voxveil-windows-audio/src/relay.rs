@@ -1,84 +1,244 @@
-use std::env;
-use std::path::PathBuf;
-use std::process::Command;
+use std::time::{Duration, Instant};
 
-use wasapi::{DeviceEnumerator, Direction};
+use voxveil_types::{ClassicSuppressionProfile, WindowsInterceptionPolicy};
 
-use crate::device::{BackendProbe, EndpointDescriptor, RelayReadiness, component_probe};
+use crate::device::{BackendProbe, EndpointDescriptor};
 use crate::discovery::{SystemAudioEndpoint, SystemAudioEndpointStatus, enrich_endpoints};
+use crate::relay_engine::{RelayHandle, RelayRuntimeState, RelaySpec};
+use crate::route::select_physical_output;
+use crate::virtual_endpoint::{
+    VirtualEndpointKind, classify_virtual_endpoint, find_preferred_virtual_endpoint,
+};
+
+#[path = "relay_control.rs"]
+mod control;
+#[path = "relay_enumeration.rs"]
+mod enumeration;
+#[path = "relay_probe.rs"]
+mod probe;
+#[path = "relay_support.rs"]
+mod support;
+
+use control::{
+    control_executable, control_executable_for_installed_apo, run_control, system_audio_directory,
+};
+use enumeration::enumerate_render_blocking;
+use support::{
+    decide_backend, decide_backend_with_policy, fault_probe, profile_control_value,
+    query_apo_coverage, set_apo_enabled, should_fail_closed_after_probe,
+    should_sync_apo_after_relay, sync_apo_control,
+};
 
 pub struct WindowsAudioBackend {
+    enabled: bool,
     vocal_level: u8,
+    classic_suppression_profile: ClassicSuppressionProfile,
+    relay: Option<RelayHandle>,
+    preferred_physical_output_id: Option<String>,
+    interception_policy: WindowsInterceptionPolicy,
 }
 
 impl WindowsAudioBackend {
     pub fn new() -> Self {
-        Self { vocal_level: 100 }
-    }
-
-    pub fn probe(&mut self) -> BackendProbe {
-        let physical_output = default_render_name().ok().flatten();
-        let Some(control) = control_executable() else {
-            return component_probe(false, 0, physical_output);
-        };
-
-        match run_control(&control, &["status"]) {
-            Ok(output) => match parse_loaded_instances(&output) {
-                Some(loaded) => component_probe(true, loaded, physical_output),
-                None => fault_probe(
-                    physical_output,
-                    "Voxveil control status did not contain a loaded instance count".into(),
-                ),
-            },
-            Err(error) => fault_probe(physical_output, error),
+        Self {
+            enabled: false,
+            vocal_level: 100,
+            classic_suppression_profile: ClassicSuppressionProfile::default(),
+            relay: None,
+            preferred_physical_output_id: None,
+            interception_policy: WindowsInterceptionPolicy::Automatic,
         }
     }
 
     pub fn set_enabled(&mut self, enabled: bool, vocal_level: u8) -> Result<BackendProbe, String> {
         self.vocal_level = vocal_level.min(100);
-        let control = control_executable().ok_or_else(|| {
-            "Voxveil system-audio control component is not installed beside the application"
-                .to_string()
+        if !enabled {
+            self.enabled = false;
+            if let Some(mut relay) = self.relay.take() {
+                relay.stop()?;
+            }
+            if let Some(control) = control_executable_for_installed_apo()? {
+                run_control(&control, &["enabled", "0"])?;
+            }
+            return Ok(self.probe());
+        }
+
+        if !self.interception_policy.allows_physical_apo() {
+            return Err(
+                "system-wide audio processing is disabled while local file playback is selected"
+                    .into(),
+            );
+        }
+
+        let endpoints = enumerate_render_blocking()?;
+        let (loaded_instances, apo_covers_default) = match query_apo_coverage(&endpoints) {
+            Ok(value) => value,
+            Err(error) => {
+                self.disable_processing_best_effort();
+                return Err(format!("failed to query Voxveil APO status: {error}"));
+            }
+        };
+        if apo_covers_default {
+            if let Some(mut relay) = self.relay.take() {
+                relay.stop()?;
+            }
+            sync_apo_control(self.vocal_level, self.classic_suppression_profile, true)?;
+            self.enabled = true;
+            return Ok(self.probe());
+        }
+        if loaded_instances > 0 {
+            set_apo_enabled(false).map_err(|error| {
+                format!("failed to disable a Voxveil APO loaded on another endpoint: {error}")
+            })?;
+        }
+
+        if !self.interception_policy.allows_virtual_relay() {
+            self.enabled = false;
+            return Ok(self.probe());
+        }
+
+        let (virtual_kind, source) = find_preferred_virtual_endpoint(&endpoints).ok_or_else(|| {
+            "Install the standard VB-CABLE virtual audio device or a verified Voxveil virtual audio driver to enable system-wide processing".to_string()
+        })?;
+        if !source.is_default {
+            return Err(match virtual_kind {
+                VirtualEndpointKind::VoxveilCable => {
+                    "Set Voxveil Input as the Windows default output before enabling Voxveil".into()
+                }
+                VirtualEndpointKind::VbCable => {
+                    "Set CABLE Input as the Windows default output before enabling Voxveil".into()
+                }
+            });
+        }
+        let physical = select_physical_output(
+            &endpoints,
+            &source.id,
+            self.preferred_physical_output_id.as_deref(),
+        )
+        .ok_or_else(|| {
+            "No safe physical playback endpoint is available for the relay".to_string()
         })?;
 
-        let percent = self.vocal_level.to_string();
-        run_control(&control, &["vocal", percent.as_str()])?;
-        run_control(&control, &["enabled", if enabled { "1" } else { "0" }])?;
-
-        let probe = self.probe();
-        if enabled && probe.readiness != RelayReadiness::Ready {
-            return Err(probe
-                .detail
-                .clone()
-                .unwrap_or_else(|| "Voxveil APO is not attached to the active render endpoint".into()));
+        if let Some(mut relay) = self.relay.take() {
+            relay.stop()?;
         }
-        Ok(probe)
+        let spec = RelaySpec {
+            source_endpoint_id: source.id.clone(),
+            physical_output_endpoint_id: physical.id.clone(),
+        };
+        let relay = RelayHandle::start_wasapi_with_profile(
+            spec,
+            self.vocal_level,
+            self.classic_suppression_profile,
+        )?;
+        self.relay = Some(relay);
+
+        let deadline = Instant::now() + Duration::from_secs(2);
+        loop {
+            let state = self
+                .relay
+                .as_ref()
+                .map(RelayHandle::state)
+                .unwrap_or(RelayRuntimeState::Stopped);
+            match state {
+                RelayRuntimeState::Running => {
+                    self.enabled = true;
+                    return Ok(self.probe());
+                }
+                RelayRuntimeState::Faulted(error) => {
+                    self.relay.take();
+                    self.enabled = false;
+                    return Err(error);
+                }
+                RelayRuntimeState::Stopped => {
+                    self.relay.take();
+                    self.enabled = false;
+                    return Err("Windows audio relay stopped during startup".into());
+                }
+                RelayRuntimeState::Starting if Instant::now() < deadline => {
+                    std::thread::sleep(Duration::from_millis(10));
+                }
+                RelayRuntimeState::Starting => {
+                    if let Some(mut relay) = self.relay.take() {
+                        let _ = relay.stop();
+                    }
+                    self.enabled = false;
+                    return Err("Windows audio relay did not become ready within 2 seconds".into());
+                }
+            }
+        }
     }
 
-    pub fn set_vocal_level(&self, value: u8) {
-        if let Some(control) = control_executable() {
-            let percent = value.min(100).to_string();
-            let _ = run_control(&control, &["vocal", percent.as_str()]);
+    pub fn set_vocal_level(&mut self, value: u8) -> Result<(), String> {
+        let vocal_level = value.min(100);
+        if let Some(relay) = &self.relay {
+            relay.set_vocal_level(vocal_level)?;
+        } else if let Some(control) = control_executable_for_installed_apo()? {
+            let percent = vocal_level.to_string();
+            run_control(&control, &["vocal", percent.as_str()])?;
         }
+        self.vocal_level = vocal_level;
+        Ok(())
     }
 
-    pub fn physical_outputs(&self) -> Vec<String> {
-        enumerate_render_blocking()
-            .map(|items| items.into_iter().map(|item| item.name).collect())
-            .unwrap_or_default()
+    pub fn set_classic_suppression_profile(
+        &mut self,
+        profile: ClassicSuppressionProfile,
+    ) -> Result<(), String> {
+        if let Some(relay) = &self.relay {
+            relay.set_suppression_profile(profile)?;
+        } else if let Some(control) = control_executable_for_installed_apo()? {
+            run_control(&control, &["profile", profile_control_value(profile)])?;
+        }
+        self.classic_suppression_profile = profile;
+        Ok(())
+    }
+
+    pub fn set_physical_output(
+        &mut self,
+        endpoint_id: Option<String>,
+    ) -> Result<BackendProbe, String> {
+        if let Some(endpoint_id) = endpoint_id.as_deref() {
+            let endpoints = enumerate_render_blocking()?;
+            let endpoint = endpoints
+                .iter()
+                .find(|endpoint| endpoint.id == endpoint_id)
+                .ok_or_else(|| {
+                    "The selected physical playback endpoint is no longer available".to_string()
+                })?;
+            if classify_virtual_endpoint(endpoint).is_some() {
+                return Err(
+                    "A virtual interception endpoint cannot be used as physical output".into(),
+                );
+            }
+        }
+        if let Some(mut relay) = self.relay.take() {
+            self.enabled = false;
+            relay.stop()?;
+        }
+        self.preferred_physical_output_id = endpoint_id;
+        Ok(self.probe())
+    }
+
+    pub fn set_interception_policy(&mut self, policy: WindowsInterceptionPolicy) -> BackendProbe {
+        self.interception_policy = policy;
+        self.probe()
+    }
+
+    pub fn physical_outputs(&self) -> Result<Vec<EndpointDescriptor>, String> {
+        Ok(enumerate_render_blocking()?
+            .into_iter()
+            .filter(|item| classify_virtual_endpoint(item).is_none())
+            .collect())
     }
 
     pub fn system_audio_endpoints(&self) -> Result<Vec<SystemAudioEndpoint>, String> {
         let endpoints = enumerate_render_blocking()?;
+        let (_, apo_covers_default) = query_apo_coverage(&endpoints)?;
         let directory = system_audio_directory();
         let helper = directory.join("discover-system-audio-endpoints.ps1");
         let mut enriched = enrich_endpoints(endpoints, &helper, &directory)?;
-
-        let loaded = control_executable()
-            .and_then(|control| run_control(&control, &["status"]).ok())
-            .and_then(|status| parse_loaded_instances(&status))
-            .unwrap_or(0);
-        if loaded > 0 {
+        if apo_covers_default {
             if let Some(active) = enriched.iter_mut().find(|endpoint| endpoint.is_default) {
                 active.status = SystemAudioEndpointStatus::Ready;
                 active.detail = None;
@@ -86,131 +246,18 @@ impl WindowsAudioBackend {
         }
         Ok(enriched)
     }
-}
 
-fn fault_probe(physical_output: Option<String>, error: String) -> BackendProbe {
-    BackendProbe {
-        readiness: RelayReadiness::Faulted,
-        physical_output,
-        detail: Some(error),
-    }
-}
-
-fn system_audio_directory() -> PathBuf {
-    if let Ok(path) = env::var("VOXVEIL_SYSTEM_AUDIO_DIR") {
-        return PathBuf::from(path);
-    }
-    env::current_exe()
-        .ok()
-        .and_then(|path| path.parent().map(|parent| parent.join("system-audio")))
-        .unwrap_or_else(|| PathBuf::from("system-audio"))
-}
-
-fn control_executable() -> Option<PathBuf> {
-    if let Ok(path) = env::var("VOXVEIL_CONTROL_EXE") {
-        let path = PathBuf::from(path);
-        if path.is_file() {
-            return Some(path);
+    fn disable_processing_best_effort(&mut self) {
+        self.enabled = false;
+        if let Some(mut relay) = self.relay.take() {
+            let _ = relay.stop();
+        }
+        if let Some(control) = control_executable() {
+            let _ = run_control(&control, &["enabled", "0"]);
         }
     }
-
-    let directory = env::current_exe().ok()?.parent()?.to_path_buf();
-    [
-        directory.join("voxveil-control.exe"),
-        directory.join("system-audio").join("voxveil-control.exe"),
-    ]
-    .into_iter()
-    .find(|path| path.is_file())
-}
-
-fn run_control(control: &PathBuf, args: &[&str]) -> Result<String, String> {
-    let mut command = Command::new(control);
-    command.args(args);
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        command.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
-    }
-    let output = command
-        .output()
-        .map_err(|error| format!("failed to run {}: {error}", control.display()))?;
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        return Err(if stderr.is_empty() {
-            format!("{} exited with {}", control.display(), output.status)
-        } else {
-            stderr
-        });
-    }
-    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
-}
-
-fn parse_loaded_instances(status: &str) -> Option<u32> {
-    status
-        .split_whitespace()
-        .find_map(|part| part.strip_prefix("loaded=")?.parse().ok())
-}
-
-fn default_render_name() -> Result<Option<String>, String> {
-    let endpoints = enumerate_render_blocking()?;
-    Ok(endpoints
-        .into_iter()
-        .find(|endpoint| endpoint.is_default)
-        .map(|endpoint| endpoint.name))
-}
-
-fn enumerate_render_blocking() -> Result<Vec<EndpointDescriptor>, String> {
-    std::thread::spawn(move || {
-        wasapi::initialize_mta()
-            .ok()
-            .map_err(|error| error.to_string())?;
-        let result = enumerate_render_inner();
-        wasapi::deinitialize();
-        result
-    })
-    .join()
-    .map_err(|_| "Windows endpoint enumeration panicked".to_string())?
-}
-
-fn enumerate_render_inner() -> Result<Vec<EndpointDescriptor>, String> {
-    let enumerator = DeviceEnumerator::new().map_err(|error| error.to_string())?;
-    let default_id = enumerator
-        .get_default_device(&Direction::Render)
-        .and_then(|device| device.get_id())
-        .unwrap_or_default();
-    let collection = enumerator
-        .get_device_collection(&Direction::Render)
-        .map_err(|error| error.to_string())?;
-    let mut endpoints = Vec::new();
-    for device in &collection {
-        let device = device.map_err(|error| error.to_string())?;
-        let id = device.get_id().map_err(|error| error.to_string())?;
-        let name = device
-            .get_friendlyname()
-            .map_err(|error| error.to_string())?;
-        endpoints.push(EndpointDescriptor {
-            is_default: id == default_id,
-            id,
-            name,
-        });
-    }
-    Ok(endpoints)
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parses_loaded_instance_count() {
-        assert_eq!(
-            parse_loaded_instances("enabled=1 vocal=40 heartbeat=88 loaded=2"),
-            Some(2)
-        );
-    }
-
-    #[test]
-    fn rejects_status_without_load_marker() {
-        assert_eq!(parse_loaded_instances("enabled=1 vocal=40"), None);
-    }
-}
+#[path = "relay_tests.rs"]
+mod tests;

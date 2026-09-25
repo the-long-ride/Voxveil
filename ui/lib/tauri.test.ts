@@ -6,20 +6,46 @@ describe('tauri client', () => {
     const invoke = vi.fn().mockResolvedValue(undefined);
     const client = createVoxveilClient(invoke);
     await client.setMasterEnabled(false);
+    await client.setAudioRoute('physical-apo');
     await client.setProcessingMode('per-app');
     await client.setEngine('dsp');
+    await client.setClassicSuppressionProfile('balanced');
     await client.setVocalLevel(25);
     await client.setQuality(70);
     await client.setAppOverride('browser', true);
     await client.setOutputRoute('both');
     expect(invoke.mock.calls).toEqual([
       ['set_master_enabled', { enabled: false }],
+      ['set_audio_route', { route: 'physical-apo' }],
       ['set_processing_mode', { mode: 'per-app' }],
       ['set_engine', { engine: 'dsp' }],
+      ['set_classic_suppression_profile', { profile: 'balanced' }],
       ['set_vocal_level', { value: 25 }],
       ['set_quality_preference', { value: 70 }],
       ['set_app_override', { id: 'browser', enabled: true }],
       ['set_output_route', { mode: 'both' }],
+    ]);
+  });
+
+  it('maps an audio route selection to the route command', async () => {
+    const invoke = vi.fn().mockResolvedValue(undefined);
+    const client = createVoxveilClient(invoke);
+    await client.setAudioRoute('owned-file-playback');
+    expect(invoke).toHaveBeenCalledWith('set_audio_route', { route: 'owned-file-playback' });
+  });
+
+  it('maps owned playback controls without sending PCM through Tauri', async () => {
+    const invoke = vi.fn().mockResolvedValue(undefined);
+    const client = createVoxveilClient(invoke);
+    await client.openAudioFile();
+    await client.pausePlayback();
+    await client.seekPlayback(48_000);
+    await client.stopPlayback();
+    expect(invoke.mock.calls).toEqual([
+      ['open_audio_file'],
+      ['pause_playback'],
+      ['seek_playback', { positionFrames: 48_000 }],
+      ['stop_playback'],
     ]);
   });
 

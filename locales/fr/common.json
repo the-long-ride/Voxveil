@@ -15,7 +15,25 @@
     "apps": "Applications",
     "routing": "Routage",
     "engine": "Moteur",
+    "playback": "Lecteur",
     "settings": "Réglages"
+  },
+  "playback": {
+    "title": "Lire des fichiers dans Voxveil",
+    "description": "Ouvrez des fichiers MP3, WAV, FLAC ou Ogg Vorbis et traitez uniquement leur audio avec le DSP classique avant de l'envoyer vers une sortie physique.",
+    "controls": "Commandes de lecture",
+    "open": "Ouvrir un fichier musical",
+    "pause": "Pause",
+    "resume": "Reprendre",
+    "stop": "Arrêter",
+    "output": "Sortie physique",
+    "outputDescription": "L'audio traité est envoyé uniquement vers cette sortie.",
+    "chooseOutput": "Choisir une sortie",
+    "seek": "Recherche",
+    "noFile": "Aucun fichier ouvert",
+    "noOutput": "Aucune sortie sélectionnée",
+    "onlyFile": "Seul le fichier ouvert ici est traité. Les autres applications continuent à lire normalement.",
+    "status": { "stopped": "Arrêté", "loading": "Chargement", "playing": "Lecture en cours", "paused": "En pause", "ended": "Terminé", "faulted": "Erreur de lecture" }
   },
   "home": {
     "eyeline": "Contrôle vocal en temps réel",

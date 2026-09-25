@@ -84,10 +84,11 @@ test('master processing cannot claim enabled without a ready audio backend', asy
   const types = await readFile('crates/voxveil-types/src/processing.rs', 'utf8');
   const dto = await readFile('tauri/app/dto.rs', 'utf8');
   const commands = await readFile('tauri/app/commands.rs', 'utf8');
+  const routes = await readFile('tauri/app/audio_routes.rs', 'utf8');
   const windows = await readFile('tauri/platform/windows/mod.rs', 'utf8');
   assert.match(types, /enum ProcessingBackendStatus/);
   assert.match(dto, /pub backend_status:\s*ProcessingBackendStatus/);
   assert.match(commands, /ProcessingBackendStatus::Ready/);
-  assert.match(commands, /processing backend is unavailable/i);
+  assert.match(routes, /processing backend is unavailable/i);
   assert.match(windows, /ProcessingBackendStatus::ComponentRequired/);
 });

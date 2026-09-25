@@ -4,6 +4,46 @@ param(
   [ValidateNotNullOrEmpty()]
   [string]$EndpointDescriptor,
 
+  [Parameter(ParameterSetName = 'Descriptor', Mandatory = $true)]
+  [ValidateNotNullOrEmpty()]
+  [string]$TrustedPackageRoot,
+
+  [Parameter(ParameterSetName = 'Descriptor', Mandatory = $true)]
+  [ValidatePattern('^[0-9A-Fa-f]{64}$')]
+  [string]$EndpointDescriptorSha256,
+
+  [Parameter(ParameterSetName = 'Descriptor', Mandatory = $true)]
+  [ValidatePattern('^[0-9A-Fa-f]{64}$')]
+  [string]$DiscoveryHelperSha256,
+
+  [Parameter(ParameterSetName = 'Descriptor', Mandatory = $true)]
+  [ValidatePattern('^[0-9A-Fa-f]{64}$')]
+  [string]$ControlHelperSha256,
+
+  [Parameter(ParameterSetName = 'Descriptor', Mandatory = $true)]
+  [ValidatePattern('^[0-9A-Fa-f]{64}$')]
+  [string]$ControlDllSha256,
+
+  [Parameter(ParameterSetName = 'Descriptor', Mandatory = $true)]
+  [ValidatePattern('^[0-9A-Fa-f]{64}$')]
+  [string]$ExpectedApoInfSha256,
+
+  [Parameter(ParameterSetName = 'Descriptor', Mandatory = $true)]
+  [ValidatePattern('^[0-9A-Fa-f]{64}$')]
+  [string]$ExpectedApoDllSha256,
+
+  [Parameter(ParameterSetName = 'Descriptor', Mandatory = $true)]
+  [ValidatePattern('^[0-9A-Fa-f]{64}$')]
+  [string]$ExpectedApoCatalogSha256,
+
+  [Parameter(ParameterSetName = 'Descriptor', Mandatory = $true)]
+  [ValidatePattern('^[0-9A-Fa-f]{64}$')]
+  [string]$ExpectedExtensionInfSha256,
+
+  [Parameter(ParameterSetName = 'Descriptor', Mandatory = $true)]
+  [ValidatePattern('^[0-9A-Fa-f]{64}$')]
+  [string]$ExpectedExtensionCatalogSha256,
+
   [Parameter(ParameterSetName = 'Manual', Mandatory = $true)]
   [ValidateNotNullOrEmpty()]
   [string]$HardwareId,
@@ -18,6 +58,16 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+$trustedSystemDirectoryForModules = [Environment]::SystemDirectory
+if (-not $trustedSystemDirectoryForModules) {
+  throw 'Windows system directory could not be resolved for PowerShell module loading.'
+}
+$trustedModulePath = Join-Path $trustedSystemDirectoryForModules 'WindowsPowerShell\v1.0\Modules'
+if (-not (Test-Path $trustedModulePath -PathType Container)) {
+  throw "Trusted Windows PowerShell module directory was not found: $trustedModulePath"
+}
+$env:PSModulePath = $trustedModulePath
+
 function Assert-Administrator {
   $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
   $principal = [Security.Principal.WindowsPrincipal]::new($identity)
@@ -26,11 +76,19 @@ function Assert-Administrator {
   }
 }
 
+function Get-TrustedProgramFilesX86 {
+  $path = [Environment]::GetFolderPath([Environment+SpecialFolder]::ProgramFilesX86)
+  if (-not $path -or -not (Test-Path $path -PathType Container)) {
+    throw 'Windows Program Files (x86) directory could not be resolved from the OS known-folder API.'
+  }
+  return [IO.Path]::GetFullPath($path)
+}
+
 function Find-WdkTool([string]$Name) {
-  $kits = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin'
+  $kits = Join-Path (Get-TrustedProgramFilesX86) 'Windows Kits\10\bin'
   if (-not (Test-Path $kits)) { return $null }
   Get-ChildItem $kits -Recurse -Filter $Name -File -ErrorAction SilentlyContinue |
-    Where-Object { $_.FullName -match '\\x64\\' } |
+    Where-Object { $_.FullName -match '\x64\' } |
     Sort-Object FullName -Descending |
     Select-Object -First 1 -ExpandProperty FullName
 }
@@ -41,11 +99,256 @@ function Get-OptionalProperty($Object, [string]$Name) {
   return $null
 }
 
-function Resolve-EndpointDescriptor([string]$DescriptorPath, [string]$Root) {
+function Assert-PendingRemovedApoInfAbsent([string]$PublishedInf) {
+  if ($PublishedInf -notmatch '^oem\d+\.inf$') {
+    throw 'Pending removed APO/Extension package identity is invalid; install-state.json was kept for recovery.'
+  }
+
+  $matches = @(Get-WindowsDriver -Online |
+    Where-Object {
+      [string]$_.Driver -ieq $PublishedInf -and
+      [string]$_.ProviderName -ieq 'Voxveil' -and
+      [IO.Path]::GetFileName([string]$_.OriginalFileName) -in @('VoxveilApo.inf', 'VoxveilApoExtension.inf')
+    })
+  if ($matches.Count -gt 0) {
+    throw "Recorded APO/Extension package $PublishedInf still exists after the required restart; install-state.json was kept for recovery."
+  }
+}
+
+function Get-WindowsBootMarker {
+  $os = Get-CimInstance Win32_OperatingSystem
+  if (-not $os.LastBootUpTime) {
+    throw 'Could not determine the current Windows boot marker.'
+  }
+  ([DateTime]$os.LastBootUpTime).ToUniversalTime().ToString('o')
+}
+
+function Write-JsonStateAtomically($State, [string]$Path) {
+  $directory = Split-Path -Parent $Path
+  $tempPath = Join-Path $directory ('.' + [IO.Path]::GetFileName($Path) + '.' + [Guid]::NewGuid().ToString('N') + '.tmp')
+  try {
+    $State | ConvertTo-Json -Depth 3 | Set-Content $tempPath -Encoding utf8
+    if (Test-Path $Path -PathType Leaf) {
+      [IO.File]::Replace($tempPath, $Path, $null)
+    } else {
+      [IO.File]::Move($tempPath, $Path)
+    }
+  }
+  finally {
+    Remove-Item $tempPath -Force -ErrorAction SilentlyContinue
+  }
+}
+
+function Remove-RecordedDevelopmentCertificate([string]$Thumbprint) {
+  if (-not $Thumbprint) {
+    return
+  }
+  if ($Thumbprint -notmatch '^[0-9A-Fa-f]{40}\z') {
+    throw 'Development certificate thumbprint is invalid.'
+  }
+
+  foreach ($certificatePath in @(
+    "Cert:\LocalMachine\My\$Thumbprint",
+    "Cert:\LocalMachine\Root\$Thumbprint",
+    "Cert:\LocalMachine\TrustedPublisher\$Thumbprint"
+  )) {
+    if (-not (Test-Path $certificatePath -PathType Leaf)) {
+      continue
+    }
+    $certificate = Get-Item $certificatePath
+    if ([string]$certificate.Subject -notmatch '(^|,\s*)CN=Voxveil Development APO($|,)') {
+      throw "Development certificate $Thumbprint resolves to an unexpected subject in $certificatePath."
+    }
+    Remove-Item $certificatePath -Force
+  }
+}
+
+function Get-VoxveilPublishedInfNames {
+  @(Get-WindowsDriver -Online |
+    Where-Object {
+      $_.ProviderName -ieq 'Voxveil' -and
+      [IO.Path]::GetFileName([string]$_.OriginalFileName) -in @('VoxveilApo.inf', 'VoxveilApoExtension.inf') -and
+      [string]$_.Driver -match '^oem\d+\.inf$'
+    } |
+    ForEach-Object { [string]$_.Driver } |
+    Sort-Object -Unique)
+}
+
+function Assert-TrustedPackagedFile(
+  [string]$Path,
+  [string]$ExpectedSha256,
+  [string]$Description
+) {
+  if (-not (Test-Path $Path -PathType Leaf)) {
+    throw "Trusted packaged helper is missing: $Description ($Path)"
+  }
+  if ($ExpectedSha256 -notmatch '^[0-9A-Fa-f]{64}$') {
+    throw "Trusted packaged helper SHA-256 is invalid: $Description."
+  }
+  $actual = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+  if ($actual -ne $ExpectedSha256.ToLowerInvariant()) {
+    throw "Trusted packaged helper failed integrity verification: $Description."
+  }
+}
+
+function Open-TrustedVerifiedReadLock(
+  [string]$Path,
+  [string]$ExpectedSha256,
+  [string]$Description
+) {
+  if (-not (Test-Path $Path -PathType Leaf)) {
+    throw "Trusted packaged file is missing: $Description ($Path)"
+  }
+  if ($ExpectedSha256 -notmatch '^[0-9A-Fa-f]{64}$') {
+    throw "Trusted packaged file SHA-256 is invalid: $Description."
+  }
+
+  $stream = [IO.File]::Open(
+    $Path,
+    [IO.FileMode]::Open,
+    [IO.FileAccess]::Read,
+    [IO.FileShare]::Read
+  )
+  try {
+    $sha256 = [Security.Cryptography.SHA256]::Create()
+    try {
+      $actual = ([BitConverter]::ToString($sha256.ComputeHash($stream))).Replace('-', '').ToLowerInvariant()
+    }
+    finally {
+      $sha256.Dispose()
+    }
+    if ($actual -ne $ExpectedSha256.ToLowerInvariant()) {
+      throw "Trusted packaged file failed integrity verification: $Description."
+    }
+    $stream.Position = 0
+    return $stream
+  }
+  catch {
+    $stream.Dispose()
+    throw
+  }
+}
+
+function Assert-StagedFileHash([string]$Path, [string]$ExpectedSha256, [string]$Description) {
+  if (-not (Test-Path $Path -PathType Leaf)) {
+    throw "Verified production APO artifact is missing: $Description ($Path)"
+  }
+  if ($ExpectedSha256 -notmatch '^[0-9A-Fa-f]{64}$') {
+    throw "apo-verification.json contains an invalid SHA-256 value for $Description."
+  }
+  $actual = (Get-FileHash $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+  if ($actual -ne $ExpectedSha256.ToLowerInvariant()) {
+    throw "Verified production APO artifact changed after staging: $Description."
+  }
+}
+
+function Assert-StagedMicrosoftSigner(
+  [string]$Path,
+  [string]$ExpectedSigner,
+  [string]$ExpectedThumbprint,
+  [string]$Description
+) {
+  if (-not $ExpectedSigner) {
+    throw "apo-verification.json is missing the expected signer for $Description."
+  }
+  if ($ExpectedThumbprint -notmatch '^[0-9A-Fa-f]{40}$') {
+    throw "apo-verification.json contains an invalid signer thumbprint for $Description."
+  }
+  $signature = Get-AuthenticodeSignature $Path
+  if ($signature.Status -ne 'Valid' -or -not $signature.SignerCertificate) {
+    throw "Verified production APO artifact no longer has a valid Authenticode signature: $Description."
+  }
+  $subject = [string]$signature.SignerCertificate.Subject
+  $thumbprint = [string]$signature.SignerCertificate.Thumbprint
+  $identity = $subject + ' ' + [string]$signature.SignerCertificate.Issuer
+  if ($identity -notmatch '(?i)Microsoft') {
+    throw "Verified production APO artifact is not currently identified as Microsoft-signed: $Description."
+  }
+  if ($subject -ine $ExpectedSigner) {
+    throw "Verified production APO artifact signer does not match apo-verification.json: $Description."
+  }
+  if ($thumbprint -ine $ExpectedThumbprint) {
+    throw "Verified production APO artifact signer thumbprint does not match apo-verification.json: $Description."
+  }
+}
+
+function Assert-StagedProductionApo([string]$Root) {
+  $manifestPath = Join-Path $Root 'apo-verification.json'
+  if (-not (Test-Path $manifestPath -PathType Leaf)) {
+    throw 'Production install requires apo-verification.json created by the signed APO staging gate.'
+  }
+  $verification = Get-Content $manifestPath -Raw | ConvertFrom-Json
+  if ([string]$verification.voxveilCommit -notmatch '^[0-9a-fA-F]{40}$') {
+    throw 'apo-verification.json is missing the exact Voxveil build commit.'
+  }
+  if ([string]$verification.extensionId -ine '1D81E93D-AB81-473B-9E5E-94FAE8D2377F') {
+    throw 'apo-verification.json does not match the committed Voxveil extension servicing lineage.'
+  }
+  if ([string]$verification.capxContext -ine '63E268CE-4CBC-48E0-BEB6-55103316F477') {
+    throw 'apo-verification.json does not match the committed Voxveil CAPX property context.'
+  }
+  if ([string]$verification.apoInfSha256 -ine $ExpectedApoInfSha256 -or
+      [string]$verification.apoDllSha256 -ine $ExpectedApoDllSha256 -or
+      [string]$verification.apoCatalogSha256 -ine $ExpectedApoCatalogSha256 -or
+      [string]$verification.extensionInfSha256 -ine $ExpectedExtensionInfSha256 -or
+      [string]$verification.extensionCatalogSha256 -ine $ExpectedExtensionCatalogSha256) {
+    throw 'Production APO manifest does not match the package embedded at build time.'
+  }
+
+  $artifacts = @(
+    @('VoxveilApo.inf', [string]$verification.apoInfSha256),
+    @('VoxveilApo.dll', [string]$verification.apoDllSha256),
+    @('VoxveilApo.cat', [string]$verification.apoCatalogSha256),
+    @('VoxveilApoExtension.inf', [string]$verification.extensionInfSha256),
+    @('VoxveilApoExtension.cat', [string]$verification.extensionCatalogSha256)
+  )
+  foreach ($artifact in $artifacts) {
+    Assert-StagedFileHash (Join-Path $Root $artifact[0]) $artifact[1] $artifact[0]
+  }
+
+  Assert-StagedMicrosoftSigner `
+    (Join-Path $Root 'VoxveilApo.dll') `
+    ([string]$verification.apoSigner) `
+    ([string]$verification.apoThumbprint) `
+    'VoxveilApo.dll'
+  Assert-StagedMicrosoftSigner `
+    (Join-Path $Root 'VoxveilApo.cat') `
+    ([string]$verification.apoCatalogSigner) `
+    ([string]$verification.apoCatalogThumbprint) `
+    'VoxveilApo.cat'
+  Assert-StagedMicrosoftSigner `
+    (Join-Path $Root 'VoxveilApoExtension.cat') `
+    ([string]$verification.extensionCatalogSigner) `
+    ([string]$verification.extensionCatalogThumbprint) `
+    'VoxveilApoExtension.cat'
+
+  return $verification
+}
+
+function Resolve-EndpointDescriptor(
+  [string]$DescriptorPath,
+  [string]$ExpectedSha256,
+  [string]$ExpectedDiscoverySha256,
+  [string]$Root
+) {
   if (-not (Test-Path $DescriptorPath -PathType Leaf)) {
     throw "device-changed: endpoint descriptor no longer exists: $DescriptorPath"
   }
-  $descriptor = Get-Content $DescriptorPath -Raw | ConvertFrom-Json
+
+  $descriptorBytes = [IO.File]::ReadAllBytes($DescriptorPath)
+  $sha256 = [Security.Cryptography.SHA256]::Create()
+  try {
+    $actualSha256 = ([BitConverter]::ToString($sha256.ComputeHash($descriptorBytes))).Replace('-', '').ToLowerInvariant()
+  }
+  finally {
+    $sha256.Dispose()
+  }
+  if ($actualSha256 -ine $ExpectedSha256) {
+    throw 'device-changed: endpoint descriptor integrity check failed.'
+  }
+
+  $descriptorJson = [Text.Encoding]::UTF8.GetString($descriptorBytes)
+  $descriptor = ConvertFrom-Json -InputObject $descriptorJson
   foreach ($name in @('endpointId', 'bindingPnpInstanceId', 'pnpInstanceId', 'hardwareId', 'driverInf')) {
     if (-not $descriptor.$name) { throw "device-changed: endpoint descriptor is missing $name" }
   }
@@ -63,17 +366,48 @@ function Resolve-EndpointDescriptor([string]$DescriptorPath, [string]$Root) {
 
   $helper = Join-Path $Root 'discover-system-audio-endpoints.ps1'
   if (-not (Test-Path $helper -PathType Leaf)) {
-    throw "Required endpoint discovery helper not found: $helper"
+    throw "Trusted packaged helper is missing: discover-system-audio-endpoints.ps1 ($helper)"
   }
-  $request = ConvertTo-Json -InputObject @([pscustomobject]@{
-    endpointId = [string]$descriptor.endpointId
-    displayName = ''
-    isDefault = $false
-    runtimeDeviceId = [string]$descriptor.bindingPnpInstanceId
-    runtimeAliasMatch = $runtimeBound
-  }) -Compress
-  $output = $request | & powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File $helper
-  if ($LASTEXITCODE -ne 0) { throw 'device-changed: endpoint discovery failed during elevated revalidation.' }
+  $helperLock = [IO.File]::Open(
+    $helper,
+    [IO.FileMode]::Open,
+    [IO.FileAccess]::Read,
+    [IO.FileShare]::None
+  )
+  try {
+    $helperSha = [Security.Cryptography.SHA256]::Create()
+    try {
+      $actualHelperSha256 = ([BitConverter]::ToString($helperSha.ComputeHash($helperLock))).Replace('-', '').ToLowerInvariant()
+    }
+    finally {
+      $helperSha.Dispose()
+    }
+    if ($actualHelperSha256 -ine $ExpectedDiscoverySha256) {
+      throw 'Trusted packaged helper failed integrity verification: discover-system-audio-endpoints.ps1.'
+    }
+
+    $helperLock.Position = 0
+    $helperReader = [IO.StreamReader]::new($helperLock, [Text.Encoding]::UTF8, $true, 4096, $true)
+    try {
+      $helperText = $helperReader.ReadToEnd()
+    }
+    finally {
+      $helperReader.Dispose()
+    }
+    $helperBlock = [ScriptBlock]::Create($helperText)
+
+    $request = ConvertTo-Json -InputObject @([pscustomobject]@{
+      endpointId = [string]$descriptor.endpointId
+      displayName = ''
+      isDefault = $false
+      runtimeDeviceId = [string]$descriptor.bindingPnpInstanceId
+      runtimeAliasMatch = $runtimeBound
+    }) -Compress
+    $output = & $helperBlock -InputJson $request
+  }
+  finally {
+    $helperLock.Dispose()
+  }
   $parsedResolved = ConvertFrom-Json ($output -join [Environment]::NewLine)
   $resolvedItems = [Collections.Generic.List[object]]::new()
   foreach ($resolvedItem in $parsedResolved) {
@@ -115,16 +449,123 @@ function Resolve-EndpointDescriptor([string]$DescriptorPath, [string]$Root) {
 }
 
 Assert-Administrator
+if ($PSCmdlet.ParameterSetName -eq 'Manual' -and -not $TestSign) {
+  throw 'Manual HardwareId/ReferenceString mode is development-only and requires -TestSign.'
+}
 
-$root = Split-Path -Parent $MyInvocation.MyCommand.Path
+$trustedSystemDirectory = [Environment]::SystemDirectory
+if (-not $trustedSystemDirectory) {
+  throw 'Windows system directory could not be resolved for privileged system tools.'
+}
+$trustedSystemCommands = @('pnputil.exe', 'certutil.exe', 'bcdedit.exe')
+foreach ($commandName in $trustedSystemCommands) {
+  $commandPath = Join-Path $trustedSystemDirectory $commandName
+  if (-not (Test-Path $commandPath -PathType Leaf)) {
+    throw "Required Windows system executable was not found: $commandPath"
+  }
+  Set-Alias -Name $commandName -Value $commandPath -Scope Script -Option ReadOnly
+}
+
+$root = if ($PSCmdlet.ParameterSetName -eq 'Descriptor') {
+  [IO.Path]::GetFullPath($TrustedPackageRoot)
+} else {
+  Split-Path -Parent $MyInvocation.MyCommand.Path
+}
+if (-not (Test-Path $root -PathType Container)) {
+  throw "Trusted package root does not exist: $root"
+}
+$statePath = Join-Path $root 'install-state.json'
+$currentBootMarker = Get-WindowsBootMarker
+$previousInstalledInfNames = @()
+$previousManagedEndpointId = $null
+$previousBindingMode = $null
+$previousDevelopmentCertificateThumbprint = $null
+$developmentCertificateThumbprint = $null
+$script:developmentCertificateOwnedByState = $false
+$legacyRuntimeAttached = $false
+if (Test-Path $statePath -PathType Leaf) {
+  $previousState = Get-Content $statePath -Raw | ConvertFrom-Json
+  $recordedInfNames = @($previousState.installedInfNames)
+  $invalidRecordedInfNames = @($recordedInfNames | Where-Object { [string]$_ -notmatch '^oem\d+[.]inf\z' })
+  if ($invalidRecordedInfNames.Count -gt 0) {
+    throw "Malformed APO/Extension package identity in install-state.json: $($invalidRecordedInfNames -join ', '). State was kept for recovery."
+  }
+  $previousInstalledInfNames = @($recordedInfNames)
+  $previousPendingReboot = Get-OptionalProperty $previousState 'pendingReboot'
+  $previousBootMarker = [string](Get-OptionalProperty $previousState 'pendingRebootBootMarker')
+  $previousPendingRemovedInfName = [string](Get-OptionalProperty $previousState 'pendingRemovedInfName')
+  $previousAudioServiceRestartRequired = Get-OptionalProperty $previousState 'audioServiceRestartRequired'
+  $previousBindingMode = [string](Get-OptionalProperty $previousState 'bindingMode')
+  if ($previousBindingMode -notin @('capx-extension', 'legacy-runtime-interface', 'legacy-reference')) {
+    throw "install-state.json has unknown bindingMode '$previousBindingMode'; state was kept for recovery."
+  }
+  $previousLegacyRuntimeAttachedProperty = $previousState.PSObject.Properties['legacyRuntimeAttached']
+  if ($previousBindingMode -eq 'legacy-runtime-interface') {
+    $legacyRuntimeAttached = if ($previousLegacyRuntimeAttachedProperty) {
+      [bool]$previousLegacyRuntimeAttachedProperty.Value
+    } else {
+      $true
+    }
+  }
+  $previousDevelopmentCertificateThumbprint = [string](Get-OptionalProperty $previousState 'developmentCertificateThumbprint')
+  if ($previousDevelopmentCertificateThumbprint -and $previousDevelopmentCertificateThumbprint -notmatch '^[0-9A-Fa-f]{40}\z') {
+    throw 'install-state.json contains an invalid developmentCertificateThumbprint; state was kept for recovery.'
+  }
+  if ($previousBindingMode -in @('legacy-runtime-interface', 'legacy-reference') -and
+      $previousInstalledInfNames.Count -gt 0 -and
+      -not $previousDevelopmentCertificateThumbprint) {
+    throw 'Existing legacy TestSign certificate ownership is unknown. Uninstall the recorded APO packages before installing again; do not generate or delete an untracked development certificate automatically.'
+  }
+  $developmentCertificateThumbprint = $previousDevelopmentCertificateThumbprint
+  if ($previousDevelopmentCertificateThumbprint) {
+    $script:developmentCertificateOwnedByState = $true
+  }
+  if ($previousAudioServiceRestartRequired -eq $true) {
+    throw 'Complete the prior Voxveil APO cleanup before installing again; AudioSrv restart is still required.'
+  }
+  $previousEndpointId = [string](Get-OptionalProperty $previousState 'endpointId')
+  if ($previousEndpointId -and $previousBindingMode -ne 'legacy-reference') {
+    $previousManagedEndpointId = $previousEndpointId
+  }
+  if ($previousPendingReboot -eq $true -and -not $previousBootMarker) {
+    if ($previousState.PSObject.Properties['pendingRebootBootMarker']) {
+      $previousState.pendingRebootBootMarker = $currentBootMarker
+    } else {
+      $previousState | Add-Member -NotePropertyName pendingRebootBootMarker -NotePropertyValue $currentBootMarker
+    }
+    Write-JsonStateAtomically -State $previousState -Path $statePath
+    throw 'Restart Windows before continuing the Voxveil system-audio installation.'
+  }
+  if ($previousPendingReboot -eq $true -and $previousBootMarker -and $previousBootMarker -eq $currentBootMarker) {
+    throw 'Restart Windows before continuing the Voxveil system-audio installation.'
+  }
+  if ($previousPendingRemovedInfName) {
+    Assert-PendingRemovedApoInfAbsent $previousPendingRemovedInfName
+  }
+}
+$beforeInstalledInfNames = @(Get-VoxveilPublishedInfNames)
+$unexpectedInstalledInfNames = @(
+  $beforeInstalledInfNames | Where-Object { $previousInstalledInfNames -inotcontains $_ }
+)
+if ($unexpectedInstalledInfNames.Count -gt 0) {
+  throw "Driver Store contains untracked Voxveil APO/Extension package(s): $($unexpectedInstalledInfNames -join ', '). Remove them explicitly before installation so package ownership remains scoped."
+}
+
 $selectedEndpointId = $null
 $bindingPnpInstanceId = $null
 $topologyInterfacePath = $null
 $audioInterfacePath = $null
 $runtimeBound = $false
 if ($PSCmdlet.ParameterSetName -eq 'Descriptor') {
-  $binding = Resolve-EndpointDescriptor $EndpointDescriptor $root
+  $binding = Resolve-EndpointDescriptor `
+    $EndpointDescriptor `
+    $EndpointDescriptorSha256 `
+    $DiscoveryHelperSha256 `
+    $root
   $selectedEndpointId = $binding.EndpointId
+  if ($previousManagedEndpointId -and $selectedEndpointId -ine $previousManagedEndpointId) {
+    throw "Uninstall the currently managed Voxveil APO endpoint '$previousManagedEndpointId' before installing a different playback endpoint '$selectedEndpointId'. Endpoint ownership/readiness is tracked for one managed APO endpoint at a time."
+  }
   $bindingPnpInstanceId = $binding.BindingPnpInstanceId
   $HardwareId = $binding.HardwareId
   $runtimeBound = $binding.RuntimeBound
@@ -138,15 +579,71 @@ $apoDll = Join-Path $root 'VoxveilApo.dll'
 $template = Join-Path $root 'VoxveilApoExtension.inf.template'
 $generator = Join-Path $root 'new-apo-extension-inf.ps1'
 $control = Join-Path $root 'voxveil-control.exe'
+$controlDll = Join-Path $root 'VoxveilControl.dll'
+$controlLock = $null
+$controlDllLock = $null
+$productionPackageLocks = @()
+$useLegacyRuntimeAttachment = $TestSign -and $runtimeBound
+$bindingMode = if (-not $TestSign) {
+  'capx-extension'
+} elseif ($useLegacyRuntimeAttachment) {
+  'legacy-runtime-interface'
+} else {
+  'legacy-reference'
+}
+if ($previousBindingMode -and $bindingMode -ine $previousBindingMode) {
+  throw "Uninstall the currently managed Voxveil APO state before changing binding mode from '$previousBindingMode' to '$bindingMode'."
+}
+
+function Write-InstallStateSnapshot(
+  [bool]$BindingReady = $false,
+  [bool]$PendingReboot = $false
+) {
+  $afterInstalledInfNames = @(Get-VoxveilPublishedInfNames)
+  $newInstalledInfNames = @($afterInstalledInfNames | Where-Object { $beforeInstalledInfNames -inotcontains $_ })
+  $previousStillInstalledInfNames = @($previousInstalledInfNames | Where-Object { $afterInstalledInfNames -icontains $_ })
+  $installed = @($previousStillInstalledInfNames + $newInstalledInfNames)
+  $installed = @($installed | Sort-Object -Unique)
+  $pendingRebootBootMarker = if ($PendingReboot) { $currentBootMarker } else { $null }
+
+  $snapshot = @{
+    installedInfNames = @($installed)
+    endpointId = $selectedEndpointId
+    hardwareId = $HardwareId
+    bindingMode = $bindingMode
+    bindingReady = $BindingReady
+    pendingReboot = $PendingReboot
+    pendingRebootBootMarker = $pendingRebootBootMarker
+    audioServiceRestartRequired = $false
+    developmentCertificateThumbprint = $developmentCertificateThumbprint
+    legacyRuntimeAttached = $legacyRuntimeAttached
+    bindingPnpInstanceId = $bindingPnpInstanceId
+    topologyInterfacePath = $topologyInterfacePath
+    audioInterfacePath = $audioInterfacePath
+    referenceString = $ReferenceString
+  }
+  Write-JsonStateAtomically -State $snapshot -Path $statePath
+}
 
 foreach ($required in @($apoInf, $apoDll)) {
   if (-not (Test-Path $required)) { throw "Required system-audio file not found: $required" }
 }
 
-$work = Join-Path $env:TEMP ("voxveil-apo-install-" + [Guid]::NewGuid().ToString('N'))
-New-Item -ItemType Directory -Force -Path $work | Out-Null
+$work = if ($TestSign) {
+  Join-Path $env:TEMP ("voxveil-apo-install-" + [Guid]::NewGuid().ToString('N'))
+} else {
+  $root
+}
+if ($TestSign) {
+  New-Item -ItemType Directory -Force -Path $work | Out-Null
+}
 try {
-  Copy-Item $apoInf, $apoDll -Destination $work
+  if (-not $TestSign) {
+    $controlLock = Open-TrustedVerifiedReadLock $control $ControlHelperSha256 'voxveil-control.exe'
+    $controlDllLock = Open-TrustedVerifiedReadLock $controlDll $ControlDllSha256 'VoxveilControl.dll'
+  } else {
+    Copy-Item $apoInf, $apoDll -Destination $work
+  }
   $extensionInf = Join-Path $work 'VoxveilApoExtension.inf'
 
   if ($TestSign) {
@@ -154,9 +651,9 @@ try {
       if (-not (Test-Path $required)) { throw "Required development packaging file not found: $required" }
     }
     if ($runtimeBound) {
-      & $generator -HardwareId $HardwareId -TemplatePath $template -OutputPath $extensionInf
+      & $generator -HardwareId $HardwareId -FxPropertyMode Legacy -TemplatePath $template -OutputPath $extensionInf
     } else {
-      & $generator -HardwareId $HardwareId -ReferenceString $ReferenceString -TemplatePath $template -OutputPath $extensionInf
+      & $generator -HardwareId $HardwareId -ReferenceString $ReferenceString -FxPropertyMode Legacy -TemplatePath $template -OutputPath $extensionInf
     }
 
     $inf2cat = Find-WdkTool 'Inf2Cat.exe'
@@ -171,13 +668,31 @@ try {
       Write-Warning 'Enable TESTSIGNING only on a dedicated development machine; Secure Boot may need to be disabled.'
     }
 
-    $certificate = New-SelfSignedCertificate `
-      -Type CodeSigningCert `
-      -Subject 'CN=Voxveil Development APO' `
-      -CertStoreLocation 'Cert:\LocalMachine\My' `
-      -KeyExportPolicy Exportable `
-      -HashAlgorithm SHA256 `
-      -NotAfter (Get-Date).AddYears(2)
+    $certificate = $null
+    if ($previousDevelopmentCertificateThumbprint) {
+      $recordedCertificatePath = "Cert:\LocalMachine\My\$previousDevelopmentCertificateThumbprint"
+      if (-not (Test-Path $recordedCertificatePath -PathType Leaf)) {
+        throw 'Recorded Voxveil development certificate is missing from LocalMachine\My; uninstall the development APO state before creating a new certificate.'
+      }
+      $certificate = Get-Item $recordedCertificatePath
+      if ([string]$certificate.Subject -notmatch '(^|,\s*)CN=Voxveil Development APO($|,)' -or -not $certificate.HasPrivateKey) {
+        throw 'Recorded developmentCertificateThumbprint does not identify the expected Voxveil code-signing certificate with a private key.'
+      }
+    } else {
+      $certificate = New-SelfSignedCertificate `
+        -Type CodeSigningCert `
+        -Subject 'CN=Voxveil Development APO' `
+        -CertStoreLocation 'Cert:\LocalMachine\My' `
+        -KeyExportPolicy Exportable `
+        -HashAlgorithm SHA256 `
+        -NotAfter (Get-Date).AddYears(2)
+      $developmentCertificateThumbprint = [string]$certificate.Thumbprint
+      Write-InstallStateSnapshot
+      $script:developmentCertificateOwnedByState = $true
+    }
+    if (-not $developmentCertificateThumbprint) {
+      $developmentCertificateThumbprint = [string]$certificate.Thumbprint
+    }
 
     $cerPath = Join-Path $work 'VoxveilDevelopment.cer'
     Export-Certificate -Cert $certificate -FilePath $cerPath | Out-Null
@@ -200,76 +715,125 @@ try {
     $prebuiltExtension = Join-Path $root 'VoxveilApoExtension.inf'
     $apoCat = Join-Path $root 'VoxveilApo.cat'
     $extensionCat = Join-Path $root 'VoxveilApoExtension.cat'
-    foreach ($required in @($prebuiltExtension, $apoCat, $extensionCat)) {
-      if (-not (Test-Path $required)) {
-        throw 'Production install requires a matching production-signed extension package for this audio driver.'
-      }
+    $trustedProductionFiles = @(
+      @{ Path = $apoInf; Expected = $ExpectedApoInfSha256 },
+      @{ Path = $apoDll; Expected = $ExpectedApoDllSha256 },
+      @{ Path = $apoCat; Expected = $ExpectedApoCatalogSha256 },
+      @{ Path = $prebuiltExtension; Expected = $ExpectedExtensionInfSha256 },
+      @{ Path = $extensionCat; Expected = $ExpectedExtensionCatalogSha256 }
+    )
+    foreach ($productionFile in $trustedProductionFiles) {
+      $productionPackageLocks += Open-TrustedVerifiedReadLock `
+        $productionFile.Path `
+        $productionFile.Expected `
+        ([IO.Path]::GetFileName([string]$productionFile.Path))
     }
+    $null = Assert-StagedProductionApo $root
 
     $prebuiltText = Get-Content $prebuiltExtension -Raw
     if (-not $prebuiltText.Contains($HardwareId)) {
       throw 'The signed Voxveil Extension INF does not match the automatically resolved playback endpoint hardware ID.'
     }
-    if ($runtimeBound) {
-      if ($prebuiltText -match '(?im)^\s*AddInterface\s*=') {
-        throw 'The signed Voxveil Extension INF uses the legacy reference-string binding and cannot be used with this runtime interface binding.'
-      }
-    } elseif (-not $prebuiltText.Contains($ReferenceString)) {
-      throw 'The signed Voxveil Extension INF does not match the automatically resolved playback endpoint topology reference.'
+    if ($prebuiltText -notmatch '(?im)^\s*ExtensionId\s*=\s*\{1D81E93D-AB81-473B-9E5E-94FAE8D2377F\}\s*$') {
+      throw 'The signed Voxveil Extension INF does not match the committed Voxveil extension servicing lineage.'
     }
-    Copy-Item $prebuiltExtension $extensionInf
-    Copy-Item $apoCat, $extensionCat -Destination $work
+    if ($prebuiltText -notmatch '(?i)VOXVEIL_APO_CONTEXT\s*=\s*"\{63E268CE-4CBC-48E0-BEB6-55103316F477\}"') {
+      throw 'The signed Voxveil Extension INF is not the expected CAPX production package: the fixed property-context identity is missing.'
+    }
+    if ($prebuiltText -notmatch '(?im)^\s*HKR\s*,\s*FX\\0\\%VOXVEIL_APO_CONTEXT%\s*,\s*%PKEY_FX_Association%') {
+      throw 'The signed Voxveil Extension INF is not CAPX production-bound to the Voxveil property context.'
+    }
+    if ($prebuiltText -match '(?im)^\s*HKR\s*,\s*FX\\0\s*,\s*%PKEY_FX_Association%') {
+      throw 'The signed Voxveil Extension INF contains the legacy root FX association; production CAPX packages must not mix legacy and context property stores.'
+    }
+    if ($prebuiltText -notmatch '(?im)^\s*AddInterface\s*=') {
+      throw 'The signed Voxveil Extension INF has no signed endpoint interface binding. Runtime registry attachment is not a CAPX production path.'
+    }
+    if ($ReferenceString -and -not $prebuiltText.Contains($ReferenceString)) {
+      throw 'The signed Voxveil Extension INF does not match the resolved playback endpoint topology reference.'
+    }
+
   }
 
   Write-Host 'Staging/installing the Voxveil APO software-component package...'
   pnputil.exe /add-driver (Join-Path $work 'VoxveilApo.inf') /install | Out-Host
-  if ($LASTEXITCODE -ne 0) { throw "PnPUtil failed to stage VoxveilApo.inf (exit $LASTEXITCODE)." }
+  $apoPnputilExitCode = $LASTEXITCODE
+  if ($apoPnputilExitCode -eq 3010) {
+    Write-InstallStateSnapshot -PendingReboot $true
+    Write-Warning 'PnPUtil staged the Voxveil APO package successfully, but Windows requires a restart before installation can continue.'
+    exit 3010
+  }
+  Write-InstallStateSnapshot
+  if ($apoPnputilExitCode -ne 0) { throw "PnPUtil failed to stage VoxveilApo.inf (exit $apoPnputilExitCode)." }
 
   Write-Host 'Installing the endpoint-specific Voxveil Extension INF...'
   pnputil.exe /add-driver $extensionInf /install | Out-Host
-  if ($LASTEXITCODE -ne 0) { throw "PnPUtil failed to install VoxveilApoExtension.inf (exit $LASTEXITCODE)." }
+  $extensionPnputilExitCode = $LASTEXITCODE
+  if ($extensionPnputilExitCode -eq 3010) {
+    Write-InstallStateSnapshot -PendingReboot $true
+    Write-Warning 'PnPUtil installed the Voxveil Extension package successfully, but Windows requires a restart before AudioDG readiness can be verified.'
+    exit 3010
+  }
+  Write-InstallStateSnapshot
+  if ($extensionPnputilExitCode -ne 0) { throw "PnPUtil failed to install VoxveilApoExtension.inf (exit $extensionPnputilExitCode)." }
 
-  if ($runtimeBound) {
+  if ($useLegacyRuntimeAttachment) {
     if (-not (Test-Path $control -PathType Leaf)) {
-      throw 'Runtime interface binding requires voxveil-control.exe in the packaged system-audio directory.'
+      throw 'Legacy development runtime interface binding requires voxveil-control.exe in the packaged system-audio directory.'
     }
-    Write-Host 'Attaching Voxveil FX properties to the exact Windows audio interfaces...'
+    Write-Warning 'Applying legacy development FX\0 registry attachment. This is not the Windows 11 CAPX production path.'
     & $control attach-effects $bindingPnpInstanceId $topologyInterfacePath $audioInterfacePath | Out-Host
     if ($LASTEXITCODE -ne 0) {
-      throw "Runtime interface FX attachment failed (exit $LASTEXITCODE)."
+      throw "Legacy runtime interface FX attachment failed (exit $LASTEXITCODE)."
     }
+    $legacyRuntimeAttached = $true
+    Write-InstallStateSnapshot
   }
 
   Write-Host 'Restarting Windows Audio so AudioDG rebuilds the endpoint graph...'
   Restart-Service Audiosrv -Force
   Start-Sleep -Seconds 2
-
-  $installed = Get-CimInstance Win32_PnPSignedDriver |
-    Where-Object { $_.DriverProviderName -eq 'Voxveil' -and $_.InfName } |
-    Select-Object -ExpandProperty InfName -Unique
-  @{
-    installedInfNames = @($installed)
-    endpointId = $selectedEndpointId
-    hardwareId = $HardwareId
-    bindingMode = if ($runtimeBound) { 'runtime-interface' } else { 'legacy-reference' }
-    bindingPnpInstanceId = $bindingPnpInstanceId
-    topologyInterfacePath = $topologyInterfacePath
-    audioInterfacePath = $audioInterfacePath
-    referenceString = $ReferenceString
-  } | ConvertTo-Json -Depth 3 | Set-Content (Join-Path $root 'install-state.json') -Encoding utf8
+  Write-InstallStateSnapshot
 
   if (Test-Path $control) {
+    if (-not $TestSign) {
+      Assert-TrustedPackagedFile $control $ControlHelperSha256 'voxveil-control.exe'
+      Assert-TrustedPackagedFile $controlDll $ControlDllSha256 'VoxveilControl.dll'
+    }
     $status = & $control status 2>&1
     Write-Host "APO control status: $status"
     if ($LASTEXITCODE -ne 0 -or $status -notmatch 'loaded=[1-9][0-9]*') {
-      throw 'installed-not-loaded: the package installed, but AudioDG did not load VoxveilApo.dll on the selected playback endpoint.'
+      throw 'installed-not-loaded: the package installed, but AudioDG did not load a real Voxveil processing instance on the selected playback endpoint.'
     }
+    Write-InstallStateSnapshot -BindingReady $true
+  } elseif (-not $TestSign) {
+    throw 'installed-not-loaded: production CAPX installation requires voxveil-control.exe so AudioDG load verification cannot be skipped.'
   } else {
-    Write-Warning 'voxveil-control.exe was not present, so AudioDG load verification was skipped.'
+    Write-Warning 'voxveil-control.exe was not present, so AudioDG load verification was skipped for this development/test installation.'
   }
 
-  Write-Host 'Voxveil componentized APO installed and attached to the selected render endpoint.'
+  if ($TestSign) {
+    Write-Host 'Voxveil development/test APO installed. This is not a production qualification result.'
+  } else {
+    Write-Host 'Voxveil production-signed CAPX APO package installed and bound to the selected render endpoint.'
+  }
 }
 finally {
-  Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
+  try {
+    if ($TestSign -and
+        $developmentCertificateThumbprint -and
+        -not $script:developmentCertificateOwnedByState) {
+      Remove-RecordedDevelopmentCertificate $developmentCertificateThumbprint
+    }
+  }
+  finally {
+    foreach ($lock in @($productionPackageLocks) + @($controlLock, $controlDllLock)) {
+      if ($lock) {
+        $lock.Dispose()
+      }
+    }
+    if ($TestSign) {
+      Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
+    }
+  }
 }

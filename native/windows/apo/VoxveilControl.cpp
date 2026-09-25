@@ -43,6 +43,21 @@ extern "C" __declspec(dllexport) int __stdcall VoxveilSetVocalLevel(unsigned int
     return ERROR_SUCCESS;
 }
 
+extern "C" __declspec(dllexport) int __stdcall VoxveilSetSuppressionProfile(unsigned int profile) noexcept {
+    if (profile > static_cast<unsigned int>(voxveil::kStrongProfile)) {
+        return ERROR_INVALID_PARAMETER;
+    }
+    HANDLE mapping = nullptr;
+    voxveil::SharedState* state = nullptr;
+    const int error = OpenState(&mapping, &state);
+    if (error != ERROR_SUCCESS) {
+        return error;
+    }
+    InterlockedExchange(&state->suppressionProfile, static_cast<LONG>(profile));
+    voxveil::CloseSharedState(mapping, state);
+    return ERROR_SUCCESS;
+}
+
 extern "C" __declspec(dllexport) int __stdcall VoxveilGetState(
     int* enabled,
     unsigned int* vocalPercent,
@@ -63,6 +78,26 @@ extern "C" __declspec(dllexport) int __stdcall VoxveilGetState(
     *vocalPercent = static_cast<unsigned int>(InterlockedCompareExchange(&state->vocalPercent, 0, 0));
     *heartbeat = static_cast<unsigned int>(InterlockedCompareExchange(&state->heartbeat, 0, 0));
     *loadedInstances = static_cast<unsigned int>(InterlockedCompareExchange(&state->loadedInstances, 0, 0));
+    voxveil::CloseSharedState(mapping, state);
+    return ERROR_SUCCESS;
+}
+
+extern "C" __declspec(dllexport) int __stdcall VoxveilGetCapxState(
+    int* systemEffectEnabled,
+    unsigned int* capxInstances) noexcept {
+    if (systemEffectEnabled == nullptr || capxInstances == nullptr) {
+        return ERROR_INVALID_PARAMETER;
+    }
+
+    HANDLE mapping = nullptr;
+    voxveil::SharedState* state = nullptr;
+    const int error = OpenState(&mapping, &state);
+    if (error != ERROR_SUCCESS) {
+        return error;
+    }
+
+    *systemEffectEnabled = InterlockedCompareExchange(&state->systemEffectEnabled, 0, 0) != 0 ? 1 : 0;
+    *capxInstances = static_cast<unsigned int>(InterlockedCompareExchange(&state->capxInstances, 0, 0));
     voxveil::CloseSharedState(mapping, state);
     return ERROR_SUCCESS;
 }

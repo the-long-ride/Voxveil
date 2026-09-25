@@ -1,13 +1,16 @@
 use tauri::{AppHandle, State};
 use voxveil_types::{
-    AudioBypassReason, OutputMode, ProcessingBackendStatus, ProcessingEngineKind, ProcessingMode,
+    AudioBypassReason, ClassicSuppressionProfile, OutputMode, ProcessingEngineKind, ProcessingMode,
 };
 
+use super::audio_routes::{
+    validate_engine_for_route, validate_master_enable, validate_master_enable_before_start,
+};
 use super::{
-    dto::{AppSourceDto, AppViewState},
+    dto::{AppSourceDto, AppViewState, AudioOutputDto},
     state::AppState,
 };
-use crate::platform::ProcessingController;
+use crate::platform::{PhysicalOutput, ProcessingController};
 
 fn validate_percent(value: u8) -> Result<u8, String> {
     if value <= 100 {
@@ -25,34 +28,40 @@ fn validate_output_mode(mode: OutputMode, virtual_available: bool) -> Result<Out
     }
 }
 
+fn audio_output_dto(output: PhysicalOutput) -> AudioOutputDto {
+    AudioOutputDto {
+        endpoint_id: output.endpoint_id,
+        display_name: output.display_name,
+        is_default: output.is_default,
+    }
+}
+
 #[tauri::command]
-pub fn get_app_state(
+pub async fn get_app_state(
     state: State<'_, AppState>,
     controller: State<'_, ProcessingController>,
 ) -> Result<AppViewState, String> {
     let snapshot = controller.snapshot();
     let mut current = state.lock()?;
     current.apply_backend(&snapshot);
+    current.playback = controller.playback_snapshot();
     Ok(current.clone())
 }
 
-fn validate_master_enable(status: ProcessingBackendStatus, enabled: bool) -> Result<(), String> {
-    if enabled && status != ProcessingBackendStatus::Ready {
-        Err("processing backend is unavailable".into())
-    } else {
-        Ok(())
-    }
-}
-
 #[tauri::command]
-pub fn set_master_enabled(
+pub async fn set_master_enabled(
     state: State<'_, AppState>,
     controller: State<'_, ProcessingController>,
     enabled: bool,
 ) -> Result<(), String> {
-    let vocal_level = state.lock()?.vocal_level;
+    let (route, vocal_level) = {
+        let current = state.lock()?;
+        (current.audio_route_choice, current.vocal_level)
+    };
+    let preflight_snapshot = controller.snapshot();
+    validate_master_enable_before_start(route, &preflight_snapshot, enabled)?;
     let snapshot = controller.set_enabled(enabled, vocal_level)?;
-    validate_master_enable(snapshot.status, enabled)?;
+    validate_master_enable(route, snapshot.status, enabled)?;
     let mut current = state.lock()?;
     current.apply_backend(&snapshot);
     current.master_enabled = enabled;
@@ -60,7 +69,7 @@ pub fn set_master_enabled(
 }
 
 #[tauri::command]
-pub fn set_processing_mode(
+pub async fn set_processing_mode(
     state: State<'_, AppState>,
     controller: State<'_, ProcessingController>,
     mode: ProcessingMode,
@@ -76,11 +85,13 @@ pub fn set_processing_mode(
 }
 
 #[tauri::command]
-pub fn set_engine(
+pub async fn set_engine(
     app: AppHandle,
     state: State<'_, AppState>,
     engine: ProcessingEngineKind,
 ) -> Result<(), String> {
+    let route = state.lock()?.audio_route_choice;
+    validate_engine_for_route(route, engine)?;
     if engine == ProcessingEngineKind::Ai && !crate::models::ai_runtime_ready(&app)? {
         return Err(
             "AI engine is unavailable until a verified model and inference runtime are both ready"
@@ -92,7 +103,45 @@ pub fn set_engine(
 }
 
 #[tauri::command]
-pub fn set_vocal_level(
+pub async fn set_classic_suppression_profile(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    controller: State<'_, ProcessingController>,
+    profile: ClassicSuppressionProfile,
+) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        let previous_profile = state.lock()?.classic_suppression_profile;
+        let mut preferences = crate::config::windows_audio::load(&app)?;
+
+        controller.set_classic_suppression_profile(profile)?;
+        preferences.classic_suppression_profile = profile;
+        if let Err(error) = crate::config::windows_audio::save(&app, &preferences) {
+            return Err(
+                match controller.set_classic_suppression_profile(previous_profile) {
+                    Ok(()) => error,
+                    Err(rollback_error) => format!(
+                        "{error}; failed to restore previous Classic DSP profile: {rollback_error}"
+                    ),
+                },
+            );
+        }
+
+        state.lock()?.classic_suppression_profile = profile;
+        return Ok(());
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = app;
+        controller.set_classic_suppression_profile(profile)?;
+        state.lock()?.classic_suppression_profile = profile;
+        Ok(())
+    }
+}
+
+#[tauri::command]
+pub async fn set_vocal_level(
     state: State<'_, AppState>,
     controller: State<'_, ProcessingController>,
     value: u8,
@@ -104,25 +153,29 @@ pub fn set_vocal_level(
 }
 
 #[tauri::command]
-pub fn set_quality_preference(state: State<'_, AppState>, value: u8) -> Result<(), String> {
+pub async fn set_quality_preference(state: State<'_, AppState>, value: u8) -> Result<(), String> {
     state.lock()?.quality = validate_percent(value)?;
     Ok(())
 }
 
 #[tauri::command]
-pub fn list_audio_sources(state: State<'_, AppState>) -> Result<Vec<AppSourceDto>, String> {
+pub async fn list_audio_sources(state: State<'_, AppState>) -> Result<Vec<AppSourceDto>, String> {
     Ok(state.lock()?.apps.clone())
 }
 
 #[tauri::command]
-pub fn list_audio_outputs(
+pub async fn list_audio_outputs(
     controller: State<'_, ProcessingController>,
-) -> Result<Vec<String>, String> {
-    Ok(controller.physical_outputs())
+) -> Result<Vec<AudioOutputDto>, String> {
+    Ok(controller
+        .physical_outputs()?
+        .into_iter()
+        .map(audio_output_dto)
+        .collect())
 }
 
 #[tauri::command]
-pub fn set_app_override(
+pub async fn set_app_override(
     state: State<'_, AppState>,
     id: String,
     enabled: bool,
@@ -141,7 +194,7 @@ pub fn set_app_override(
 }
 
 #[tauri::command]
-pub fn set_output_route(state: State<'_, AppState>, mode: OutputMode) -> Result<(), String> {
+pub async fn set_output_route(state: State<'_, AppState>, mode: OutputMode) -> Result<(), String> {
     let mut current = state.lock()?;
     let virtual_available = current.virtual_output_available;
     current.output_mode = validate_output_mode(mode, virtual_available)?;
@@ -151,6 +204,7 @@ pub fn set_output_route(state: State<'_, AppState>, mode: OutputMode) -> Result<
 #[cfg(test)]
 mod tests {
     use super::*;
+    use voxveil_types::{AudioRouteChoice, ProcessingBackendStatus};
 
     #[test]
     fn validates_percent_command_values() {
@@ -160,15 +214,49 @@ mod tests {
     }
 
     #[test]
+    fn maps_physical_output_to_stable_dto() {
+        let dto = audio_output_dto(PhysicalOutput {
+            endpoint_id: "endpoint-id".into(),
+            display_name: "Speakers".into(),
+            is_default: true,
+        });
+        assert_eq!(dto.endpoint_id, "endpoint-id");
+        assert_eq!(dto.display_name, "Speakers");
+        assert!(dto.is_default);
+    }
+
+    #[test]
     fn enabling_processing_requires_a_ready_backend() {
-        assert!(validate_master_enable(ProcessingBackendStatus::ComponentRequired, true).is_err());
-        assert!(validate_master_enable(ProcessingBackendStatus::Unsupported, true).is_err());
+        assert!(
+            validate_master_enable(
+                AudioRouteChoice::PhysicalApo,
+                ProcessingBackendStatus::ComponentRequired,
+                true,
+            )
+            .is_err()
+        );
+        assert!(
+            validate_master_enable(
+                AudioRouteChoice::PhysicalApo,
+                ProcessingBackendStatus::Unsupported,
+                true,
+            )
+            .is_err()
+        );
         assert_eq!(
-            validate_master_enable(ProcessingBackendStatus::Ready, true),
+            validate_master_enable(
+                AudioRouteChoice::PhysicalApo,
+                ProcessingBackendStatus::Ready,
+                true,
+            ),
             Ok(())
         );
         assert_eq!(
-            validate_master_enable(ProcessingBackendStatus::Faulted, false),
+            validate_master_enable(
+                AudioRouteChoice::PhysicalApo,
+                ProcessingBackendStatus::Faulted,
+                false,
+            ),
             Ok(())
         );
     }

@@ -1,6 +1,10 @@
 import { invoke } from '@tauri-apps/api/core';
 import type {
   AiModelStatus,
+  AudioRouteChoice,
+  AudioPlaybackSnapshot,
+  AudioOutput,
+  ClassicSuppressionProfile,
   EngineKind,
   OutputMode,
   ProcessingMode,
@@ -14,12 +18,26 @@ type InvokeFn = <T>(command: string, args?: Record<string, unknown>) => Promise<
 export function createVoxveilClient(call: InvokeFn = invoke) {
   return {
     getState: () => call<VoxveilState>('get_app_state'),
+    setAudioRoute: (route: AudioRouteChoice) => call<VoxveilState>('set_audio_route', { route }),
+    openAudioFile: () => call<AudioPlaybackSnapshot>('open_audio_file'),
+    getPlaybackState: () => call<AudioPlaybackSnapshot>('get_playback_state'),
+    pausePlayback: () => call<void>('pause_playback'),
+    resumePlayback: () => call<void>('resume_playback'),
+    seekPlayback: (positionFrames: number) => call<void>('seek_playback', { positionFrames }),
+    stopPlayback: () => call<void>('stop_playback'),
     listSystemAudioEndpoints: () => call<SystemAudioEndpoint[]>('list_system_audio_endpoints'),
+    listAudioOutputs: () => call<AudioOutput[]>('list_audio_outputs'),
     installSystemAudioComponent: (endpointId: string) =>
       call<SystemAudioInstallResult>('install_system_audio_component', { endpointId }),
+    setPhysicalAudioOutput: (endpointId: string) =>
+      call<VoxveilState>('set_physical_audio_output', { endpointId }),
+    openWindowsSoundSettings: () => call<void>('open_windows_sound_settings'),
+    openVbCableDownload: () => call<void>('open_vb_cable_download'),
     setMasterEnabled: (enabled: boolean) => call<void>('set_master_enabled', { enabled }),
     setProcessingMode: (mode: ProcessingMode) => call<void>('set_processing_mode', { mode }),
     setEngine: (engine: EngineKind) => call<void>('set_engine', { engine }),
+    setClassicSuppressionProfile: (profile: ClassicSuppressionProfile) =>
+      call<void>('set_classic_suppression_profile', { profile }),
     setVocalLevel: (value: number) => call<void>('set_vocal_level', { value }),
     setQuality: (value: number) => call<void>('set_quality_preference', { value }),
     setAppOverride: (id: string, enabled: boolean) => call<void>('set_app_override', { id, enabled }),

@@ -1,0 +1,9 @@
+{
+  "classicPriority": "Classic DSP の優先度",
+  "musicPreservation": "音楽を優先",
+  "balanced": "バランス",
+  "strong": "強く低減",
+  "musicPreservationDescription": "中央に配置された楽器をできるだけ保護します。分離が曖昧な場合は一部のボーカルが残ることがあります。",
+  "balancedDescription": "ボーカルをより強く低減しつつ、中央の楽器を聞こえる状態に保ち、センター成分の完全削除を避けます。",
+  "strongDescription": "中央の楽器も弱くなる場合があります。ほぼモノラルの音声はより強く保護されます。Vocal 0 は最大低減であり、無音を保証しません。"
+}

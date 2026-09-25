@@ -3,7 +3,7 @@ Signature   = "$WINDOWS NT$"
 Class       = Extension
 ClassGuid   = {e2f84ce7-8efa-411c-aa69-97454ca4cb57}
 Provider    = %ProviderName%
-ExtensionId = {@@EXTENSION_ID@@}
+ExtensionId = {1D81E93D-AB81-473B-9E5E-94FAE8D2377F}
 DriverVer   = 08/19/2026,1.0.0.0
 CatalogFile = VoxveilApoExtension.cat
 PnpLockDown = 1
@@ -23,10 +23,10 @@ AddComponent = VoxveilApo,,Apo_AddComponent
 ComponentIDs = VEN_VXV&CID_APO
 Description = "Voxveil Audio Processing Object"
 
-; Normal Voxveil installs bind FX properties to the exact runtime SetupAPI
-; device-interface paths after this signed extension creates the APO component.
-; The generator expands this marker only for the legacy INF-reference fallback.
-@@LEGACY_INTERFACE_ASSOCIATION@@
+; CAPX production packages bind the effect metadata through the signed
+; endpoint interface section. Legacy mode is retained only for explicit
+; development/legacy diagnostics. This package remains Windows 11 22621+.
+@@FX_PROPERTY_ASSOCIATION@@
 
 [Strings]
 MfgName              = "Voxveil"
@@ -34,6 +34,7 @@ ProviderName         = "Voxveil"
 Device.ExtensionDesc = "Voxveil active render endpoint APO extension"
 @@REFERENCE_STRING_DEFINITION@@
 VOXVEIL_SFX_CLSID    = "{F3F2A99F-8FB7-4B88-949E-448BF8A05221}"
+VOXVEIL_APO_CONTEXT  = "{63E268CE-4CBC-48E0-BEB6-55103316F477}"
 PKEY_FX_Association  = "{D04E05A6-594B-4FB6-A80D-01AF5EED7D1D},0"
 PKEY_CompositeFX_StreamEffectClsid = "{D04E05A6-594B-4fb6-A80D-01AF5EED7D1D},13"
 PKEY_SFX_ProcessingModes_Supported_For_Streaming = "{D3993A3F-99C2-4402-B5EC-A92A0367664B},5"

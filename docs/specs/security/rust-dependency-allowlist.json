@@ -22,6 +22,31 @@
       "license": "ISC",
       "commercialUse": true
     },
+    "claxon": {
+      "version": "0.4.3",
+      "license": "Apache-2.0",
+      "commercialUse": true
+    },
+    "hound": {
+      "version": "3.5.1",
+      "license": "Apache-2.0",
+      "commercialUse": true
+    },
+    "lewton": {
+      "version": "0.10.2",
+      "license": "MIT OR Apache-2.0",
+      "commercialUse": true
+    },
+    "nanomp3": {
+      "version": "0.1.1",
+      "license": "MIT OR Apache-2.0",
+      "commercialUse": true
+    },
+    "rfd": {
+      "version": "0.15.4",
+      "license": "MIT",
+      "commercialUse": true
+    },
     "serde_json": {
       "version": "1.0.151",
       "license": "MIT OR Apache-2.0",
@@ -35,6 +60,11 @@
     "wasapi": {
       "version": "0.23.0",
       "license": "MIT",
+      "commercialUse": true
+    },
+    "windows": {
+      "version": "0.62.2",
+      "license": "MIT OR Apache-2.0",
       "commercialUse": true
     }
   }

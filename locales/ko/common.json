@@ -15,7 +15,25 @@
     "apps": "앱",
     "routing": "라우팅",
     "engine": "엔진",
+    "playback": "플레이어",
     "settings": "설정"
+  },
+  "playback": {
+    "title": "Voxveil에서 파일 재생",
+    "description": "MP3, WAV, FLAC 또는 Ogg Vorbis 파일을 열고 해당 오디오만 클래식 DSP로 처리한 뒤 실제 출력 장치로 보냅니다.",
+    "controls": "재생 컨트롤",
+    "open": "음악 파일 열기",
+    "pause": "일시 정지",
+    "resume": "다시 재생",
+    "stop": "정지",
+    "output": "실제 출력 장치",
+    "outputDescription": "처리된 오디오는 이 출력 장치로만 전송됩니다.",
+    "chooseOutput": "출력 장치 선택",
+    "seek": "탐색",
+    "noFile": "열린 파일 없음",
+    "noOutput": "출력 장치 미선택",
+    "onlyFile": "여기서 연 파일만 처리됩니다. 다른 앱은 계속 정상적으로 재생됩니다.",
+    "status": { "stopped": "정지됨", "loading": "불러오는 중", "playing": "재생 중", "paused": "일시 정지됨", "ended": "완료됨", "faulted": "재생 오류" }
   },
   "home": {
     "eyeline": "실시간 보컬 제어",

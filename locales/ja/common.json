@@ -15,7 +15,25 @@
     "apps": "アプリ",
     "routing": "ルーティング",
     "engine": "エンジン",
+    "playback": "プレーヤー",
     "settings": "設定"
+  },
+  "playback": {
+    "title": "Voxveilでファイルを再生",
+    "description": "MP3、WAV、FLAC、Ogg Vorbis ファイルを開き、その音声だけをクラシックDSPで処理して物理出力へ送ります。",
+    "controls": "再生コントロール",
+    "open": "音楽ファイルを開く",
+    "pause": "一時停止",
+    "resume": "再開",
+    "stop": "停止",
+    "output": "物理出力",
+    "outputDescription": "処理した音声はこの出力にだけ送られます。",
+    "chooseOutput": "出力を選択",
+    "seek": "シーク",
+    "noFile": "ファイルが開かれていません",
+    "noOutput": "出力が選択されていません",
+    "onlyFile": "ここで開いたファイルだけを処理します。他のアプリは通常どおり再生されます。",
+    "status": { "stopped": "停止中", "loading": "読み込み中", "playing": "再生中", "paused": "一時停止中", "ended": "完了", "faulted": "再生エラー" }
   },
   "home": {
     "eyeline": "リアルタイム・ボーカル制御",

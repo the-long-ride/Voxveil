@@ -1,0 +1,9 @@
+{
+  "classicPriority": "Ưu tiên DSP cổ điển",
+  "musicPreservation": "Giữ nhạc",
+  "balanced": "Cân bằng",
+  "strong": "Giảm mạnh",
+  "musicPreservationDescription": "Bảo vệ tối đa nhạc cụ ở giữa; một phần giọng hát có thể còn lại khi việc tách không rõ ràng.",
+  "balancedDescription": "Giảm giọng hát mạnh hơn nhưng vẫn giữ nhạc cụ ở giữa có thể nghe được và tránh xóa toàn bộ kênh giữa.",
+  "strongDescription": "Có thể làm nhỏ cả nhạc cụ ở giữa. Âm thanh gần mono được bảo vệ nhiều hơn; Vocal 0 là mức giảm tối đa, không đảm bảo im lặng."
+}
