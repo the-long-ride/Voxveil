@@ -59,6 +59,7 @@ impl Stft {
         self.hop
     }
 
+    #[cfg(test)]
     pub fn bins(&self) -> usize {
         self.size / 2 + 1
     }
