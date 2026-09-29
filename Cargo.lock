@@ -3975,6 +3975,7 @@ name = "voxveil-dsp"
 version = "0.1.0"
 dependencies = [
  "voxveil-audio-core",
+ "voxveil-media",
  "voxveil-types",
 ]
 

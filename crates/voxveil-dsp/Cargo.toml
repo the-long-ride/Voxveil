@@ -9,3 +9,6 @@ publish = false
 [dependencies]
 voxveil-audio-core = { path = "../voxveil-audio-core" }
 voxveil-types = { path = "../voxveil-types" }
+
+[dev-dependencies]
+voxveil-media = { path = "../voxveil-media" }
