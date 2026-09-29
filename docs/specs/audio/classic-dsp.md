@@ -6,7 +6,7 @@ Classic DSP is a first-class Voxveil engine and must remain useful with no AI mo
 
 ## Current algorithm
 
-The Windows relay uses a persistent adaptive STFT stereo-center suppressor. One processor instance is owned for the lifetime of the audio stream so FFT tables, overlap-add buffers, previous-bin magnitudes, gain smoothing, and profile state survive packet boundaries.
+The Windows relay and owned-file playback run `ClassicEngine`, which uses the persistent adaptive STFT stereo-center suppressor for Music preservation, Balanced and Strong, and `VocalSeparator` for Vocal isolation. One processor instance is owned for the lifetime of the audio stream so FFT tables, overlap-add buffers, previous-bin magnitudes, gain smoothing, and profile state survive packet boundaries.
 
 Processing geometry is fixed at a 512-frame transform with a 128-frame hop. For each frequency bin the processor estimates center likelihood from left/right magnitude balance and phase coherence, then attenuates the mid component while preserving the side component. The mask also applies:
 
@@ -51,6 +51,14 @@ The Strong thresholds are engineering starting points, not a release-quality cla
 The profile can be changed while processing is active; the retained processor updates its mask parameters without restarting the stream. A live **Balanced → Music preservation** transition resets retained smoothed spectral gains to unity without restarting the stream or rebuilding the processor, so the more protective profile does not temporarily inherit stronger Balanced attenuation. A Music preservation → Balanced transition keeps the normal attack smoothing.
 
 On Windows, the selected Classic DSP profile is persisted in the nonessential `windows-audio.json` preferences and restored on the next application start. Existing preference files that predate the profile field default to Music preservation. A live profile change updates the backend first, then persists the selection, then commits AppState; if persistence fails, Voxveil attempts to restore the previous live profile instead of reporting a saved selection that is not actually durable.
+
+### Vocal isolation (high quality)
+
+Opt-in profile served by `VocalSeparator` (`crates/voxveil-dsp/src/separator/`), non-AI. 4096-point STFT with 1024 hop (8192/2048 above 50 kHz), ~85-93 ms algorithmic latency. Per hop: averaged cross-spectrum center probability; predominant-pitch tracking on the centered spectrum with a vibrato-tolerant harmonic comb; unvoiced (sibilance/breath) detection gated by recent voicing; a vocal-ness mask on mid with a -40 dB floor and peak-preserving smoothing; side-channel vocal-reverb suppression. Bass below 60 Hz is never cut; the center-only share is disabled below 200-350 Hz so bass harmonics and kick body survive.
+
+`ClassicEngine` hosts both engines: switching to or from Isolation warms the incoming engine for twice its latency and crossfades over 20 ms without restarting the stream. The native APO has no separator yet and applies its Strong fallback when Isolation is selected.
+
+Limits: follows one predominant voice (harmonies and choirs are only reduced by the center stage); a centered, strongly pitched lead instrument (sax, lead synth) can be tracked like a voice; mono sources get the pitch and sibilance stages only. Measured results: `docs/testing/separator-evaluation.md`.
 
 ## Native APO implementation boundary
 

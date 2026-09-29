@@ -173,3 +173,5 @@ No production tuning constant should be changed solely from anecdotal listening;
 The first production non-AI path is **persistent adaptive STFT center suppression with frequency and transient protection**, with **protected band-limited M/S** as the native APO realtime fallback.
 
 The remaining work is validation and evidence-based tuning, not another algorithm redesign: run the exact-head verification gate, evaluate the approved 44.1/48 kHz corpus, measure Windows CPU/dropouts/end-to-end latency, then adjust constants only if the evidence supports it.
+
+Update 2026-09-30: the Strong-profile ceiling (hard floors, 94 Hz bins, fixed protection bands, single-frame coherence, untouched side reverb) left the lead vocal clearly audible. A second non-AI path, `VocalSeparator`, adds pitch-comb, sibilance and side-reverb stages on a 4096-point STFT at ~85 ms latency. See `docs/specs/audio/classic-dsp.md` (Vocal isolation) and `docs/testing/separator-evaluation.md`. REPET-style repetition modelling remains future work.
