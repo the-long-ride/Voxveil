@@ -8,7 +8,7 @@ use std::thread;
 use std::time::Duration;
 
 use voxveil_audio_core::AudioProcessor;
-use voxveil_dsp::SpectralCenterSuppressor;
+use voxveil_dsp::ClassicEngine;
 use voxveil_media::{MAX_READ_FRAMES, MediaDecoder};
 use voxveil_types::{ClassicSuppressionProfile, VocalLevel};
 use wasapi::{Device, DeviceEnumerator, Direction, SampleType, StreamMode, WaveFormat};
@@ -262,9 +262,9 @@ fn new_processor(
     sample_rate: u32,
     vocal_level: u8,
     profile: ClassicSuppressionProfile,
-) -> Result<SpectralCenterSuppressor, String> {
+) -> Result<ClassicEngine, String> {
     let level = VocalLevel::new(vocal_level.min(100) as f32 / 100.0).map_err(str::to_string)?;
-    Ok(SpectralCenterSuppressor::new(sample_rate, level, profile))
+    Ok(ClassicEngine::new(sample_rate, level, profile))
 }
 
 pub(super) fn enqueue_processed(queue: &mut VecDeque<u8>, pcm: &[f32]) -> Result<(), String> {

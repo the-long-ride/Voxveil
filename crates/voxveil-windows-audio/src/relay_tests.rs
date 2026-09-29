@@ -63,6 +63,11 @@ fn profile_control_values_match_the_shared_wire_contract() {
 }
 
 #[test]
+fn isolation_profile_maps_to_the_apo_strong_fallback() {
+    assert_eq!(profile_control_value(ClassicSuppressionProfile::Isolation), "strong");
+}
+
+#[test]
 fn loaded_apo_has_priority_over_virtual_relay() {
     let cable = voxveil_cable(true);
     let physical = physical("speakers", false);

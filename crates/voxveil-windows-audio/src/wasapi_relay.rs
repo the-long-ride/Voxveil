@@ -5,7 +5,7 @@ use std::sync::{
 };
 use std::time::Duration;
 
-use voxveil_dsp::SpectralCenterSuppressor;
+use voxveil_dsp::ClassicEngine;
 use voxveil_types::{ClassicSuppressionProfile, VocalLevel};
 use wasapi::{Device, DeviceEnumerator, Direction, SampleType, StreamMode};
 
@@ -165,7 +165,7 @@ fn run_relay_worker_inner(
     let mut capture_buffer = vec![0_u8; capture_buffer_bytes];
     let initial_level = VocalLevel::new(initial_vocal_level.min(100) as f32 / 100.0)
         .map_err(str::to_string)?;
-    let mut processor = SpectralCenterSuppressor::new(
+    let mut processor = ClassicEngine::new(
         source_format.get_samplespersec(),
         initial_level,
         initial_profile,

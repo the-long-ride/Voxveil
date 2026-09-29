@@ -4,7 +4,7 @@ use std::io::{Read, Write};
 use std::path::PathBuf;
 
 use voxveil_audio_core::AudioProcessor;
-use voxveil_dsp::SpectralCenterSuppressor;
+use voxveil_dsp::ClassicEngine;
 use voxveil_types::{ClassicSuppressionProfile, VocalLevel};
 
 const FRAME_BYTES: usize = 8;
@@ -19,7 +19,7 @@ struct Config {
 }
 
 fn usage() -> &'static str {
-    "usage: classic_dsp_raw --input INPUT.f32 --output OUTPUT.f32 [--sample-rate HZ] [--vocal 0..100] [--profile music-preservation|balanced|strong]\n\
+    "usage: classic_dsp_raw --input INPUT.f32 --output OUTPUT.f32 [--sample-rate HZ] [--vocal 0..100] [--profile music-preservation|balanced|strong|isolation]\n\
 INPUT.f32 and OUTPUT.f32 are raw stereo little-endian f32 streams; output is latency compensated"
 }
 
@@ -28,6 +28,7 @@ fn parse_profile(value: &str) -> Result<ClassicSuppressionProfile, String> {
         "music-preservation" => Ok(ClassicSuppressionProfile::MusicPreservation),
         "balanced" => Ok(ClassicSuppressionProfile::Balanced),
         "strong" => Ok(ClassicSuppressionProfile::Strong),
+        "isolation" => Ok(ClassicSuppressionProfile::Isolation),
         _ => Err(format!("invalid profile: {value}")),
     }
 }
@@ -147,7 +148,7 @@ fn run(config: Config) -> Result<(), String> {
 
     let mut output = File::create(&config.output)
         .map_err(|error| format!("failed to create {}: {error}", config.output.display()))?;
-    let mut processor = SpectralCenterSuppressor::new(
+    let mut processor = ClassicEngine::new(
         config.sample_rate,
         config.vocal_level,
         config.profile,
@@ -233,6 +234,7 @@ mod tests {
         assert_eq!(parse_profile("music-preservation"), Ok(ClassicSuppressionProfile::MusicPreservation));
         assert_eq!(parse_profile("balanced"), Ok(ClassicSuppressionProfile::Balanced));
         assert_eq!(parse_profile("strong"), Ok(ClassicSuppressionProfile::Strong));
+        assert_eq!(parse_profile("isolation"), Ok(ClassicSuppressionProfile::Isolation));
         assert!(parse_profile("unknown").is_err());
     }
 }

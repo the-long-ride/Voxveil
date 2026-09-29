@@ -193,6 +193,8 @@ pub(super) fn profile_control_value(profile: ClassicSuppressionProfile) -> &'sta
         ClassicSuppressionProfile::MusicPreservation => "music-preservation",
         ClassicSuppressionProfile::Balanced => "balanced",
         ClassicSuppressionProfile::Strong => "strong",
+        // The APO has no spectral separator yet; it uses its Strong fallback.
+        ClassicSuppressionProfile::Isolation => "strong",
     }
 }
 
