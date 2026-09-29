@@ -4,6 +4,8 @@ use super::fft::{Complex32, Fft, pack_real_pair, split_real_pair};
 
 /// Streaming STFT with sqrt-Hann analysis/synthesis windows and overlap-add.
 /// Output is delayed by exactly `size - 1` frames. All buffers are allocated in `new`.
+/// Overlap-add is normalised by the constant steady-state window power, so the stream start
+/// fades in instead of amplifying modified spectra under a partial window sum.
 pub struct Stft {
     fft: Fft,
     size: usize,
@@ -14,7 +16,7 @@ pub struct Stft {
     input_len: usize,
     ola_l: Box<[f32]>,
     ola_r: Box<[f32]>,
-    ola_norm: Box<[f32]>,
+    inverse_norm: f32,
     queue: Box<[[f32; 2]]>,
     queue_pos: usize,
     queue_len: usize,
@@ -26,9 +28,12 @@ pub struct Stft {
 impl Stft {
     pub fn new(size: usize, hop: usize) -> Self {
         assert!(hop > 0 && hop <= size / 2 && size % hop == 0, "invalid STFT hop");
-        let window = (0..size)
+        let window: Box<[f32]> = (0..size)
             .map(|i| (0.5 - 0.5 * (TAU * i as f32 / size as f32).cos()).max(0.0).sqrt())
             .collect();
+        let power: f32 = window.iter().map(|w| w * w).sum();
+        // Every output sample is covered by size/hop windows: the sum of w^2 is power/hop.
+        let steady_norm = power / hop as f32;
         let bins = size / 2 + 1;
         let zeros = || vec![0.0_f32; size].into_boxed_slice();
         Self {
@@ -41,7 +46,7 @@ impl Stft {
             input_len: 0,
             ola_l: zeros(),
             ola_r: zeros(),
-            ola_norm: zeros(),
+            inverse_norm: 1.0 / steady_norm,
             queue: vec![[0.0; 2]; hop].into_boxed_slice(),
             queue_pos: 0,
             queue_len: 0,
@@ -74,7 +79,6 @@ impl Stft {
             &mut self.input_r,
             &mut self.ola_l,
             &mut self.ola_r,
-            &mut self.ola_norm,
         ] {
             buffer.fill(0.0);
         }
@@ -124,23 +128,18 @@ impl Stft {
             let w = self.window[i];
             self.ola_l[i] += self.packed[i].re * w;
             self.ola_r[i] += self.packed[i].im * w;
-            self.ola_norm[i] += w * w;
         }
         debug_assert_eq!(self.queue_len, 0);
         for i in 0..self.hop {
-            let norm = self.ola_norm[i];
-            let (l, r) = if norm > 1.0e-6 {
-                (self.ola_l[i] / norm, self.ola_r[i] / norm)
-            } else {
-                (0.0, 0.0)
-            };
+            let l = self.ola_l[i] * self.inverse_norm;
+            let r = self.ola_r[i] * self.inverse_norm;
             self.queue[i] = [finite_or_zero(l), finite_or_zero(r)];
         }
         self.queue_pos = 0;
         self.queue_len = self.hop;
 
         let hop = self.hop;
-        for buffer in [&mut self.ola_l, &mut self.ola_r, &mut self.ola_norm] {
+        for buffer in [&mut self.ola_l, &mut self.ola_r] {
             buffer.copy_within(hop.., 0);
             let tail = buffer.len() - hop;
             buffer[tail..].fill(0.0);
