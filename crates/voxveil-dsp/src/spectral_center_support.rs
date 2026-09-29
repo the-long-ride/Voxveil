@@ -66,7 +66,9 @@ impl ProfileParameters {
                 high_protect_hz: 12_000.0,
                 transient_protection: 0.45,
             },
-            ClassicSuppressionProfile::Strong => Self {
+            // Isolation is served by `VocalSeparator`; the legacy engine never receives it
+            // through `ClassicEngine`, but the match must stay exhaustive.
+            ClassicSuppressionProfile::Strong | ClassicSuppressionProfile::Isolation => Self {
                 floor_gain: 0.031_622_78,
                 low_protect_hz: 120.0,
                 low_full_hz: 260.0,

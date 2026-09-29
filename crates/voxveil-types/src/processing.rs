@@ -90,6 +90,8 @@ pub enum ClassicSuppressionProfile {
     MusicPreservation,
     Balanced,
     Strong,
+    /// High-quality vocal separator (`VocalSeparator`); ~85-93 ms latency.
+    Isolation,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -215,5 +217,17 @@ mod tests {
     fn only_legacy_automatic_policy_allows_virtual_relays() {
         assert!(WindowsInterceptionPolicy::Automatic.allows_virtual_relay());
         assert!(!WindowsInterceptionPolicy::PhysicalApoOnly.allows_virtual_relay());
+    }
+
+    #[test]
+    fn isolation_profile_has_a_stable_kebab_case_name() {
+        assert_eq!(
+            serde_json::to_string(&ClassicSuppressionProfile::Isolation).unwrap(),
+            "\"isolation\""
+        );
+        assert_eq!(
+            serde_json::from_str::<ClassicSuppressionProfile>("\"isolation\"").unwrap(),
+            ClassicSuppressionProfile::Isolation
+        );
     }
 }
