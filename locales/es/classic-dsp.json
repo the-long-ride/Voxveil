@@ -5,5 +5,7 @@
   "strong": "Reducción fuerte",
   "musicPreservationDescription": "Protege al máximo los instrumentos centrados; puede quedar algo de voz cuando la separación sea ambigua.",
   "balancedDescription": "Reduce más la voz mientras mantiene audibles los instrumentos centrados y evita eliminar por completo el centro.",
-  "strongDescription": "Puede reducir los instrumentos centrados. El audio casi mono se protege más; Vocal 0 es la reducción máxima, no garantiza silencio."
+  "strongDescription": "Puede reducir los instrumentos centrados. El audio casi mono se protege más; Vocal 0 es la reducción máxima, no garantiza silencio.",
+  "isolation": "Aislamiento vocal (alta calidad)",
+  "isolationDescription": "Sigue la altura de la voz y la elimina a fondo, incluidas sibilantes y reverberación vocal. Añade unos 90 ms de retardo. Se aplica al relé y a la reproducción de archivos; la ruta de efecto del sistema usa Reducción fuerte."
 }

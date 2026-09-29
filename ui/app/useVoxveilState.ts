@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PREVIEW_STATE, SAFE_NATIVE_STATE } from '../lib/demo-state';
 import { errorMessage } from '../lib/errors';
 import { createVoxveilClient } from '../lib/tauri';
+import { estimatedLatency } from './latency';
 import { usePlaybackControls } from './usePlaybackControls';
 import type {
   AudioOutput,
@@ -19,12 +20,6 @@ type StateUpdate = Partial<VoxveilState> | ((current: VoxveilState) => VoxveilSt
 
 function isTauriRuntime(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
-}
-
-function estimatedLatency(engine: EngineKind, quality: number): number {
-  if (engine === 'dsp') return Math.round(8 + quality * 0.22);
-  if (engine === 'ai') return Math.round(55 + quality * 1.35);
-  return Math.round(24 + quality * 0.72);
 }
 
 function canRequestProcessingStart(state: VoxveilState): boolean {
@@ -238,20 +233,24 @@ export function useVoxveilState() {
   const setEngine = (engine: EngineKind) => {
     if (state.audioRouteChoice === 'owned-file-playback' && engine !== 'dsp') return;
     commit(
-      (current) => ({ ...current, engine, estimatedLatencyMs: estimatedLatency(engine, current.quality) }),
+      (current) => ({ ...current, engine, estimatedLatencyMs: estimatedLatency(engine, current.quality, current.classicSuppressionProfile) }),
       () => client.setEngine(engine),
     );
   };
   const setClassicSuppressionProfile = (classicSuppressionProfile: ClassicSuppressionProfile) =>
     commit(
-      { classicSuppressionProfile },
+      (current) => ({
+        ...current,
+        classicSuppressionProfile,
+        estimatedLatencyMs: estimatedLatency(current.engine, current.quality, classicSuppressionProfile),
+      }),
       () => client.setClassicSuppressionProfile(classicSuppressionProfile),
     );
   const setVocalLevel = (vocalLevel: number) =>
     commit({ vocalLevel }, () => client.setVocalLevel(vocalLevel));
   const setQuality = (quality: number) =>
     commit(
-      (current) => ({ ...current, quality, estimatedLatencyMs: estimatedLatency(current.engine, quality) }),
+      (current) => ({ ...current, quality, estimatedLatencyMs: estimatedLatency(current.engine, quality, current.classicSuppressionProfile) }),
       () => client.setQuality(quality),
     );
   const setOutputMode = (outputMode: OutputMode) =>

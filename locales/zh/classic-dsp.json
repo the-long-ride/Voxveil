@@ -5,5 +5,7 @@
   "strong": "强力降低",
   "musicPreservationDescription": "尽量保护位于中央的乐器；当分离不明确时，可能会保留部分人声。",
   "balancedDescription": "更强地降低人声，同时保持中央乐器可听，并避免完全删除中央声道。",
-  "strongDescription": "可能会降低中央乐器的音量。近似单声道的音频会受到更多保护；Vocal 0 表示最大降低，不保证静音。"
+  "strongDescription": "可能会降低中央乐器的音量。近似单声道的音频会受到更多保护；Vocal 0 表示最大降低，不保证静音。",
+  "isolation": "人声分离（高质量）",
+  "isolationDescription": "跟踪歌声音高并深度去除人声，包括齿音和人声混响。增加约 90 毫秒延迟。适用于中继和文件播放；系统音效路径使用强力降低。"
 }

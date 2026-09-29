@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import type { VoxveilModel } from '../../app/useVoxveilState';
+import type { ClassicSuppressionProfile } from '../../lib/types';
 import { ScreenIntro } from '../../components/ScreenIntro';
 import { SegmentedControl } from '../../components/SegmentedControl';
 import { AiModelManager } from './AiModelManager';
@@ -16,7 +17,14 @@ export function EngineScreen({ model, aiModel }: EngineScreenProps) {
     { value: 'music-preservation' as const, label: t('engine.musicPreservation') },
     { value: 'balanced' as const, label: t('engine.balanced') },
     { value: 'strong' as const, label: t('engine.strong') },
+    { value: 'isolation' as const, label: t('engine.isolation') },
   ];
+  const classicDescriptions: Record<ClassicSuppressionProfile, string> = {
+    'music-preservation': t('engine.musicPreservationDescription'),
+    balanced: t('engine.balancedDescription'),
+    strong: t('engine.strongDescription'),
+    isolation: t('engine.isolationDescription'),
+  };
 
   return (
     <section className="screen" aria-labelledby="engine-title">
@@ -37,13 +45,7 @@ export function EngineScreen({ model, aiModel }: EngineScreenProps) {
             options={classicOptions}
             onChange={model.setClassicSuppressionProfile}
           />
-          <p className="privacy-note">
-            {model.state.classicSuppressionProfile === 'music-preservation'
-              ? t('engine.musicPreservationDescription')
-              : model.state.classicSuppressionProfile === 'balanced'
-                ? t('engine.balancedDescription')
-                : t('engine.strongDescription')}
-          </p>
+          <p className="privacy-note">{classicDescriptions[model.state.classicSuppressionProfile]}</p>
         </div>
       )}
       <AiModelManager controller={aiModel} />
