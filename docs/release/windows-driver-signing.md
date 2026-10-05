@@ -4,6 +4,27 @@ This document covers the Voxveil-owned `Root\VoxveilVirtualAudio` kernel driver.
 
 The Tier 2 driver INF follows the exact pinned SysVAD applicability boundary and targets Windows build 22621 (Windows 11 22H2) or later on x64/Arm64. This is not the overall Voxveil Windows support floor; supported Windows 10 systems use the Tier 1 relay/fallback path instead of this first-party driver.
 
+## Pinned SysVAD Windows 11 build-22621 applicability floor
+
+The original Tier 2 plan (Task 4) showed undecorated `NTamd64` / `NTarm64` model sections, and its Task 5 described the `Inf2Cat` OS list as release-selected. That undecorated INF guidance is superseded by the implemented pinned-SysVAD applicability boundary.
+
+The first-party Tier 2 package uses only x64/Arm64 model decorations beginning at Windows 11 build 22621 (22H2):
+
+```ini
+[Manufacturer]
+%MfgName%=Voxveil,NTamd64.10.0...22621,NTarm64.10.0...22621
+
+[Voxveil.NTamd64.10.0...22621]
+%DeviceName%=Voxveil_Install,Root\VoxveilVirtualAudio
+
+[Voxveil.NTarm64.10.0...22621]
+%DeviceName%=Voxveil_Install,Root\VoxveilVirtualAudio
+```
+
+Do not add undecorated x64/Arm64 model sections as a compatibility fallback. `Inf2Cat`, unsigned package validation, returned Microsoft-signed package validation, release staging, and installer preflight must all preserve the same build-22621+ contract.
+
+This is a Tier 2 component floor, not Voxveil's overall Windows support floor. Supported Windows 10 systems remain on the Tier 1 relay/fallback path and must not be instructed to install the first-party Tier 2 driver.
+
 ## Microsoft status model
 
 Current Microsoft driver-signing guidance distinguishes attestation signing from Windows Hardware Compatibility Program (WHCP/HLK) certification:
