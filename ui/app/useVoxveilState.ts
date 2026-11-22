@@ -231,6 +231,10 @@ export function useVoxveilState() {
         setProcessingOperationError(errorMessage(error));
         throw error;
       }
+      const { audioRouteChoice, backendStatus, backendDetail, backendKind } = await client.getState();
+      setState((current) => current.masterEnabled === masterEnabled && current.audioRouteChoice === audioRouteChoice
+        ? { ...current, backendStatus, backendDetail, backendKind }
+        : current);
     });
   };
   const setProcessingMode = (processingMode: ProcessingMode) =>

@@ -312,6 +312,33 @@ describe('useVoxveilState', () => {
     });
   });
 
+  it('refreshes driverless relay status after starting and stopping processing', async () => {
+    (window as Window & { __TAURI_INTERNALS__?: object }).__TAURI_INTERNALS__ = {};
+    const stopped = {
+      ...nativeState,
+      audioRouteChoice: 'legacy-automatic',
+      masterEnabled: false,
+      backendStatus: 'routing-required',
+      backendDetail: 'Driverless endpoint relay is configured and ready to start',
+      backendKind: 'endpoint-relay',
+      physicalOutputEndpointId: 'speakers',
+    } satisfies VoxveilState;
+    client.getState
+      .mockResolvedValueOnce(stopped)
+      .mockResolvedValueOnce({ ...stopped, masterEnabled: true, backendStatus: 'ready', backendDetail: null })
+      .mockResolvedValueOnce(stopped);
+    const { result } = renderHook(() => useVoxveilState());
+    await waitFor(() => expect(result.current.state.backendStatus).toBe('routing-required'));
+
+    act(() => result.current.setMasterEnabled(true));
+    await waitFor(() => expect(result.current.state.backendStatus).toBe('ready'));
+    expect(result.current.state.backendDetail).toBeNull();
+
+    act(() => result.current.setMasterEnabled(false));
+    await waitFor(() => expect(result.current.state.backendStatus).toBe('routing-required'));
+    expect(result.current.state.backendDetail).toBe(stopped.backendDetail);
+  });
+
   it('does not optimistically enable processing when the native backend is unavailable', async () => {
     (window as Window & { __TAURI_INTERNALS__?: object }).__TAURI_INTERNALS__ = {};
     client.getState.mockResolvedValueOnce({ ...nativeState, masterEnabled: false, backendStatus: 'component-required' });
