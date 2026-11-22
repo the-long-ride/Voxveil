@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PREVIEW_STATE, SAFE_NATIVE_STATE } from '../lib/demo-state';
 import { errorMessage } from '../lib/errors';
 import { createVoxveilClient } from '../lib/tauri';
+import { estimatedLatency } from './estimatedLatency';
 import { usePlaybackControls } from './usePlaybackControls';
 import type {
   AudioOutput,
@@ -19,12 +20,6 @@ type StateUpdate = Partial<VoxveilState> | ((current: VoxveilState) => VoxveilSt
 
 function isTauriRuntime(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
-}
-
-function estimatedLatency(engine: EngineKind, quality: number): number {
-  if (engine === 'dsp') return Math.round(8 + quality * 0.22);
-  if (engine === 'ai') return Math.round(55 + quality * 1.35);
-  return Math.round(24 + quality * 0.72);
 }
 
 function canRequestProcessingStart(state: VoxveilState): boolean {
@@ -214,11 +209,7 @@ export function useVoxveilState() {
   }, [client, native]);
 
   const playbackControls = usePlaybackControls(
-    native,
-    client,
-    refreshPlayback,
-    setPlaybackOperationError,
-    updatePlayback,
+    native, client, refreshPlayback, setPlaybackOperationError, updatePlayback,
   );
 
   const setMasterEnabled = (masterEnabled: boolean) => {
@@ -231,7 +222,9 @@ export function useVoxveilState() {
         setProcessingOperationError(errorMessage(error));
         throw error;
       }
-      const { audioRouteChoice, backendStatus, backendDetail, backendKind } = await client.getState();
+      let refreshed: VoxveilState;
+      try { refreshed = await client.getState(); } catch { return; }
+      const { audioRouteChoice, backendStatus, backendDetail, backendKind } = refreshed;
       setState((current) => current.masterEnabled === masterEnabled && current.audioRouteChoice === audioRouteChoice
         ? { ...current, backendStatus, backendDetail, backendKind }
         : current);

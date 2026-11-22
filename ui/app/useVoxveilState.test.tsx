@@ -1,55 +1,8 @@
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { AudioPlaybackSnapshot, SystemAudioEndpoint, SystemAudioInstallResult, VoxveilState } from '../lib/types';
+import type { AudioPlaybackSnapshot, SystemAudioInstallResult, VoxveilState } from '../lib/types';
 
-const stoppedPlayback: AudioPlaybackSnapshot = {
-  status: 'stopped',
-  fileName: null,
-  outputEndpointId: null,
-  outputName: null,
-  sampleRate: null,
-  positionFrames: 0,
-  totalFrames: null,
-  error: null,
-};
-
-const nativeState: VoxveilState = {
-  edition: 'pro-system',
-  windowsAudioRoutesAvailable: true,
-  audioRouteChoice: 'physical-apo',
-  audioRouteError: null,
-  playback: stoppedPlayback,
-  masterEnabled: true,
-  backendStatus: 'ready',
-  backendDetail: null,
-  backendKind: 'apo',
-  processingMode: 'all',
-  perAppProcessingAvailable: false,
-  engine: 'auto',
-  classicSuppressionProfile: 'music-preservation',
-  vocalLevel: 12,
-  quality: 50,
-  outputMode: 'both',
-  physicalOutput: 'Native Output',
-  physicalOutputEndpointId: 'native-output',
-  virtualOutputAvailable: true,
-  estimatedLatencyMs: 42,
-  load: 'medium',
-  apps: [
-    { id: 'browser', name: 'Browser', category: 'media', enabled: true },
-    { id: 'call', name: 'Call', category: 'communication', enabled: false, bypassReason: 'communication' },
-  ],
-};
-
-const playbackEndpoints: SystemAudioEndpoint[] = [
-  {
-    endpointId: 'speakers',
-    displayName: 'Speakers',
-    adapterName: 'Example Audio',
-    isDefault: true,
-    status: 'installable',
-  },
-];
+import { nativeState, stoppedPlayback, playbackEndpoints } from './voxveilStateTestFixtures';
 
 const client = vi.hoisted(() => ({
   getState: vi.fn(async () => nativeState),
@@ -337,6 +290,31 @@ describe('useVoxveilState', () => {
     act(() => result.current.setMasterEnabled(false));
     await waitFor(() => expect(result.current.state.backendStatus).toBe('routing-required'));
     expect(result.current.state.backendDetail).toBe(stopped.backendDetail);
+  });
+
+  it('keeps processing enabled when the post-toggle status refresh fails', async () => {
+    (window as Window & { __TAURI_INTERNALS__?: object }).__TAURI_INTERNALS__ = {};
+    const stopped = {
+      ...nativeState,
+      audioRouteChoice: 'legacy-automatic',
+      masterEnabled: false,
+      backendStatus: 'routing-required',
+      backendKind: 'endpoint-relay',
+      physicalOutputEndpointId: 'speakers',
+    } satisfies VoxveilState;
+    client.getState
+      .mockResolvedValueOnce(stopped)
+      .mockRejectedValue(new Error('Status refresh unavailable'));
+    client.setMasterEnabled.mockResolvedValueOnce(undefined);
+    const { result } = renderHook(() => useVoxveilState());
+    await waitFor(() => expect(result.current.canStartProcessing).toBe(true));
+
+    await act(async () => result.current.setMasterEnabled(true));
+
+    expect(client.setMasterEnabled).toHaveBeenCalledWith(true);
+    expect(client.getState).toHaveBeenCalledTimes(2);
+    expect(result.current.state).toEqual({ ...stopped, masterEnabled: true });
+    expect(result.current.processingOperationError).toBeNull();
   });
 
   it('does not optimistically enable processing when the native backend is unavailable', async () => {
