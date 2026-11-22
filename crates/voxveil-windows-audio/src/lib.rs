@@ -7,6 +7,10 @@ mod device_interfaces;
 mod discovery;
 mod relay_engine;
 mod route;
+#[cfg(any(windows, test))]
+mod relay_decision;
+#[cfg(test)]
+mod endpoint_relay_tests;
 mod sample;
 mod virtual_endpoint;
 

@@ -29,10 +29,39 @@ pub(crate) fn validate_distinct_route(
     physical_id: &str,
 ) -> Result<(), &'static str> {
     if source_id == physical_id {
-        Err("virtual interception endpoint cannot also be the physical output")
+        Err("interception endpoint cannot also be the physical output")
     } else {
         Ok(())
     }
+}
+
+pub(crate) const ENDPOINT_RELAY_INSTRUCTION: &str =
+    "Set a spare output device as the Windows default output and choose a different device for Voxveil output";
+
+pub(crate) fn select_relay_source(
+    endpoints: &[EndpointDescriptor],
+) -> Option<(crate::virtual_endpoint::VirtualEndpointKind, &EndpointDescriptor)> {
+    use crate::virtual_endpoint::{VirtualEndpointKind, find_preferred_virtual_endpoint};
+    find_preferred_virtual_endpoint(endpoints).or_else(|| {
+        endpoints.iter().find(|endpoint| endpoint.is_default
+            && classify_virtual_endpoint(endpoint).is_none())
+            .map(|endpoint| (VirtualEndpointKind::EndpointRelay, endpoint))
+    })
+}
+
+pub(crate) fn select_relay_output<'a>(
+    endpoints: &'a [EndpointDescriptor],
+    selected: Option<(crate::virtual_endpoint::VirtualEndpointKind, &EndpointDescriptor)>,
+    preferred_id: Option<&str>,
+) -> Option<&'a EndpointDescriptor> {
+    use crate::virtual_endpoint::VirtualEndpointKind;
+    let source_id = selected.map(|(_, source)| source.id.as_str()).unwrap_or("");
+    if matches!(selected, Some((VirtualEndpointKind::EndpointRelay, _))) {
+        return preferred_id.and_then(|id| endpoints.iter().find(|endpoint|
+            endpoint.id == id && endpoint.id != source_id
+                && classify_virtual_endpoint(endpoint).is_none()));
+    }
+    select_physical_output(endpoints, source_id, preferred_id)
 }
 
 #[cfg(test)]

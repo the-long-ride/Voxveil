@@ -277,14 +277,14 @@ describe('useVoxveilState', () => {
     });
   });
 
-  it('allows a configured relay to request processing startup', async () => {
+  it.each(['vb-cable-relay', 'voxveil-cable-relay', 'endpoint-relay'] as const)('allows a configured %s to request processing startup', async (backendKind) => {
     (window as Window & { __TAURI_INTERNALS__?: object }).__TAURI_INTERNALS__ = {};
     client.getState.mockResolvedValueOnce({
       ...nativeState,
       audioRouteChoice: 'legacy-automatic',
       masterEnabled: false,
       backendStatus: 'routing-required',
-      backendKind: 'vb-cable-relay',
+      backendKind,
       physicalOutputEndpointId: 'speakers',
     });
     const { result } = renderHook(() => useVoxveilState());

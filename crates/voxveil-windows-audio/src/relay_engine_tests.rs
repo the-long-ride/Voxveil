@@ -77,3 +77,18 @@ fn worker_panic_cannot_leave_backend_running() {
     assert!(matches!(handle.state(), RelayRuntimeState::Faulted(_)));
     handle.stop().unwrap();
 }
+
+#[test]
+fn running_relay_is_bound_to_its_original_endpoints() {
+    let spec = RelaySpec {
+        source_endpoint_id: "hdmi".into(),
+        physical_output_endpoint_id: "headphones".into(),
+    };
+    let mut relay = RelayHandle::spawn_with_worker(spec, 100, |_, _, commands, _| {
+        let _ = commands.recv();
+    }).unwrap();
+    assert!(relay.matches_route("hdmi", "headphones"));
+    assert!(!relay.matches_route("speakers", "headphones"));
+    assert!(!relay.matches_route("hdmi", "speakers"));
+    relay.stop().unwrap();
+}

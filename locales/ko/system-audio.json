@@ -14,7 +14,7 @@
   "detecting": "재생 출력을 감지하는 중…",
   "none": "감지된 재생 출력이 없습니다.",
   "routeTitle": "시스템 전체 라우팅",
-  "vbCableMissing": "시스템 전체 처리를 사용하려면 표준 VB-CABLE 가상 오디오 장치를 설치하세요.",
+  "vbCableMissing": "여분의 Windows 출력으로 드라이버 없이 릴레이하거나 표준 VB-CABLE 가상 오디오 장치를 설치하세요.",
   "getVbCable": "VB-CABLE 받기",
   "routeInstructionVbCable": "CABLE Input을 Windows 출력으로 설정하고 아래에서 물리 출력을 선택한 다음 Voxveil로 돌아오세요.",
   "routeInstructionVoxveilCable": "Voxveil Input을 Windows 출력으로 설정하고 아래에서 물리 출력을 선택한 다음 Voxveil로 돌아오세요.",
@@ -31,5 +31,7 @@
   "ownedPlaybackDescription": "여기서 연 로컬 파일만 처리합니다. 다른 앱은 정상 재생되며 오디오 구성 요소를 설치하지 않습니다.",
   "legacyAutomaticRoute": "시스템 전체 — 자동(APO 또는 VB-CABLE)",
   "legacyAutomaticDescription": "Voxveil 물리 APO가 로드되어 있으면 사용하고, 그렇지 않으면 VB-CABLE 또는 Voxveil Virtual Cable을 통해 Windows 오디오를 선택한 물리 출력으로 전달합니다.",
-  "routeConfigError": "오디오 경로 설정을 확인해야 합니다. 저장된 잘못된 값을 바꿀 경로를 선택하세요."
+  "routeConfigError": "오디오 경로 설정을 확인해야 합니다. 저장된 잘못된 값을 바꿀 경로를 선택하세요.",
+  "endpointRelay": "드라이버 없는 릴레이",
+  "routeInstructionEndpointRelay": "여분의 출력 장치를 Windows 기본 출력으로 설정하고 Voxveil 출력에는 다른 장치를 선택하세요."
 }

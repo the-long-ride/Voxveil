@@ -14,7 +14,7 @@
   "detecting": "正在检测播放输出…",
   "none": "未检测到播放输出。",
   "routeTitle": "全系统路由",
-  "vbCableMissing": "安装标准 VB-CABLE 虚拟音频设备以启用全系统处理。",
+  "vbCableMissing": "使用闲置的 Windows 输出进行免驱动转发，或安装标准 VB-CABLE 虚拟音频设备。",
   "getVbCable": "获取 VB-CABLE",
   "routeInstructionVbCable": "将 CABLE Input 设为 Windows 输出，选择下方物理输出，然后返回 Voxveil。",
   "routeInstructionVoxveilCable": "将 Voxveil Input 设为 Windows 输出，选择下方物理输出，然后返回 Voxveil。",
@@ -31,5 +31,7 @@
   "ownedPlaybackDescription": "仅处理在此打开的本地文件。其他应用照常播放；不会安装音频组件。",
   "legacyAutomaticRoute": "全系统 — 自动（APO 或 VB-CABLE）",
   "legacyAutomaticDescription": "如果 Voxveil 物理 APO 已加载则使用它；否则通过 VB-CABLE 或 Voxveil Virtual Cable 将 Windows 音频传送到所选的物理输出。",
-  "routeConfigError": "音频路由设置需要处理。请选择一个路由以替换无效的已保存值。"
+  "routeConfigError": "音频路由设置需要处理。请选择一个路由以替换无效的已保存值。",
+  "endpointRelay": "免驱动转发",
+  "routeInstructionEndpointRelay": "将闲置输出设备设为 Windows 默认输出，并为 Voxveil 选择另一台输出设备。"
 }

@@ -38,6 +38,7 @@ pub(crate) enum RelayCommand {
 }
 
 pub(crate) struct RelayHandle {
+    spec: RelaySpec,
     command_tx: Sender<RelayCommand>,
     state: Arc<Mutex<RelayRuntimeState>>,
     worker: Option<JoinHandle<()>>,
@@ -89,6 +90,7 @@ impl RelayHandle {
         let state = Arc::new(Mutex::new(RelayRuntimeState::Starting));
         let worker_state = Arc::clone(&state);
         let exit_state = Arc::clone(&state);
+        let active_spec = spec.clone();
         let worker = thread::spawn(move || {
             let outcome = catch_unwind(AssertUnwindSafe(|| {
                 worker(spec, vocal_level.min(100), profile, command_rx, worker_state);
@@ -104,6 +106,7 @@ impl RelayHandle {
             }
         });
         Ok(Self {
+            spec: active_spec,
             command_tx,
             state,
             worker: Some(worker),
@@ -126,6 +129,10 @@ impl RelayHandle {
                 );
             },
         )
+    }
+
+    pub(crate) fn matches_route(&self, source: &str, output: &str) -> bool {
+        self.spec.source_endpoint_id == source && self.spec.physical_output_endpoint_id == output
     }
 
     pub(crate) fn state(&self) -> RelayRuntimeState {

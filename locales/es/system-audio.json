@@ -14,7 +14,7 @@
   "detecting": "Detectando salidas de reproducción…",
   "none": "No se detectaron salidas de reproducción.",
   "routeTitle": "Ruta de todo el sistema",
-  "vbCableMissing": "Instala el dispositivo de audio virtual VB-CABLE estándar para habilitar el procesamiento de todo el sistema.",
+  "vbCableMissing": "Usa una salida libre de Windows para retransmitir sin controladores o instala el dispositivo de audio virtual VB-CABLE estándar.",
   "getVbCable": "Obtener VB-CABLE",
   "routeInstructionVbCable": "Configura CABLE Input como salida de Windows, elige la salida física abajo y vuelve a Voxveil.",
   "routeInstructionVoxveilCable": "Configura Voxveil Input como salida de Windows, elige la salida física abajo y vuelve a Voxveil.",
@@ -31,5 +31,7 @@
   "ownedPlaybackDescription": "Procesa solo un archivo local abierto aquí. Las demás aplicaciones siguen reproduciendo con normalidad; no se instala ningún componente de audio.",
   "legacyAutomaticRoute": "Todo el sistema: automática (APO o VB-CABLE)",
   "legacyAutomaticDescription": "Usa el APO físico de Voxveil si está cargado. De lo contrario, envía el audio de Windows por VB-CABLE o Voxveil Virtual Cable a la salida física seleccionada.",
-  "routeConfigError": "La configuración de la ruta de audio requiere atención. Elige una ruta para reemplazar el valor guardado no válido."
+  "routeConfigError": "La configuración de la ruta de audio requiere atención. Elige una ruta para reemplazar el valor guardado no válido.",
+  "endpointRelay": "Retransmisión sin controladores",
+  "routeInstructionEndpointRelay": "Establece una salida libre como salida predeterminada de Windows y elige un dispositivo diferente para la salida de Voxveil."
 }

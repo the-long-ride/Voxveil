@@ -57,6 +57,21 @@ function renderPanel(
 }
 
 describe('SystemAudioEndpoints', () => {
+  it('offers driverless relay setup and physical output selection without an APO component', () => {
+    const actions = renderPanel([], {
+      backendKind: 'endpoint-relay', backendStatus: 'routing-required',
+      audioRouteChoice: 'legacy-automatic',
+      physicalOutputs: [output('hdmi', 'HDMI', true), output('phones', 'Headphones')],
+    });
+    expect(screen.getByText('Driverless relay')).toBeInTheDocument();
+    expect(screen.getByText(/Set a spare output device/)).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'phones' } });
+    expect(actions.onSelectPhysicalOutput).toHaveBeenCalledWith('phones');
+    fireEvent.click(screen.getByRole('button', { name: 'Open Sound settings' }));
+    expect(actions.onOpenSoundSettings).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('button', { name: 'Get VB-CABLE' })).toBeNull();
+  });
+
   it('offers the official VB-CABLE action when the relay component is missing', () => {
     const actions = renderPanel([], { backendStatus: 'component-required', audioRouteChoice: 'legacy-automatic' });
     fireEvent.click(screen.getByRole('button', { name: 'Get VB-CABLE' }));

@@ -21,6 +21,7 @@ pub enum WindowsInterceptionKind {
     Apo,
     VbCableRelay,
     VoxveilCableRelay,
+    EndpointRelay,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

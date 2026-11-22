@@ -232,6 +232,7 @@ impl ProcessingController {
 fn interception_name(kind: voxveil_windows_audio::WindowsInterceptionKind) -> &'static str {
     use voxveil_windows_audio::WindowsInterceptionKind;
     match kind {
+        WindowsInterceptionKind::EndpointRelay => "endpoint-relay",
         WindowsInterceptionKind::Apo => "apo",
         WindowsInterceptionKind::VbCableRelay => "vb-cable-relay",
         WindowsInterceptionKind::VoxveilCableRelay => "voxveil-cable-relay",

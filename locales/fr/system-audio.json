@@ -14,7 +14,7 @@
   "detecting": "Détection des sorties de lecture…",
   "none": "Aucune sortie de lecture détectée.",
   "routeTitle": "Routage système",
-  "vbCableMissing": "Installez le périphérique audio virtuel VB-CABLE standard pour activer le traitement de tout le système.",
+  "vbCableMissing": "Utilisez une sortie Windows inutilisée pour le relais sans pilote, ou installez le périphérique audio virtuel VB-CABLE standard.",
   "getVbCable": "Obtenir VB-CABLE",
   "routeInstructionVbCable": "Définissez CABLE Input comme sortie Windows, choisissez la sortie physique ci-dessous, puis revenez dans Voxveil.",
   "routeInstructionVoxveilCable": "Définissez Voxveil Input comme sortie Windows, choisissez la sortie physique ci-dessous, puis revenez dans Voxveil.",
@@ -31,5 +31,7 @@
   "ownedPlaybackDescription": "Traite uniquement un fichier local ouvert ici. Les autres applications continuent normalement ; aucun composant audio n’est installé.",
   "legacyAutomaticRoute": "Tout le système — automatique (APO ou VB-CABLE)",
   "legacyAutomaticDescription": "Utilise l’APO physique de Voxveil lorsqu’il est chargé. Sinon, l’audio Windows passe par VB-CABLE ou Voxveil Virtual Cable vers la sortie physique sélectionnée.",
-  "routeConfigError": "La configuration de la route audio nécessite votre attention. Choisissez une route pour remplacer la valeur enregistrée invalide."
+  "routeConfigError": "La configuration de la route audio nécessite votre attention. Choisissez une route pour remplacer la valeur enregistrée invalide.",
+  "endpointRelay": "Relais sans pilote",
+  "routeInstructionEndpointRelay": "Définissez une sortie inutilisée comme sortie Windows par défaut et choisissez un autre appareil pour la sortie Voxveil."
 }

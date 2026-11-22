@@ -180,3 +180,20 @@ test('Windows package binds APO compilation and final release manifest to exact 
   const hashEnumeration = buildScript.indexOf("$hashFiles = Get-ChildItem $output -Recurse -File");
   assert.ok(manifestWrite >= 0 && hashEnumeration > manifestWrite, 'release manifest must be staged before SHA256SUMS enumeration');
 });
+
+test('driverless packaging returns before WDK and native component builds', async () => {
+  const start = buildScript.indexOf('if ($NoDrivers) {');
+  const end = buildScript.indexOf('$msbuild = Find-MSBuild', start);
+  assert.ok(start >= 0 && end > start);
+  assert.match(buildScript.slice(start, end), /build-driverless-package\.ps1[\s\S]*return/);
+  assert.ok(buildScript.indexOf('\nAssert-Wdk', start) > end);
+  const driverless = await readFile(new URL('../windows/build-driverless-package.ps1', import.meta.url), 'utf8');
+  assert.match(driverless, /Assert-SafeOutputDirectory/);
+  assert.match(driverless, /Assert-NoReparsePointInPath/);
+  assert.match(driverless, /packageVariant = 'driverless'/);
+  assert.match(driverless, /SHA256SUMS.txt/);
+  assert.doesNotMatch(driverless, /stage-signed-|VoxveilApo\.vcxproj|Assert-Wdk/);
+  const pkg = JSON.parse(await readFile(new URL('../../package.json', import.meta.url), 'utf8'));
+  assert.match(pkg.scripts['build:windows:driverless'], /-NoDrivers/);
+  assert.doesNotMatch(pkg.scripts['build:windows:driverless'], /build:windows-driver/);
+});

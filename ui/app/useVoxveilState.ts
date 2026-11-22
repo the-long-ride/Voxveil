@@ -33,7 +33,7 @@ function canRequestProcessingStart(state: VoxveilState): boolean {
   if (state.backendStatus !== 'routing-required' || state.physicalOutputEndpointId === null) {
     return false;
   }
-  return state.backendKind === 'vb-cable-relay' || state.backendKind === 'voxveil-cable-relay';
+  return state.backendKind === 'endpoint-relay' || state.backendKind === 'vb-cable-relay' || state.backendKind === 'voxveil-cable-relay';
 }
 
 export function useVoxveilState() {
