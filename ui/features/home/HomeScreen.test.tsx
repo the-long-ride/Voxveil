@@ -7,11 +7,11 @@ import { nativeState } from '../../app/voxveilStateTestFixtures';
 import type { ProcessingBackendStatus, WindowsInterceptionKind } from '../../lib/types';
 import { HomeScreen } from './HomeScreen';
 
-function renderHome(backendKind: WindowsInterceptionKind, backendStatus: ProcessingBackendStatus, canStartProcessing: boolean) {
+function renderHome(backendKind: WindowsInterceptionKind, backendStatus: ProcessingBackendStatus, canStartProcessing: boolean, backendDetail = 'Relay is configured and ready to start') {
   const model: VoxveilModel = {
     state: {
       ...nativeState, audioRouteChoice: 'legacy-automatic', masterEnabled: false,
-      backendKind, backendStatus, backendDetail: 'Relay is configured and ready to start',
+      backendKind, backendStatus, backendDetail,
     },
     canStartProcessing,
     systemAudioEndpoints: [], physicalOutputs: [],
@@ -30,10 +30,18 @@ function renderHome(backendKind: WindowsInterceptionKind, backendStatus: Process
 }
 
 describe('Home readiness notice', () => {
-  it.each(['endpoint-relay', 'vb-cable-relay', 'voxveil-cable-relay'] as const)('shows a configured %s as ready to start, not unavailable', (kind) => {
+  it.each(['endpoint-relay', 'vb-cable-relay', 'voxveil-cable-relay'] as const)('shows the configured %s detail without a readiness title', (kind) => {
     renderHome(kind, 'routing-required', true);
-    expect(screen.getByText('Ready')).toBeInTheDocument();
+    expect(screen.queryByText('Ready')).toBeNull();
     expect(screen.getByText('Relay is configured and ready to start')).toBeInTheDocument();
+    expect(screen.queryByText('Processing unavailable')).toBeNull();
+  });
+
+  it('shows the cable-not-default instruction without claiming readiness', () => {
+    const instruction = 'Set CABLE Input as the Windows default output, then return to Voxveil';
+    renderHome('vb-cable-relay', 'routing-required', true, instruction);
+    expect(screen.getByText(instruction)).toBeInTheDocument();
+    expect(screen.queryByText('Ready')).toBeNull();
     expect(screen.queryByText('Processing unavailable')).toBeNull();
   });
 
