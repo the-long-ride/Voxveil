@@ -6,16 +6,17 @@ export interface SegmentOption<T extends string> {
 
 interface SegmentedControlProps<T extends string> {
   label: string;
+  hideLabel?: boolean;
   value: T;
   options: readonly SegmentOption<T>[];
   onChange: (value: T) => void;
 }
 
 export function SegmentedControl<T extends string>(props: SegmentedControlProps<T>) {
-  const { label, value, options, onChange } = props;
+  const { label, hideLabel, value, options, onChange } = props;
   return (
     <div className="segmented-field">
-      <span className="field-label">{label}</span>
+      {!hideLabel && <span className="field-label">{label}</span>}
       <div className="segmented" role="group" aria-label={label}>
         {options.map((option) => (
           <button

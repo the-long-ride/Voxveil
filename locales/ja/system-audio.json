@@ -29,8 +29,8 @@
   "physicalApoUnavailable": "物理 APO ルートが選択されています。VB-CABLE を使うには、設定で「システム全体 — 自動」を選択してください。",
   "ownedPlaybackRoute": "Voxveil でファイルを再生",
   "ownedPlaybackDescription": "ここで開いたローカルファイルだけを処理します。他のアプリは通常どおり再生され、オーディオコンポーネントはインストールされません。",
-  "legacyAutomaticRoute": "システム全体 — 自動（APO または VB-CABLE）",
-  "legacyAutomaticDescription": "Voxveil の物理 APO が読み込まれている場合はそれを使用します。読み込まれていない場合は、VB-CABLE または Voxveil Virtual Cable を通して Windows の音声を選択した物理出力へ送ります。",
+  "legacyAutomaticRoute": "システム全体 — 自動（ドライバー不要の代替経路あり）",
+  "legacyAutomaticDescription": "Windows の既定の出力で Voxveil APO が読み込まれている場合は、それを使用します。それ以外の場合は Voxveil Virtual Cable、次に VB-CABLE を優先します。どちらのケーブルも利用できない場合は、ドライバー不要のリレーで、Windows の既定に設定した予備の物理出力から、選択した別の物理出力に音声を送ります。",
   "routeConfigError": "音声ルート設定に問題があります。保存された無効な値を置き換えるルートを選択してください。",
   "endpointRelay": "ドライバー不要のリレー",
   "routeInstructionEndpointRelay": "予備の出力デバイスを Windows の既定出力に設定し、Voxveil の出力には別のデバイスを選択してください。"

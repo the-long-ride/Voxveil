@@ -29,8 +29,8 @@
   "physicalApoUnavailable": "La route APO physique est sélectionnée. Pour utiliser VB-CABLE, sélectionnez Tout le système — automatique dans les paramètres.",
   "ownedPlaybackRoute": "Lire des fichiers dans Voxveil",
   "ownedPlaybackDescription": "Traite uniquement un fichier local ouvert ici. Les autres applications continuent normalement ; aucun composant audio n’est installé.",
-  "legacyAutomaticRoute": "Tout le système — automatique (APO ou VB-CABLE)",
-  "legacyAutomaticDescription": "Utilise l’APO physique de Voxveil lorsqu’il est chargé. Sinon, l’audio Windows passe par VB-CABLE ou Voxveil Virtual Cable vers la sortie physique sélectionnée.",
+  "legacyAutomaticRoute": "Tout le système — automatique (relais sans pilote en dernier recours)",
+  "legacyAutomaticDescription": "Utilise l’APO de Voxveil s’il est chargé sur la sortie Windows par défaut. Sinon, Voxveil Virtual Cable est prioritaire, puis VB-CABLE. Si aucun des deux câbles n’est disponible, le relais sans pilote envoie l’audio d’une sortie physique de réserve définie par défaut dans Windows vers une autre sortie physique de votre choix.",
   "routeConfigError": "La configuration de la route audio nécessite votre attention. Choisissez une route pour remplacer la valeur enregistrée invalide.",
   "endpointRelay": "Relais sans pilote",
   "routeInstructionEndpointRelay": "Définissez une sortie inutilisée comme sortie Windows par défaut et choisissez un autre appareil pour la sortie Voxveil."

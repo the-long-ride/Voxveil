@@ -29,8 +29,8 @@
   "physicalApoUnavailable": "Bạn đang chọn tuyến APO vật lý. Để dùng VB-CABLE đã cài, hãy chọn Toàn hệ thống — tự động trong Cài đặt.",
   "ownedPlaybackRoute": "Phát tệp trong Voxveil",
   "ownedPlaybackDescription": "Chỉ xử lý tệp cục bộ được mở tại đây. Ứng dụng khác vẫn phát bình thường; không cài thành phần âm thanh.",
-  "legacyAutomaticRoute": "Toàn hệ thống — tự động (APO hoặc VB-CABLE)",
-  "legacyAutomaticDescription": "Dùng APO vật lý của Voxveil nếu đã được tải. Nếu không, âm thanh Windows được chuyển qua VB-CABLE hoặc Voxveil Virtual Cable đến đầu ra vật lý đã chọn.",
+  "legacyAutomaticRoute": "Toàn hệ thống — tự động (có tuyến dự phòng không cần trình điều khiển)",
+  "legacyAutomaticDescription": "Dùng APO của Voxveil nếu đã được tải trên đầu ra mặc định của Windows. Nếu không, ưu tiên Voxveil Virtual Cable, rồi đến VB-CABLE. Nếu không có cáp nào, tuyến không cần trình điều khiển sẽ chuyển âm thanh từ một đầu ra vật lý dự phòng được đặt làm mặc định trong Windows sang một đầu ra vật lý khác do bạn chọn.",
   "routeConfigError": "Cần kiểm tra cài đặt tuyến âm thanh. Chọn một tuyến để thay thế giá trị đã lưu không hợp lệ.",
   "endpointRelay": "Chuyển tiếp không trình điều khiển",
   "routeInstructionEndpointRelay": "Đặt thiết bị đầu ra dự phòng làm mặc định của Windows và chọn thiết bị khác cho đầu ra Voxveil."
