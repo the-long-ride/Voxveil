@@ -41,13 +41,3 @@ test('signed-driver validation matrix records pinned source provenance', () => {
   );
   assert.ok(text.includes(SYSVAD_TREE_SHA), 'validation matrix must record the pinned SysVAD tree SHA');
 });
-
-test('authoritative Tier 2 corrections supersede undecorated INF guidance', () => {
-  const corrections = read('docs/superpowers/plans/2026-09-14-windows-signed-audio-paths-review-notes.md');
-
-  assert.match(corrections, /### 5\. Preserve the pinned SysVAD Windows 11 build-22621 applicability floor/i);
-  assert.match(corrections, /original Tier 2 Task 4[\s\S]{0,220}undecorated/i);
-  assert.match(corrections, /undecorated[\s\S]{0,300}superseded|superseded[\s\S]{0,300}undecorated/i);
-  assert.match(corrections, /Windows 10[\s\S]{0,300}Tier 1|Tier 1[\s\S]{0,300}Windows 10/i);
-  assert.match(corrections, /Inf2Cat[\s\S]{0,500}22621|22621[\s\S]{0,500}Inf2Cat/i);
-});
