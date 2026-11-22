@@ -5,7 +5,7 @@ use voxveil_types::{ClassicSuppressionProfile, WindowsInterceptionPolicy};
 use crate::device::{BackendProbe, EndpointDescriptor};
 use crate::discovery::{SystemAudioEndpoint, SystemAudioEndpointStatus, enrich_endpoints};
 use crate::relay_engine::{RelayHandle, RelayRuntimeState, RelaySpec};
-use crate::route::{select_relay_source, select_relay_output};
+use crate::route::{select_physical_output, select_relay_output, select_relay_source};
 use crate::virtual_endpoint::{
     VirtualEndpointKind, classify_virtual_endpoint,
 };

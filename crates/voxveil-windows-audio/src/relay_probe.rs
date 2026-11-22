@@ -90,7 +90,9 @@ impl WindowsAudioBackend {
                     );
                 }
             }
-            return decide_backend(true, selected, physical, None);
+            let apo_output =
+                select_physical_output(&endpoints, "", preferred_physical_output_id);
+            return decide_backend(true, selected, apo_output, None);
         }
 
         if !self.interception_policy.allows_virtual_relay() {
