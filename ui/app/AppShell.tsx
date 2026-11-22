@@ -36,6 +36,7 @@ export function AppShell({ themeMode, onThemeModeChange }: AppShellProps) {
       playback={model.state.playback}
       outputs={model.physicalOutputs}
       selectedOutputId={model.state.physicalOutputEndpointId}
+      selectedOutputName={model.state.physicalOutput}
       operationError={model.playbackOperationError}
       onOpen={model.openAudioFile}
       onPause={model.pausePlayback}

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { I18nextProvider } from 'react-i18next';
 import { getI18n } from '../../i18n';
 import type { AudioPlaybackSnapshot } from '../../lib/types';
+import type { PlaybackScreenProps } from './PlaybackScreen';
 import { PlaybackScreen } from './PlaybackScreen';
 
 function playback(status: AudioPlaybackSnapshot['status']): AudioPlaybackSnapshot {
@@ -18,7 +19,7 @@ function playback(status: AudioPlaybackSnapshot['status']): AudioPlaybackSnapsho
   };
 }
 
-function renderPlayer(status: AudioPlaybackSnapshot['status']) {
+function renderPlayer(status: AudioPlaybackSnapshot['status'], overrides: Partial<PlaybackScreenProps> = {}) {
   const callbacks = {
     onOpen: vi.fn(),
     onPause: vi.fn(),
@@ -35,6 +36,7 @@ function renderPlayer(status: AudioPlaybackSnapshot['status']) {
         selectedOutputId="speakers"
         operationError={null}
         {...callbacks}
+        {...overrides}
       />
     </I18nextProvider>,
   );
@@ -42,6 +44,33 @@ function renderPlayer(status: AudioPlaybackSnapshot['status']) {
 }
 
 describe('PlaybackScreen', () => {
+  it('shows the selected output before any file has been opened', () => {
+    renderPlayer('stopped', {
+      playback: { ...playback('stopped'), fileName: null, outputName: null, outputEndpointId: null },
+      outputs: [], selectedOutputId: 'line-1', selectedOutputName: 'Line 1',
+    });
+    expect(screen.getByText('Line 1')).toBeInTheDocument();
+    expect(screen.queryByText('No output selected')).toBeNull();
+  });
+
+  it('can resolve the selected output name from the output list', () => {
+    renderPlayer('stopped', { playback: { ...playback('stopped'), outputName: null } });
+    expect(screen.getByText('Speakers', { selector: '.player-track span' })).toBeInTheDocument();
+  });
+
+  it('keeps the active playback output authoritative', () => {
+    renderPlayer('playing', { selectedOutputName: 'Another output', selectedOutputId: 'other' });
+    expect(screen.getByText('Speakers', { selector: '.player-track span' })).toBeInTheDocument();
+  });
+
+  it('shows no output when neither playback nor a selection has one', () => {
+    renderPlayer('stopped', {
+      playback: { ...playback('stopped'), outputName: null },
+      outputs: [], selectedOutputId: null, selectedOutputName: 'System Default',
+    });
+    expect(screen.getByText('No output selected')).toBeInTheDocument();
+  });
+
   it('exposes pause, stop, seek and physical output while a file is playing', () => {
     const callbacks = renderPlayer('playing');
     expect(screen.getByText('song.flac')).toBeInTheDocument();
