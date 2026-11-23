@@ -27,7 +27,7 @@ pub fn resolve(
 ) -> Result<ModelLocation, String> {
     if let Some(root) = resources.filter(|_| descriptor.bundled_by_default) {
         let paths = storage_files::paths(root, descriptor);
-        if storage_files::verified_files(&paths, descriptor)? {
+        if storage_files::verified_files(&paths, descriptor).unwrap_or(false) {
             return Ok(ModelLocation {
                 paths,
                 installed: true,

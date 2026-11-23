@@ -147,19 +147,42 @@ fn corrupt_empty_oversized_or_partial_bundles_never_enable_ai_and_can_fall_back(
 }
 
 #[test]
-fn empty_descriptors_and_resource_io_errors_cannot_be_treated_as_installed() {
+fn empty_descriptors_cannot_be_treated_as_installed() {
     let fixture = Fixture::new();
     let mut model = descriptor("mdx-inst-hq3");
     let paths = fixture.paths("resources", &model);
     write_files(&paths);
     model.files.clear();
     assert!(!fixture.resolve(&model).installed);
-    model = descriptor("mdx-inst-hq3");
-    fs::write(fixture.0.join("not-a-directory"), b"abc").unwrap();
-    assert!(location::resolve(
-        fixture.paths("downloads", &model),
-        Some(Path::new(&fixture.0.join("not-a-directory"))),
-        &model
-    )
-    .is_err());
+}
+
+#[test]
+fn resource_io_errors_fall_back_to_downloads_without_skipping_verification() {
+    let fixture = Fixture::new();
+    let model = descriptor("mdx-inst-hq3");
+    let resources = fixture.0.join("not-a-directory");
+    fs::write(&resources, b"abc").unwrap();
+    let bundled = storage_files::paths(&resources, &model);
+    assert!(storage_files::verified_files(&bundled, &model).is_err());
+    let resolve = || {
+        location::resolve(
+            fixture.paths("downloads", &model),
+            Some(Path::new(&resources)),
+            &model,
+        )
+    };
+    let missing = resolve().unwrap();
+    assert!(!missing.installed && !missing.bundled);
+
+    let downloaded = fixture.paths("downloads", &model);
+    write_download(&downloaded, &model);
+    let fallback = resolve().unwrap();
+    assert!(fallback.installed && !fallback.bundled);
+    assert_eq!(fallback.paths.directory, downloaded.directory);
+
+    fs::write(&downloaded.files[0].model, b"abd").unwrap();
+    assert!(!resolve().unwrap().installed);
+    fs::remove_file(&downloaded.receipt).unwrap();
+    fs::create_dir(&downloaded.receipt).unwrap();
+    assert!(resolve().is_err());
 }
