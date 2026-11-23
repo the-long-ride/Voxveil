@@ -11,7 +11,6 @@ const FILE_NAME: &str = "windows-audio.json";
 #[serde(rename_all = "kebab-case")]
 pub enum LegacyInterceptionPreference {
     Apo,
-    VbCableRelay,
     VoxveilCableRelay,
     EndpointRelay,
 }
@@ -59,7 +58,8 @@ impl<'de> Deserialize<'de> for WindowsAudioPreferences {
             .as_deref()
             .map(parse_legacy_interception)
             .transpose()
-            .map_err(serde::de::Error::custom)?;
+            .map_err(serde::de::Error::custom)?
+            .flatten();
 
         Ok(Self {
             ai: persisted.ai,
@@ -73,19 +73,19 @@ impl<'de> Deserialize<'de> for WindowsAudioPreferences {
 
 fn parse_route_choice(value: &str) -> Result<AudioRouteChoice, String> {
     match value {
-        "legacy-automatic" => Ok(AudioRouteChoice::LegacyAutomatic),
+        "legacy-automatic" | "vb-cable-relay" => Ok(AudioRouteChoice::LegacyAutomatic),
         "physical-apo" => Ok(AudioRouteChoice::PhysicalApo),
         "owned-file-playback" => Ok(AudioRouteChoice::OwnedFilePlayback),
         _ => Err(format!("unknown Windows audio route choice `{value}`")),
     }
 }
 
-fn parse_legacy_interception(value: &str) -> Result<LegacyInterceptionPreference, String> {
+fn parse_legacy_interception(value: &str) -> Result<Option<LegacyInterceptionPreference>, String> {
     match value {
-        "endpoint-relay" => Ok(LegacyInterceptionPreference::EndpointRelay),
-        "apo" => Ok(LegacyInterceptionPreference::Apo),
-        "vb-cable-relay" => Ok(LegacyInterceptionPreference::VbCableRelay),
-        "voxveil-cable-relay" => Ok(LegacyInterceptionPreference::VoxveilCableRelay),
+        "endpoint-relay" => Ok(Some(LegacyInterceptionPreference::EndpointRelay)),
+        "apo" => Ok(Some(LegacyInterceptionPreference::Apo)),
+        "vb-cable-relay" => Ok(None),
+        "voxveil-cable-relay" => Ok(Some(LegacyInterceptionPreference::VoxveilCableRelay)),
         _ => Err(format!(
             "unknown legacy Windows audio preference `preferredInterception`: `{value}`"
         )),
@@ -213,17 +213,53 @@ mod tests {
     }
 
     #[test]
-    fn old_preferences_without_route_migrate_to_legacy_automatic() {
+    fn retired_interception_preferences_migrate_to_automatic_and_round_trip() {
         let prefs = decode_preferences(
             br#"{"physicalOutputEndpointId":"speakers-id","preferredInterception":"vb-cable-relay"}"#,
         )
         .unwrap();
 
         assert_eq!(prefs.route_choice, AudioRouteChoice::LegacyAutomatic);
+        assert_eq!(prefs.preferred_interception, None);
         assert_eq!(
-            prefs.preferred_interception,
-            Some(LegacyInterceptionPreference::VbCableRelay)
+            prefs.physical_output_endpoint_id.as_deref(),
+            Some("speakers-id")
         );
+        let json = serde_json::to_value(&prefs).unwrap();
+        assert_eq!(json["routeChoice"], "legacy-automatic");
+        assert!(json["preferredInterception"].is_null());
+        assert_eq!(
+            serde_json::from_value::<WindowsAudioPreferences>(json).unwrap(),
+            prefs
+        );
+    }
+
+    #[test]
+    fn retired_explicit_route_migrates_to_automatic() {
+        let prefs = decode_preferences(br#"{"routeChoice":"vb-cable-relay"}"#).unwrap();
+        assert_eq!(prefs.route_choice, AudioRouteChoice::LegacyAutomatic);
+        assert_eq!(prefs.preferred_interception, None);
+    }
+
+    #[test]
+    fn supported_legacy_interception_preferences_still_round_trip() {
+        for (name, expected) in [
+            ("apo", LegacyInterceptionPreference::Apo),
+            (
+                "voxveil-cable-relay",
+                LegacyInterceptionPreference::VoxveilCableRelay,
+            ),
+            ("endpoint-relay", LegacyInterceptionPreference::EndpointRelay),
+        ] {
+            let prefs: WindowsAudioPreferences =
+                serde_json::from_value(serde_json::json!({
+                    "preferredInterception": name,
+                }))
+                .unwrap();
+            assert_eq!(prefs.preferred_interception, Some(expected));
+            let json = serde_json::to_vec(&prefs).unwrap();
+            assert_eq!(decode_preferences(&json).unwrap(), prefs);
+        }
     }
 
     #[test]

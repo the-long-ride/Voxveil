@@ -240,7 +240,6 @@ fn interception_name(kind: voxveil_windows_audio::WindowsInterceptionKind) -> &'
     match kind {
         WindowsInterceptionKind::EndpointRelay => "endpoint-relay",
         WindowsInterceptionKind::Apo => "apo",
-        WindowsInterceptionKind::VbCableRelay => "vb-cable-relay",
         WindowsInterceptionKind::VoxveilCableRelay => "voxveil-cable-relay",
     }
 }
@@ -288,10 +287,6 @@ mod tests {
     #[test]
     fn interception_names_are_stable_for_ui_contract() {
         assert_eq!(interception_name(WindowsInterceptionKind::Apo), "apo");
-        assert_eq!(
-            interception_name(WindowsInterceptionKind::VbCableRelay),
-            "vb-cable-relay"
-        );
         assert_eq!(
             interception_name(WindowsInterceptionKind::VoxveilCableRelay),
             "voxveil-cable-relay"

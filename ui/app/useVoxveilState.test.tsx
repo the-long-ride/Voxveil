@@ -230,7 +230,7 @@ describe('useVoxveilState', () => {
     });
   });
 
-  it.each(['vb-cable-relay', 'voxveil-cable-relay', 'endpoint-relay'] as const)('allows a configured %s to request processing startup', async (backendKind) => {
+  it.each(['voxveil-cable-relay', 'endpoint-relay'] as const)('allows a configured %s to request processing startup', async (backendKind) => {
     (window as Window & { __TAURI_INTERNALS__?: object }).__TAURI_INTERNALS__ = {};
     client.getState.mockResolvedValueOnce({
       ...nativeState,

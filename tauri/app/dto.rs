@@ -185,7 +185,7 @@ mod tests {
         state.apply_backend(&BackendSnapshot {
             status: ProcessingBackendStatus::RoutingRequired,
             detail: None,
-            backend_kind: Some("vb-cable-relay".into()),
+            backend_kind: Some("endpoint-relay".into()),
             physical_output: None,
             physical_output_endpoint_id: None,
             per_app_available: false,

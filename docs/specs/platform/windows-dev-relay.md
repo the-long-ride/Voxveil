@@ -23,31 +23,21 @@ Earlier revisions used a compatible Microsoft SysVAD sample endpoint and test-si
 
 Test-signed SysVAD output is development-only and cannot be treated as a normal Secure Boot/end-user package.
 
-## VB-CABLE route
+## Current relay routes
 
-The standard VB-Audio VB-CABLE render endpoint can serve as the relay source:
+The current relay prefers the verified Voxveil virtual render endpoint, `Voxveil Input`. If it is unavailable, the driver-free endpoint relay captures the default physical render endpoint and sends processed audio to a different, explicitly selected physical output.
 
-```text
-Windows applications
-  -> CABLE Input
-  -> WASAPI loopback capture
-  -> Voxveil Rust DSP / optional AI
-  -> selected physical output
-```
-
-Voxveil does not redistribute VB-CABLE. The user installs it from VB-Audio and configures `CABLE Input` as the Windows default render endpoint manually through Windows Sound settings.
-
-This route and the driver-free endpoint route share the same [buffering policy](windows.md#relay-buffering): request a 30 ms render buffer and prime it with silence, keep a small software reserve, fill measured capture holes with silence, correct clock drift, and drop the oldest frames at the FIFO limit.
+Both routes share the same [buffering policy](windows.md#relay-buffering): request a 100 ms render buffer and prime it with silence, keep a 64 ms software reserve, fill measured capture holes with silence, correct clock drift, and drop the oldest frames at the FIFO limit.
 
 Current readiness semantics are:
 
-- no loaded APO and no supported cable: `component-required`;
-- supported cable installed but not default, or no safe physical sink: `routing-required`;
+- no loaded APO, Voxveil virtual endpoint, or default physical source: `component-required`;
+- source not default, or no distinct safe physical sink: `routing-required`;
 - relay startup/runtime failure: `faulted`;
 - capture + processing + physical render active: `ready`.
 
-## Future first-party driver
+## First-party driver
 
-Tier 2 reintroduces SysVAD only as source material for a Voxveil-owned render-only virtual driver with stable Voxveil identities, reproducible package/CAB tooling, and explicit Microsoft signing/qualification gates. That first-party endpoint will reuse the same user-mode relay instead of creating a second processing implementation.
+Tier 2 uses SysVAD only as source material for a Voxveil-owned render-only virtual driver with stable Voxveil identities, reproducible package/CAB tooling, and explicit Microsoft signing/qualification gates. That first-party endpoint reuses the same user-mode relay instead of creating a second processing implementation.
 
 See `docs/superpowers/plans/2026-09-14-windows-tier2-signed-virtual-driver.md` for the implementation plan and `docs/superpowers/plans/2026-09-14-windows-signed-audio-paths-review-notes.md` for authoritative signing corrections.

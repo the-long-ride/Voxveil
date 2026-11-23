@@ -82,8 +82,7 @@ Windows interception uses explicit backend precedence:
 
 1. **Endpoint-scoped loaded Voxveil APO** — `VoxveilApo.dll` must have a real non-discovery AudioDG instance and `install-state.json` must show that Voxveil installed/bound the APO on the current Windows default render endpoint. A stale loaded instance on another endpoint does not win backend selection.
 2. **Voxveil virtual endpoint relay** — otherwise, if a verified Voxveil virtual render endpoint is installed, it is preferred as the relay source.
-3. **Standard VB-CABLE relay** — otherwise, standard VB-Audio `CABLE Input` can provide the same relay path.
-4. **Driverless endpoint relay** — otherwise, loopback capture of the current default physical output relays to a different, explicitly selected physical output.
+3. **Driverless endpoint relay** — otherwise, loopback capture of the current default physical output relays to a different, explicitly selected physical output.
 
 When Windows changes the default output away from an APO-installed physical endpoint while an old AudioDG graph remains alive, Voxveil does not treat the process-wide `loaded>0` counter as proof that the APO covers the new route. The APO app gate is disabled before virtual-relay processing so a stale instance cannot suppress relay fallback or double-process the relay destination.
 
@@ -91,7 +90,7 @@ The relay path is:
 
 ```text
 Windows applications
-  -> controlled virtual render endpoint
+  -> controlled source render endpoint (Voxveil Input or default physical output)
   -> WASAPI loopback capture
   -> Voxveil Rust DSP / optional AI
   -> selected physical output
@@ -101,7 +100,7 @@ The Classic DSP relay retains a persistent 512-frame / 128-hop spectral-center p
 
 The selected physical output is stored by endpoint ID, virtual endpoints are excluded from the physical-output list, and Voxveil rejects a route that would render back into the interception endpoint. `ready` is reported only while the selected interception strategy is actually active. A missing relay source is `component-required`; installed-but-not-default routing or a missing safe sink is `routing-required`; relay startup/runtime failures are `faulted`.
 
-Voxveil does **not** bundle, redistribute, silently download, or silently install VB-CABLE. When it is needed, the UI can open the official VB-Audio page and Windows Sound settings. The relay intentionally does not mutate Windows defaults through undocumented `PolicyConfig` interfaces.
+The UI can open Windows Sound settings for manual routing. The relay intentionally does not mutate Windows defaults through undocumented `PolicyConfig` interfaces.
 
 The first-party virtual driver exposes one render endpoint (`Voxveil Input`), no capture/microphone endpoint, and a stereo 48 kHz float32 path compatible with the same user-mode relay. Its INF applicability follows the exact pinned SysVAD sample boundary and is restricted to Windows 11 build 22621 (22H2) or later; Windows 10 system-wide processing remains available through the Tier 1 relay path where supported. The local WDK project does not test-sign itself. Its Microsoft SysVAD dependency is materialized only at build time after verifying both the pinned upstream commit and exact `audio/sysvad` tree SHA; the materialized source tree is ignored and is not vendored into this repository. Driver build tooling prepares and validates x64/Arm64 unsigned submission directories. Attestation CAB creation is an explicit release-boundary operation through `scripts/windows/new-driver-attestation-cab.ps1`, after which returned Microsoft-signed packages are independently verified and pilot versus retail staging remains separate. Microsoft attestation signing is treated as a pilot/direct-validation path, not as Windows Certified retail qualification.
 

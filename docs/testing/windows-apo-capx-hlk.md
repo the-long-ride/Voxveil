@@ -65,7 +65,7 @@ APO readiness is endpoint-scoped. A process-wide `loaded>0` count is not suffici
 | Transition | Expected |
 | --- | --- |
 | APO-installed physical endpoint is default and has a real loaded instance | APO has priority and may report `ready` |
-| Change Windows default to standard VB-CABLE while the old physical APO graph still exists | old APO must not keep runtime priority; Voxveil app gate for that APO is disabled before relay processing; VB-CABLE relay remains eligible |
+| Change Windows default to a spare physical output while the old APO graph still exists and the Voxveil virtual driver is absent | old APO must not keep runtime priority; Voxveil app gate for that APO is disabled before relay processing; driver-free relay to a distinct selected output remains eligible |
 | Change Windows default to `Voxveil Input` while the old physical APO graph still exists | old APO must not keep runtime priority; first-party virtual relay remains eligible; no double Voxveil DSP |
 | Change back to the APO-installed physical endpoint | APO may regain priority only after a real non-discovery instance is loaded on that endpoint |
 | `install-state.json` is missing for an otherwise loaded APO | coverage is unproven; do not report APO `ready` |

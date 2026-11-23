@@ -72,7 +72,6 @@ export function HomeScreen({ model, aiModelReady }: { model: VoxveilModel; aiMod
           onInstall={model.installSystemAudioEndpoint}
           onSelectPhysicalOutput={model.selectPhysicalOutput}
           onOpenSoundSettings={model.openWindowsSoundSettings}
-          onGetVbCable={model.openVbCableDownload}
         />
       )}
 

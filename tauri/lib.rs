@@ -104,7 +104,6 @@ pub fn run() {
             app::system_audio::install_system_audio_component,
             app::system_audio_actions::set_physical_audio_output,
             app::system_audio_actions::open_windows_sound_settings,
-            app::system_audio_actions::open_vb_cable_download,
             app::commands::set_master_enabled,
             app::commands::set_processing_mode,
             app::commands::set_engine,

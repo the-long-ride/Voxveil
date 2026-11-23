@@ -46,14 +46,12 @@ fn missing_default_does_not_select_an_arbitrary_source() {
 }
 
 #[test]
-fn virtual_sources_keep_precedence_over_default_physical_endpoint() {
-    let mut vb = endpoint("vb", false);
-    vb.name = "CABLE Input (VB-Audio Virtual Cable)".into();
+fn voxveil_virtual_source_precedes_default_physical_endpoint() {
     let mut voxveil = endpoint("voxveil", false);
     voxveil.name = "Voxveil Input".into();
     voxveil.interface_name = Some("Voxveil Virtual Audio".into());
-    let mut endpoints = vec![endpoint("hdmi", true), vb];
-    assert_eq!(select_relay_source(&endpoints).unwrap().0, VirtualEndpointKind::VbCable);
+    let mut endpoints = vec![endpoint("hdmi", true)];
+    assert_eq!(select_relay_source(&endpoints).unwrap().0, VirtualEndpointKind::EndpointRelay);
     endpoints.push(voxveil);
     assert_eq!(select_relay_source(&endpoints).unwrap().0, VirtualEndpointKind::VoxveilCable);
 }

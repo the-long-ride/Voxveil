@@ -94,8 +94,8 @@ test('native processing switch can start a configured relay but stays guarded ot
   assert.match(hook, /backendStatus\s*===\s*'ready'/);
   assert.match(hook, /backendStatus\s*!==\s*'routing-required'/);
   assert.match(hook, /physicalOutputEndpointId\s*===\s*null/);
-  assert.match(hook, /'vb-cable-relay'/);
   assert.match(hook, /'voxveil-cable-relay'/);
+  assert.match(hook, /'endpoint-relay'/);
   assert.match(shell, /disabled=\{!model\.canStartProcessing\}/);
   assert.match(home, /backend-notice/);
 });

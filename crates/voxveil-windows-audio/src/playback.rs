@@ -258,15 +258,6 @@ mod tests {
         );
         assert!(
             classify_virtual_endpoint(&endpoint(
-                "cable",
-                "CABLE Input (VB-Audio Virtual Cable)",
-                "VB-Audio Virtual Cable",
-                "CABLE Input",
-            ))
-            .is_some()
-        );
-        assert!(
-            classify_virtual_endpoint(&endpoint(
                 "voxveil",
                 "Voxveil Input",
                 "Voxveil Virtual Audio",

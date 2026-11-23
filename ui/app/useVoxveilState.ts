@@ -29,7 +29,7 @@ function canRequestProcessingStart(state: VoxveilState): boolean {
   if (state.backendStatus !== 'routing-required' || state.physicalOutputEndpointId === null) {
     return false;
   }
-  return state.backendKind === 'endpoint-relay' || state.backendKind === 'vb-cable-relay' || state.backendKind === 'voxveil-cable-relay';
+  return state.backendKind === 'endpoint-relay' || state.backendKind === 'voxveil-cable-relay';
 }
 
 export function useVoxveilState() {
@@ -182,15 +182,6 @@ export function useVoxveilState() {
     }
   }, [client, native]);
 
-  const openVbCableDownload = useCallback(async () => {
-    if (!native) return;
-    try {
-      await client.openVbCableDownload();
-    } catch (error) {
-      setSystemAudioInstallError(errorMessage(error));
-    }
-  }, [client, native]);
-
   const setAudioRoute = useCallback(async (audioRouteChoice: AudioRouteChoice) => {
     setAudioRouteError(null);
     if (!native) {
@@ -281,7 +272,6 @@ export function useVoxveilState() {
     installSystemAudioEndpoint: (endpointId: string) => { void installSystemAudioEndpoint(endpointId); },
     selectPhysicalOutput,
     openWindowsSoundSettings: () => { void openWindowsSoundSettings(); },
-    openVbCableDownload: () => { void openVbCableDownload(); },
     setAudioRoute,
     ...playbackControls,
     setMasterEnabled,

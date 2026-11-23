@@ -35,7 +35,6 @@ function renderPanel(
     onInstall: vi.fn(),
     onSelectPhysicalOutput: options.onSelectPhysicalOutput ?? vi.fn(),
     onOpenSoundSettings: vi.fn(),
-    onGetVbCable: vi.fn(),
   };
   render(
     <I18nextProvider i18n={getI18n()}>
@@ -69,25 +68,24 @@ describe('SystemAudioEndpoints', () => {
     expect(actions.onSelectPhysicalOutput).toHaveBeenCalledWith('phones');
     fireEvent.click(screen.getByRole('button', { name: 'Open Sound settings' }));
     expect(actions.onOpenSoundSettings).toHaveBeenCalledOnce();
-    expect(screen.queryByRole('button', { name: 'Get VB-CABLE' })).toBeNull();
   });
 
-  it('offers the official VB-CABLE action when the relay component is missing', () => {
+  it('offers Sound settings when the automatic relay source is missing', () => {
     const actions = renderPanel([], { backendStatus: 'component-required', audioRouteChoice: 'legacy-automatic' });
-    fireEvent.click(screen.getByRole('button', { name: 'Get VB-CABLE' }));
-    expect(actions.onGetVbCable).toHaveBeenCalledOnce();
+    expect(screen.getByText(/Connect a spare Windows output for driverless relay/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Open Sound settings' }));
+    expect(actions.onOpenSoundSettings).toHaveBeenCalledOnce();
   });
 
-  it('does not offer VB-CABLE installation for the physical APO route', () => {
+  it('explains how to switch from an unavailable physical APO to automatic routing', () => {
     renderPanel([], { backendStatus: 'component-required', audioRouteChoice: 'physical-apo' });
 
-    expect(screen.queryByRole('button', { name: 'Get VB-CABLE' })).toBeNull();
-    expect(screen.getByText(/physical APO route is selected.*installed VB-CABLE/i)).toBeInTheDocument();
+    expect(screen.getByText(/physical APO route is selected.*driverless relay.*System-wide — automatic/i)).toBeInTheDocument();
   });
 
   it('clarifies that an endpoint unavailable for Voxveil APO installation may still be a playback device', () => {
     renderPanel([{
-      ...endpoint('cable-input', 'CABLE Input', 'unsupported'),
+      ...endpoint('hdmi', 'HDMI', 'unsupported'),
       detail: 'No unambiguous topology AddInterface reference was found in the installed audio driver INF.',
     }]);
 
@@ -95,14 +93,14 @@ describe('SystemAudioEndpoints', () => {
     expect(screen.getByText(/No unambiguous topology AddInterface reference/)).toBeInTheDocument();
   });
 
-  it('guides VB-CABLE routing and allows a physical sink selection', () => {
+  it('guides first-party virtual cable routing and allows a physical sink selection', () => {
     const actions = renderPanel([], {
       backendStatus: 'routing-required',
-      backendKind: 'vb-cable-relay',
+      backendKind: 'voxveil-cable-relay',
       physicalOutputs: [output('speakers', 'Speakers'), output('dac', 'USB DAC')],
       selectedPhysicalOutputId: 'speakers',
     });
-    expect(screen.getByText(/Set CABLE Input as the Windows output/)).toBeInTheDocument();
+    expect(screen.getByText(/Set Voxveil Input as the Windows output/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Open Sound settings' }));
     fireEvent.change(screen.getByRole('combobox', { name: 'Physical output' }), {
       target: { value: 'dac' },
@@ -114,7 +112,7 @@ describe('SystemAudioEndpoints', () => {
   it('disables physical output changes while endpoint refresh is running', () => {
     renderPanel([], {
       backendStatus: 'routing-required',
-      backendKind: 'vb-cable-relay',
+      backendKind: 'voxveil-cable-relay',
       audioRouteChoice: 'legacy-automatic',
       physicalOutputs: [output('speakers', 'Speakers')],
       selectedPhysicalOutputId: 'speakers',
@@ -129,7 +127,7 @@ describe('SystemAudioEndpoints', () => {
     const onSelectPhysicalOutput = vi.fn(() => new Promise<void>((resolve) => { completeSelection = resolve; }));
     renderPanel([], {
       backendStatus: 'routing-required',
-      backendKind: 'vb-cable-relay',
+      backendKind: 'voxveil-cable-relay',
       audioRouteChoice: 'legacy-automatic',
       physicalOutputs: [output('speakers', 'Speakers'), output('dac', 'USB DAC')],
       selectedPhysicalOutputId: 'speakers',
@@ -153,17 +151,16 @@ describe('SystemAudioEndpoints', () => {
       selectedPhysicalOutputId: 'speakers',
     });
     expect(screen.getByText(/Set Voxveil Input as the Windows output/)).toBeInTheDocument();
-    expect(screen.queryByText(/Set CABLE Input as the Windows output/)).toBeNull();
   });
 
-  it('shows the active VB-CABLE route when ready', () => {
+  it('shows the active first-party virtual cable route when ready', () => {
     renderPanel([], {
       backendStatus: 'ready',
-      backendKind: 'vb-cable-relay',
+      backendKind: 'voxveil-cable-relay',
       physicalOutputs: [output('speakers', 'Speakers')],
       selectedPhysicalOutputId: 'speakers',
     });
-    expect(screen.getByText('VB-CABLE')).toBeInTheDocument();
+    expect(screen.getByText('Voxveil Cable')).toBeInTheDocument();
     expect(screen.getByText('Speakers')).toBeInTheDocument();
   });
 

@@ -5,7 +5,6 @@ use super::state::AppState;
 use crate::platform::ProcessingController;
 
 const WINDOWS_SOUND_SETTINGS_URI: &str = "ms-settings:sound";
-const VB_CABLE_DOWNLOAD_URL: &str = "https://vb-audio.com/Cable/";
 
 #[tauri::command]
 pub async fn set_physical_audio_output(
@@ -73,23 +72,12 @@ pub async fn open_windows_sound_settings() -> Result<(), String> {
     Err("Windows Sound settings are unavailable on this platform".into())
 }
 
-#[tauri::command]
-pub async fn open_vb_cable_download() -> Result<(), String> {
-    #[cfg(target_os = "windows")]
-    {
-        return open_with_explorer(VB_CABLE_DOWNLOAD_URL, "the official VB-CABLE website");
-    }
-    #[cfg(not(target_os = "windows"))]
-    Err("VB-CABLE onboarding is available only on Windows".into())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn external_targets_are_fixed_and_official() {
+    fn sound_settings_target_is_fixed() {
         assert_eq!(WINDOWS_SOUND_SETTINGS_URI, "ms-settings:sound");
-        assert_eq!(VB_CABLE_DOWNLOAD_URL, "https://vb-audio.com/Cable/");
     }
 }

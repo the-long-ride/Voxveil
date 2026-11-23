@@ -31,7 +31,7 @@ pub(super) fn validate_master_enable_before_start(
         && snapshot.physical_output_endpoint_id.is_some()
         && matches!(
             snapshot.backend_kind.as_deref(),
-            Some("vb-cable-relay") | Some("voxveil-cable-relay") | Some("endpoint-relay")
+            Some("voxveil-cable-relay") | Some("endpoint-relay")
         );
     if enabled && route != AudioRouteChoice::OwnedFilePlayback && configured_relay {
         Ok(())
@@ -211,7 +211,7 @@ mod route_validation_tests {
 
     #[test]
     fn configured_relay_can_start_from_routing_required_state() {
-        for backend_kind in ["vb-cable-relay", "voxveil-cable-relay", "endpoint-relay"] {
+        for backend_kind in ["voxveil-cable-relay", "endpoint-relay"] {
             let snapshot = BackendSnapshot {
                 status: ProcessingBackendStatus::RoutingRequired,
                 detail: Some("relay is configured and ready to start".into()),
@@ -233,7 +233,7 @@ mod route_validation_tests {
         let missing_output = BackendSnapshot {
             status: ProcessingBackendStatus::RoutingRequired,
             detail: Some("select a physical output".into()),
-            backend_kind: Some("vb-cable-relay".into()),
+            backend_kind: Some("endpoint-relay".into()),
             physical_output: None,
             physical_output_endpoint_id: None,
             per_app_available: false,

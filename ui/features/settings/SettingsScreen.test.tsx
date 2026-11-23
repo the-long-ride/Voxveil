@@ -43,7 +43,7 @@ describe('SettingsScreen', () => {
     );
 
     expect(screen.getByRole('combobox', { name: 'Audio processing route' })).toHaveAccessibleDescription(
-      /Choose where Voxveil applies Classic DSP\..*Voxveil APO.*default Windows output.*Voxveil Virtual Cable, then VB-CABLE.*driverless relay.*spare physical output.*different physical output/i,
+      /Choose where Voxveil applies Classic DSP\..*Voxveil APO.*default Windows output.*Voxveil Virtual Cable.*driverless relay.*spare physical output.*different physical output/i,
     );
     expect(screen.getAllByText('Appearance')).toHaveLength(1);
     expect(screen.getByRole('group', { name: 'Appearance' })).toBeInTheDocument();

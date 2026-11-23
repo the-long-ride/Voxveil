@@ -78,12 +78,12 @@ mod tests {
         }
     }
 
-    fn vb_cable(id: &str, is_default: bool) -> EndpointDescriptor {
+    fn voxveil_cable(id: &str, is_default: bool) -> EndpointDescriptor {
         EndpointDescriptor {
             id: id.into(),
-            name: "CABLE Input (VB-Audio Virtual Cable)".into(),
-            interface_name: Some("VB-Audio Virtual Cable".into()),
-            description: Some("CABLE Input".into()),
+            name: "Voxveil Input".into(),
+            interface_name: Some("Voxveil Virtual Audio".into()),
+            description: Some("Voxveil Input".into()),
             is_default,
         }
     }
@@ -107,13 +107,13 @@ mod tests {
 
     #[test]
     fn selected_virtual_endpoint_is_never_physical_output() {
-        let endpoints = vec![vb_cable("cable", true)];
+        let endpoints = vec![voxveil_cable("cable", true)];
         assert!(select_physical_output(&endpoints, "cable", Some("cable")).is_none());
     }
 
     #[test]
     fn another_known_virtual_endpoint_is_not_a_fallback() {
-        let endpoints = vec![vb_cable("other-cable", false)];
+        let endpoints = vec![voxveil_cable("other-cable", false)];
         assert!(select_physical_output(&endpoints, "source", None).is_none());
     }
 

@@ -36,7 +36,6 @@ export function createVoxveilClient(call: InvokeFn = invoke) {
     setPhysicalAudioOutput: (endpointId: string) =>
       call<VoxveilState>('set_physical_audio_output', { endpointId }),
     openWindowsSoundSettings: () => call<void>('open_windows_sound_settings'),
-    openVbCableDownload: () => call<void>('open_vb_cable_download'),
     setMasterEnabled: (enabled: boolean) => call<void>('set_master_enabled', { enabled }),
     setProcessingMode: (mode: ProcessingMode) => call<void>('set_processing_mode', { mode }),
     setEngine: (engine: EngineKind) => call<void>('set_engine', { engine }),

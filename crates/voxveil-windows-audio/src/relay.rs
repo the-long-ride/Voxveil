@@ -101,12 +101,11 @@ impl WindowsAudioBackend {
 
         let selected = select_relay_source(&endpoints);
         let (virtual_kind, source) = selected.ok_or_else(|| {
-            "Connect a spare Windows output for driverless relay, or install VB-CABLE / a verified Voxveil virtual driver".to_string()
+            "Connect a spare Windows output for driverless relay, or install a verified Voxveil virtual driver".to_string()
         })?;
         if !source.is_default {
             return Err(match virtual_kind {
                 VirtualEndpointKind::VoxveilCable => "Set Voxveil Input as the Windows default output before enabling Voxveil".into(),
-                VirtualEndpointKind::VbCable => "Set CABLE Input as the Windows default output before enabling Voxveil".into(),
                 VirtualEndpointKind::EndpointRelay => crate::route::ENDPOINT_RELAY_INSTRUCTION.into(),
             });
         }

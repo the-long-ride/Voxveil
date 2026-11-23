@@ -9,7 +9,7 @@ export const PREVIEW_STATE: VoxveilState = {
   masterEnabled: true,
   backendStatus: 'ready',
   backendDetail: null,
-  backendKind: 'vb-cable-relay',
+  backendKind: 'endpoint-relay',
   processingMode: 'all',
   perAppProcessingAvailable: true,
   engine: 'auto',
