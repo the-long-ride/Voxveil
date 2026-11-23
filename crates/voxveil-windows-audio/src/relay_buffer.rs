@@ -54,6 +54,7 @@ pub(crate) struct RelayBuffer {
     queue_limit: usize,
     sample_rate: usize,
     drift: DriftTracker,
+    reserve_correction: ReserveCorrection,
 }
 
 impl RelayBuffer {
@@ -71,6 +72,7 @@ impl RelayBuffer {
             queue_limit,
             sample_rate,
             drift: DriftTracker::default(),
+            reserve_correction: ReserveCorrection::default(),
         }
     }
 
@@ -96,6 +98,7 @@ impl RelayBuffer {
 
     pub(crate) fn reset_drift(&mut self) {
         self.drift = DriftTracker::default();
+        self.reserve_correction = ReserveCorrection::default();
     }
 
     pub(crate) fn observe_clocks(
@@ -129,7 +132,20 @@ impl RelayBuffer {
         if captured_frames < 2 {
             return;
         }
-        match self.drift.correction(captured_frames) {
+        let correction = if let Some(correction) = self.drift.correction(captured_frames) {
+            self.reserve_correction.clear_pending();
+            correction
+        } else {
+            let target = self.render_capacity + self.reserve;
+            self.reserve_correction.correct(
+                queued + padding,
+                target,
+                self.reserve,
+                captured_frames,
+                self.sample_rate * 2,
+            )
+        };
+        match correction {
             1 if queued < self.queue_limit => self.splice_tail(true),
             -1 => self.splice_tail(false),
             _ => {}
@@ -159,6 +175,64 @@ impl RelayBuffer {
         if insert {
             self.bytes.extend(b);
         }
+    }
+}
+
+#[derive(Default)]
+struct ReserveCorrection {
+    baseline: Option<usize>,
+    direction: i8,
+    outside_frames: usize,
+    credit: usize,
+}
+
+impl ReserveCorrection {
+    fn clear_pending(&mut self) {
+        self.direction = 0;
+        self.outside_frames = 0;
+        self.credit = 0;
+    }
+
+    fn correct(
+        &mut self,
+        fill: usize,
+        target: usize,
+        reserve: usize,
+        captured: usize,
+        confirmation_frames: usize,
+    ) -> i8 {
+        let baseline = *self
+            .baseline
+            .get_or_insert_with(|| fill.clamp(target - reserve * 3 / 4, target));
+        let displacement = fill as isize - baseline as isize;
+        if self.outside_frames >= confirmation_frames {
+            if displacement * isize::from(self.direction) >= -(reserve as isize / 4) {
+                self.clear_pending();
+                return 0;
+            }
+        } else {
+            if displacement.unsigned_abs() <= reserve / 2 {
+                self.clear_pending();
+                return 0;
+            }
+            let direction = -displacement.signum() as i8;
+            if direction != self.direction {
+                self.clear_pending();
+                self.direction = direction;
+            }
+            self.outside_frames += captured;
+            if self.outside_frames < confirmation_frames {
+                return 0;
+            }
+        }
+
+        const FRAMES_PER_CORRECTION: usize = 4_000;
+        self.credit += captured;
+        if self.credit < FRAMES_PER_CORRECTION {
+            return 0;
+        }
+        self.credit -= FRAMES_PER_CORRECTION;
+        self.direction
     }
 }
 

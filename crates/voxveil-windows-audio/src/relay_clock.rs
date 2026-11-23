@@ -84,14 +84,17 @@ impl DriftTracker {
         }
     }
 
-    pub(super) fn correction(&mut self, frames: usize) -> i8 {
+    pub(super) fn correction(&mut self, frames: usize) -> Option<i8> {
+        if self.correction_rate == 0.0 {
+            return None;
+        }
         self.credit += self.correction_rate * frames as f64;
         if self.credit.abs() < 1.0 {
-            return 0;
+            return Some(0);
         }
         let step = self.credit.signum();
         self.credit -= step;
-        step as i8
+        Some(step as i8)
     }
 }
 
