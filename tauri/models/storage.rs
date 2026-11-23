@@ -4,6 +4,8 @@ use super::{
 };
 use std::fs;
 use tauri::{AppHandle, Manager};
+#[path = "retired.rs"]
+mod retired;
 
 pub fn paths(app: &AppHandle, descriptor: &ModelDescriptor) -> Result<ModelPaths, String> {
     let root = app
@@ -11,6 +13,7 @@ pub fn paths(app: &AppHandle, descriptor: &ModelDescriptor) -> Result<ModelPaths
         .app_local_data_dir()
         .map_err(|_| "application data directory is unavailable".to_string())?
         .join("models");
+    retired::cleanup(&root)?;
     Ok(storage_files::paths(&root, descriptor))
 }
 
