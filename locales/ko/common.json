@@ -43,7 +43,7 @@
   },
   "playback": {
     "title": "Voxveil에서 파일 재생",
-    "description": "MP3, WAV, FLAC 또는 Ogg Vorbis 파일을 열고 해당 오디오만 클래식 DSP로 처리한 뒤 실제 출력 장치로 보냅니다.",
+    "description": "MP3, WAV, FLAC 또는 Ogg Vorbis 파일을 열고 해당 오디오만 처리한 뒤 실제 출력 장치로 보냅니다.",
     "controls": "재생 컨트롤",
     "open": "음악 파일 열기",
     "pause": "일시 정지",

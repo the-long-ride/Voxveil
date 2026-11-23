@@ -43,7 +43,7 @@
   },
   "playback": {
     "title": "在 Voxveil 中播放文件",
-    "description": "打开 MP3、WAV、FLAC 或 Ogg Vorbis 文件，仅通过经典 DSP 处理其音频，然后发送到物理输出设备。",
+    "description": "打开 MP3、WAV、FLAC 或 Ogg Vorbis 文件，仅处理其音频，然后发送到物理输出设备。",
     "controls": "播放控制",
     "open": "打开音乐文件",
     "pause": "暂停",

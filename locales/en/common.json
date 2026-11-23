@@ -43,7 +43,7 @@
   },
   "playback": {
     "title": "Play files in Voxveil",
-    "description": "Open MP3, WAV, FLAC, or Ogg Vorbis files and process only their audio through Classic DSP before sending it to a physical output.",
+    "description": "Open MP3, WAV, FLAC, or Ogg Vorbis files and process only their audio before sending it to a physical output.",
     "controls": "Playback controls",
     "open": "Open music file",
     "pause": "Pause",

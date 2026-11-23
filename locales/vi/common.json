@@ -43,7 +43,7 @@
   },
   "playback": {
     "title": "Phát tệp trong Voxveil",
-    "description": "Mở tệp MP3, WAV, FLAC hoặc Ogg Vorbis và chỉ xử lý âm thanh của tệp đó bằng DSP Cổ điển trước khi phát ra thiết bị vật lý.",
+    "description": "Mở tệp MP3, WAV, FLAC hoặc Ogg Vorbis và chỉ xử lý âm thanh của tệp đó trước khi phát ra thiết bị vật lý.",
     "controls": "Điều khiển phát",
     "open": "Mở tệp nhạc",
     "pause": "Tạm dừng",

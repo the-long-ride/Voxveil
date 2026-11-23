@@ -43,7 +43,7 @@
   },
   "playback": {
     "title": "Voxveilでファイルを再生",
-    "description": "MP3、WAV、FLAC、Ogg Vorbis ファイルを開き、その音声だけをクラシックDSPで処理して物理出力へ送ります。",
+    "description": "MP3、WAV、FLAC、Ogg Vorbis ファイルを開き、その音声だけを処理して物理出力へ送ります。",
     "controls": "再生コントロール",
     "open": "音楽ファイルを開く",
     "pause": "一時停止",

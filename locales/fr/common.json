@@ -43,7 +43,7 @@
   },
   "playback": {
     "title": "Lire des fichiers dans Voxveil",
-    "description": "Ouvrez des fichiers MP3, WAV, FLAC ou Ogg Vorbis et traitez uniquement leur audio avec le DSP classique avant de l'envoyer vers une sortie physique.",
+    "description": "Ouvrez des fichiers MP3, WAV, FLAC ou Ogg Vorbis et traitez uniquement leur audio avant de l'envoyer vers une sortie physique.",
     "controls": "Commandes de lecture",
     "open": "Ouvrir un fichier musical",
     "pause": "Pause",

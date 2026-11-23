@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { I18nextProvider } from 'react-i18next';
 import { getI18n } from '../../i18n';
+import { SUPPORTED_LANGUAGES } from '../../i18n/languages';
 import type { AudioPlaybackSnapshot } from '../../lib/types';
 import type { PlaybackScreenProps } from './PlaybackScreen';
 import { PlaybackScreen } from './PlaybackScreen';
@@ -44,9 +45,14 @@ function renderPlayer(status: AudioPlaybackSnapshot['status'], overrides: Partia
 }
 
 describe('PlaybackScreen', () => {
-  it('shows the estimated upfront wait for slow AI preparation', () => {
-    renderPlayer('buffering', { playback: { ...playback('buffering'), preparingWaitMs: 10450 } });
-    expect(screen.getByText('Preparing AI… about 11 s remaining')).toBeInTheDocument();
+  it.each(SUPPORTED_LANGUAGES)('keeps the Player intro engine-neutral in %s', (language) => {
+    expect(getI18n().getFixedT(language)('playback.description')).not.toMatch(/DSP/i);
+  });
+  it.each([
+    [10450, 11], [1600, 2], [1800, 2], [2000, 2], [2001, 3], [0, 1],
+  ])('rounds %i ms of AI preparation up to %i seconds', (preparingWaitMs, seconds) => {
+    renderPlayer('buffering', { playback: { ...playback('buffering'), preparingWaitMs } });
+    expect(screen.getByText(`Preparing AI… about ${seconds} s remaining`)).toBeInTheDocument();
   });
   it('shows AI buffering while keeping pause, stop and seek available', () => {
     renderPlayer('buffering');
