@@ -42,8 +42,8 @@ export function PlaybackScreen({
   const duration = totalFrames ?? 0;
   const seekPercent = duration > 0 ? Math.min(100, (positionFrames / duration) * 100) : 0;
   const sliderValue = seekDraft ?? seekPercent;
-  const canSeek = duration > 0 && sampleRate !== null && status !== 'loading';
   const isActive = status === 'playing' || status === 'paused';
+  const canSeek = duration > 0 && sampleRate !== null && (isActive || status === 'ended');
   const error = operationError ?? playback.error;
   const outputName = playback.outputName ?? (selectedOutputId
     ? outputs.find((output) => output.endpointId === selectedOutputId)?.displayName ?? selectedOutputName

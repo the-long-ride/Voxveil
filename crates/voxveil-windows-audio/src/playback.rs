@@ -12,9 +12,9 @@ use crate::virtual_endpoint::classify_virtual_endpoint;
 
 const PLAYBACK_DECODE_FRAMES: usize = 2_048;
 const MAX_QUEUE_FRAMES: usize = 8_192;
-const MAX_RENDER_FRAMES: usize = 8_192;
-const WASAPI_BUFFER_HNS: i64 = 200_000;
 
+#[path = "playback_output.rs"]
+mod playback_output;
 #[path = "playback_worker.rs"]
 mod playback_worker;
 use playback_worker::run_playback_worker;
@@ -143,7 +143,10 @@ impl OwnedPlayback {
         set_playback_state(&handle.state, |snapshot| {
             if matches!(
                 snapshot.status,
-                PlaybackStatus::Loading | PlaybackStatus::Playing | PlaybackStatus::Paused
+                PlaybackStatus::Loading
+                    | PlaybackStatus::Playing
+                    | PlaybackStatus::Paused
+                    | PlaybackStatus::Ended
             ) {
                 snapshot.status = PlaybackStatus::Stopped;
             }

@@ -90,4 +90,20 @@ describe('PlaybackScreen', () => {
     expect(callbacks.onResume).toHaveBeenCalledOnce();
     expect(screen.getByRole('button', { name: 'Stop' })).toBeEnabled();
   });
+
+  it('lets users seek after natural completion but not after stopping', () => {
+    const callbacks = renderPlayer('ended', {
+      playback: { ...playback('ended'), positionFrames: 96_000 },
+    });
+    const slider = screen.getByRole('slider', { name: 'Seek' });
+    expect(slider).toBeEnabled();
+    fireEvent.change(slider, { target: { value: '25' } });
+    fireEvent.keyUp(slider, { key: 'ArrowLeft' });
+    expect(callbacks.onSeek).toHaveBeenCalledWith(24_000);
+  });
+
+  it('disables the seek control when a stopped file still has metadata', () => {
+    renderPlayer('stopped');
+    expect(screen.getByRole('slider', { name: 'Seek' })).toBeDisabled();
+  });
 });
