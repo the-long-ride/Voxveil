@@ -9,7 +9,7 @@ use voxveil_types::{ClassicSuppressionProfile, VocalLevel};
 use wasapi::{Device, DeviceEnumerator, Direction, SampleType, StreamMode};
 
 use crate::relay_buffer::{
-    CaptureTimeline, DEVICE_BUFFER_MS, FRAME_BYTES, MAX_CAPTURE_FRAMES, RelayBuffer,
+    CaptureTimeline, DEVICE_BUFFER_MS, FRAME_BYTES, MAX_CAPTURE_FRAMES, RelayBuffer, RenderClock,
 };
 use crate::relay_engine::{RelayCommand, RelayRuntimeState, RelaySpec};
 use crate::sample::process_capture_f32le_stereo;
@@ -139,6 +139,7 @@ fn run_relay_worker_inner(
     let render = render_client
         .get_audiorenderclient()
         .map_err(|error| error.to_string())?;
+    let render_clock = RenderClock::new(&render_client);
     let render_capacity = render_client
         .get_buffer_size()
         .map_err(|error| error.to_string())? as usize;
@@ -224,6 +225,8 @@ fn run_relay_worker_inner(
             );
             if gap != 0 || info.flags.data_discontinuity || info.flags.timestamp_error {
                 queue.reset_drift();
+            } else {
+                queue.observe_clocks(info.index, info.timestamp, || render_clock.position());
             }
             for (buffer, silent) in [
                 (&mut gap_buffer[..gap * FRAME_BYTES], true),
