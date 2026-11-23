@@ -50,9 +50,7 @@ pub async fn remove_ai_model(
     model_id: String,
 ) -> Result<AiModelStatusDto, String> {
     let descriptor = catalog::find(&model_id)?;
-    if crate::config::windows_audio::load(&app)?.ai.model.id() == model_id {
-        controller.stop_owned_playback()?;
-    }
+    controller.stop_owned_playback_for_model(&model_id)?;
     let gate = manager.gate();
     let task_app = app.clone();
     let task_descriptor = descriptor.clone();

@@ -35,6 +35,7 @@ enum PlaybackCommand {
 }
 
 struct PlaybackHandle {
+    ai_model: Option<voxveil_types::AiModel>,
     command_tx: Sender<PlaybackCommand>,
     state: Arc<Mutex<OwnedPlaybackSnapshot>>,
     worker: Option<JoinHandle<()>>,
@@ -84,6 +85,10 @@ impl OwnedPlayback {
         let worker_state = Arc::clone(&state);
         let exit_state = Arc::clone(&state);
         let (command_tx, command_rx) = mpsc::channel();
+        let ai_model = ai.as_ref().map(|config| match config.model {
+            voxveil_ai::Model::Spleeter => voxveil_types::AiModel::Spleeter,
+            voxveil_ai::Model::MdxInstHq3 => voxveil_types::AiModel::MdxInstHq3,
+        });
         let worker = thread::spawn(move || {
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 if let Some(config) = ai {
@@ -120,6 +125,7 @@ impl OwnedPlayback {
             }
         });
         self.handle = Some(PlaybackHandle {
+            ai_model,
             command_tx,
             state: Arc::clone(&state),
             worker: Some(worker),
@@ -132,6 +138,10 @@ impl OwnedPlayback {
             .as_ref()
             .map(|handle| snapshot_from(&handle.state))
             .unwrap_or_default()
+    }
+
+    pub fn uses_ai_model(&self, model: &str) -> bool {
+        crate::playback_model::uses_model(self.handle.as_ref().and_then(|handle| handle.ai_model), model)
     }
 
     pub fn pause(&self) -> Result<(), String> {

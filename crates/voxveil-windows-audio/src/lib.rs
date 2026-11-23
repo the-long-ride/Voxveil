@@ -14,6 +14,8 @@ mod relay_decision;
 #[cfg(test)]
 mod endpoint_relay_tests;
 mod sample;
+#[cfg(any(windows, test))]
+mod playback_model;
 mod virtual_endpoint;
 
 #[cfg(windows)]
@@ -64,6 +66,7 @@ mod playback_stub {
             Err("owned file playback is unavailable on this platform".into())
         }
         pub fn snapshot(&self) -> OwnedPlaybackSnapshot { OwnedPlaybackSnapshot::default() }
+        pub fn uses_ai_model(&self, _model: &str) -> bool { false }
         pub fn open_with_ai(&mut self, path: PathBuf, endpoint: super::EndpointDescriptor, level: u8, profile: ClassicSuppressionProfile, _ai: Option<voxveil_ai::player::AiPlaybackConfig>) -> Result<OwnedPlaybackSnapshot, String> {
             self.open(path, endpoint, level, profile)
         }

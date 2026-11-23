@@ -81,4 +81,10 @@ impl ProcessingController {
             .map_err(|_| "local playback lock is poisoned".to_string())?
             .stop()
     }
+
+    pub fn stop_owned_playback_for_model(&self, model: &str) -> Result<(), String> {
+        let mut playback = self.playback.lock().map_err(|_| "local playback lock is poisoned")?;
+        if playback.uses_ai_model(model) { playback.stop()?; }
+        Ok(())
+    }
 }
