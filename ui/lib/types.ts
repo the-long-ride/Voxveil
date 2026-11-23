@@ -1,7 +1,9 @@
 export type ProcessingMode = 'all' | 'per-app';
 export type EngineKind = 'auto' | 'dsp' | 'ai';
 export type AudioRouteChoice = 'legacy-automatic' | 'physical-apo' | 'owned-file-playback';
-export type AudioPlaybackStatus = 'stopped' | 'loading' | 'playing' | 'paused' | 'ended' | 'faulted';
+export type AudioPlaybackStatus = 'stopped' | 'loading' | 'buffering' | 'playing' | 'paused' | 'ended' | 'faulted';
+export type AiModelId = 'spleeter-2stems-fp16' | 'mdx-inst-hq3';
+export interface AiPreferences { model: AiModelId; systemWide: boolean }
 export type ClassicSuppressionProfile = 'music-preservation' | 'balanced' | 'strong';
 export type OutputMode = 'physical' | 'virtual' | 'both';
 export type ThemeMode = 'system' | 'light' | 'dark';
@@ -63,6 +65,7 @@ export interface VoxveilState {
   processingMode: ProcessingMode;
   perAppProcessingAvailable: boolean;
   engine: EngineKind;
+  ai?: AiPreferences;
   classicSuppressionProfile: ClassicSuppressionProfile;
   vocalLevel: number;
   quality: number;
@@ -80,6 +83,7 @@ export interface AiModelStatus {
   displayName: string;
   approximateSizeMb: number;
   license: string;
+  attribution?: string;
   source: string;
   sourceRevision: string;
   installed: boolean;

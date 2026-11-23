@@ -44,6 +44,13 @@ function renderPlayer(status: AudioPlaybackSnapshot['status'], overrides: Partia
 }
 
 describe('PlaybackScreen', () => {
+  it('shows AI buffering while keeping pause, stop and seek available', () => {
+    renderPlayer('buffering');
+    expect(screen.getByText('Preparing AI…')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Pause' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Stop' })).toBeEnabled();
+    expect(screen.getByRole('slider')).toBeEnabled();
+  });
   it('shows the selected output before any file has been opened', () => {
     renderPlayer('stopped', {
       playback: { ...playback('stopped'), fileName: null, outputName: null, outputEndpointId: null },

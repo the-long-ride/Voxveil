@@ -46,7 +46,7 @@ export function PlaybackScreen({
   const duration = totalFrames ?? 0;
   const seekPercent = duration > 0 ? Math.min(100, (positionFrames / duration) * 100) : 0;
   const sliderValue = seekDraft ?? seekPercent;
-  const canStop = status === 'playing' || status === 'paused' || status === 'ended';
+  const canStop = status === 'playing' || status === 'paused' || status === 'ended' || status === 'buffering' || status === 'loading';
   const canSeek = duration > 0 && sampleRate !== null && canStop;
   const error = operationError ?? playback.error;
   const outputName = playback.outputName ?? (selectedOutputId
@@ -67,7 +67,7 @@ export function PlaybackScreen({
       />
 
       <div className="player-track" aria-live="polite">
-        <span className="meta">{t(`playback.status.${status}`)}</span>
+        <span className="meta">{t(status === 'buffering' ? 'aiPlayer.preparing' : `playback.status.${status}`)}</span>
         <strong>{playback.fileName ?? t('playback.noFile')}</strong>
         <span>{outputName ?? t('playback.noOutput')}</span>
       </div>
@@ -76,7 +76,7 @@ export function PlaybackScreen({
         <button className="action-button" type="button" onClick={() => void onOpen()} disabled={status === 'loading'}>
           {t('playback.open')}
         </button>
-        {status === 'playing' && (
+        {(status === 'playing' || status === 'buffering') && (
           <button className="action-button is-subtle" type="button" onClick={() => void onPause()}>
             {t('playback.pause')}
           </button>

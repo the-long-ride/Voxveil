@@ -6,6 +6,7 @@ pub enum AudioPlaybackStatus {
     #[default]
     Stopped,
     Loading,
+    Buffering,
     Playing,
     Paused,
     Ended,

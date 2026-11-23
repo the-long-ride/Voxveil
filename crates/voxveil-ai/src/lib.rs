@@ -3,6 +3,7 @@
 #![forbid(unsafe_code)]
 
 mod chunks;
+pub mod player;
 mod resample;
 mod runtime;
 mod spectral;
@@ -14,6 +15,18 @@ use std::path::Path;
 use voxveil_model_api::{
     SeparationCapabilities, SeparationEngine, SeparationError, SeparationReport, StemOutput,
 };
+
+pub fn runtime_available(library: &Path) -> bool {
+    library.is_absolute()
+        && library.is_file()
+        && ort::init_from(library)
+            .map(|environment| {
+                environment.commit();
+                true
+            })
+            .unwrap_or(false)
+        && ort::session::Session::builder().is_ok()
+}
 
 #[derive(Clone, Copy, Debug)]
 pub enum Model {

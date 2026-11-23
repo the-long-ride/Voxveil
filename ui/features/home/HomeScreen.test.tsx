@@ -7,17 +7,17 @@ import { nativeState } from '../../app/voxveilStateTestFixtures';
 import type { ProcessingBackendStatus, WindowsInterceptionKind } from '../../lib/types';
 import { HomeScreen } from './HomeScreen';
 
-function renderHome(backendKind: WindowsInterceptionKind, backendStatus: ProcessingBackendStatus, canStartProcessing: boolean, backendDetail = 'Relay is configured and ready to start') {
+function renderHome(backendKind: WindowsInterceptionKind, backendStatus: ProcessingBackendStatus, canStartProcessing: boolean, backendDetail = 'Relay is configured and ready to start', aiReady = false, fileRoute = false) {
   const model: VoxveilModel = {
     state: {
-      ...nativeState, audioRouteChoice: 'legacy-automatic', masterEnabled: false,
+      ...nativeState, audioRouteChoice: fileRoute ? 'owned-file-playback' : 'legacy-automatic', masterEnabled: false,
       backendKind, backendStatus, backendDetail,
     },
     canStartProcessing,
     systemAudioEndpoints: [], physicalOutputs: [],
     systemAudioEndpointsBusy: false, systemAudioInstallBusyId: null, systemAudioInstallError: null,
     setVocalLevel: vi.fn(), setQuality: vi.fn(),
-    setProcessingMode: vi.fn(), setEngine: vi.fn(),
+    setProcessingMode: vi.fn(), setEngine: vi.fn(), setAiPreferences: vi.fn(),
     refreshSystemAudioEndpoints: vi.fn(), installSystemAudioEndpoint: vi.fn(),
     selectPhysicalOutput: vi.fn(), openWindowsSoundSettings: vi.fn(), openVbCableDownload: vi.fn(),
     audioRouteError: null, processingOperationError: null, playbackOperationError: null,
@@ -26,10 +26,22 @@ function renderHome(backendKind: WindowsInterceptionKind, backendStatus: Process
     setAudioRoute: vi.fn(async () => {}), setMasterEnabled: vi.fn(),
     setClassicSuppressionProfile: vi.fn(), setOutputMode: vi.fn(), setAppEnabled: vi.fn(),
   };
-  render(<I18nextProvider i18n={getI18n()}><HomeScreen model={model} aiModelReady={false} /></I18nextProvider>);
+  render(<I18nextProvider i18n={getI18n()}><HomeScreen model={model} aiModelReady={aiReady} /></I18nextProvider>);
 }
 
 describe('Home readiness notice', () => {
+  it('enables Auto and AI for file playback when the selected model and runtime are ready', () => {
+    renderHome('endpoint-relay', 'ready', false, '', true, true);
+    expect(screen.getByRole('button', { name: 'Auto' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'AI' })).toBeEnabled();
+  });
+  it('disables AI with an explanation while retaining Auto and DSP', () => {
+    renderHome('endpoint-relay', 'ready', false, '', false, true);
+    expect(screen.getByRole('button', { name: 'Auto' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Classic DSP' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'AI' })).toBeDisabled();
+    expect(screen.getByText(/AI is unavailable.*selected model/)).toBeInTheDocument();
+  });
   it.each(['endpoint-relay', 'vb-cable-relay', 'voxveil-cable-relay'] as const)('shows the configured %s detail without a readiness title', (kind) => {
     renderHome(kind, 'routing-required', true);
     expect(screen.queryByText('Ready')).toBeNull();

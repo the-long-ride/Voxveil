@@ -15,6 +15,26 @@ use std::{
 };
 
 struct Directory(PathBuf);
+
+#[test]
+fn readiness_rehashes_files_even_when_size_and_receipt_still_match() {
+    let root = Directory::new();
+    let mut model = catalog::find(catalog::DEFAULT_MODEL_ID).unwrap();
+    for file in &mut model.files {
+        file.sha256 = transfer::hex(Sha256::digest(b"abc").as_slice());
+        file.max_bytes = 3;
+    }
+    let paths = storage_files::paths(&root.0, &model);
+    fs::create_dir_all(&paths.directory).unwrap();
+    for path in &paths.files {
+        fs::write(&path.model, b"abc").unwrap();
+    }
+    storage_files::write_receipt(&paths, &model, &[3, 3]).unwrap();
+    assert!(storage_files::verified(&paths, &model).unwrap());
+    fs::write(&paths.files[1].model, b"abd").unwrap();
+    assert!(storage_files::is_installed(&paths, &model).unwrap());
+    assert!(!storage_files::verified(&paths, &model).unwrap());
+}
 impl Directory {
     fn new() -> Self {
         static NEXT: AtomicU64 = AtomicU64::new(0);

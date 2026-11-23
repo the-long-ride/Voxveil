@@ -60,6 +60,8 @@ pub struct AppViewState {
     pub processing_mode: ProcessingMode,
     pub per_app_processing_available: bool,
     pub engine: ProcessingEngineKind,
+    #[serde(default)]
+    pub ai: voxveil_types::AiPreferences,
     pub classic_suppression_profile: ClassicSuppressionProfile,
     pub vocal_level: u8,
     pub quality: u8,
@@ -107,6 +109,7 @@ impl Default for AppViewState {
             processing_mode: ProcessingMode::All,
             per_app_processing_available: false,
             engine: ProcessingEngineKind::Auto,
+            ai: voxveil_types::AiPreferences::default(),
             classic_suppression_profile: ClassicSuppressionProfile::default(),
             vocal_level: 100,
             quality: 50,

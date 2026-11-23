@@ -1,4 +1,16 @@
 {
+  "aiPlayer": {
+    "models": "AI separation models",
+    "choose": "Use {{name}}",
+    "systemWide": "Use AI for system-wide audio",
+    "delay": "Spleeter only. Adds about 12 seconds of delay: video and games go out of sync. Saved for step 3; not active in this build.",
+    "mdxOffline": "MDX cannot keep up with real time on some CPUs. File playback waits while it prepares more audio; system-wide AI requires Spleeter.",
+    "notReady": "AI is unavailable. Install and verify the selected model and the app-owned ONNX Runtime to enable it.",
+    "preparing": "Preparing AI…",
+    "runtimeMissing": "The model is installed, but the app-owned inference runtime could not be loaded.",
+    "changesStop": "Changing the engine or active model stops playback. Open the file again to use the new selection.",
+    "playerOnly": "AI currently applies to the in-app player only. Auto uses AI when ready, otherwise DSP."
+  },
   "app": {
     "name": "Voxveil"
   },

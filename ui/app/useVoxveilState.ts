@@ -233,7 +233,6 @@ export function useVoxveilState() {
   const setProcessingMode = (processingMode: ProcessingMode) =>
     commit({ processingMode }, () => client.setProcessingMode(processingMode));
   const setEngine = (engine: EngineKind) => {
-    if (state.audioRouteChoice === 'owned-file-playback' && engine !== 'dsp') return;
     commit(
       (current) => ({ ...current, engine, estimatedLatencyMs: estimatedLatency(engine, current.quality) }),
       () => client.setEngine(engine),
@@ -286,6 +285,7 @@ export function useVoxveilState() {
     setMasterEnabled,
     setProcessingMode,
     setEngine,
+    setAiPreferences: (ai: import('../lib/types').AiPreferences) => commit({ ai }, () => client.setAiPreferences(ai)),
     setClassicSuppressionProfile,
     setVocalLevel,
     setQuality,

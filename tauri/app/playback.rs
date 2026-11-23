@@ -6,6 +6,7 @@ use crate::platform::ProcessingController;
 
 #[tauri::command]
 pub async fn open_audio_file(
+    app: tauri::AppHandle,
     state: State<'_, AppState>,
     controller: State<'_, ProcessingController>,
 ) -> Result<AudioPlaybackSnapshot, String> {
@@ -33,12 +34,22 @@ pub async fn open_audio_file(
         };
 
         controller.set_enabled(false, level)?;
-        controller.open_owned_playback(path, endpoint, level, profile)
+        let current = state.lock()?;
+        let ready = current.engine != voxveil_types::ProcessingEngineKind::Dsp
+            && crate::models::ai_runtime_ready(&app).unwrap_or(false);
+        let use_ai = voxveil_types::player_uses_ai(current.engine, ready)?;
+        let ai = if use_ai {
+            Some(crate::models::player_config(&app, current.ai.model)?)
+        } else {
+            None
+        };
+        drop(current);
+        controller.open_owned_playback(path, endpoint, level, profile, ai)
     }
 
     #[cfg(not(target_os = "windows"))]
     {
-        let _ = (state, controller);
+        let _ = (app, state, controller);
         Err("owned file playback is available only in Windows builds".into())
     }
 }

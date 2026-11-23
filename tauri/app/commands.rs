@@ -88,6 +88,7 @@ pub async fn set_processing_mode(
 pub async fn set_engine(
     app: AppHandle,
     state: State<'_, AppState>,
+    controller: State<'_, ProcessingController>,
     engine: ProcessingEngineKind,
 ) -> Result<(), String> {
     let route = state.lock()?.audio_route_choice;
@@ -97,6 +98,9 @@ pub async fn set_engine(
             "AI engine is unavailable until a verified model and inference runtime are both ready"
                 .to_string(),
         );
+    }
+    if state.lock()?.engine != engine {
+        controller.stop_owned_playback()?;
     }
     state.lock()?.engine = engine;
     Ok(())

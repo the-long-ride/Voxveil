@@ -5,8 +5,12 @@ import { saveLanguage } from '../../i18n/language-storage';
 import { SUPPORTED_LANGUAGES, type SupportedLanguage } from '../../i18n/languages';
 import type { ThemeMode } from '../../theme/theme';
 import type { AudioRouteChoice } from '../../lib/types';
+import type { AiPreferences } from '../../lib/types';
+import { AiModelsSettings } from './AiModelsSettings';
 
 interface SettingsScreenProps {
+  ai?: AiPreferences;
+  onAiChange?: (preferences: AiPreferences) => void;
   edition?: 'standard' | 'pro-system';
   windowsAudioRoutesAvailable: boolean;
   audioRouteChoice: AudioRouteChoice;
@@ -17,6 +21,7 @@ interface SettingsScreenProps {
 }
 
 export function SettingsScreen({
+  ai = { model: 'spleeter-2stems-fp16', systemWide: false }, onAiChange = () => {},
   edition = 'standard', windowsAudioRoutesAvailable, audioRouteChoice, audioRouteError, onAudioRouteChange,
   themeMode, onThemeModeChange,
 }: SettingsScreenProps) {
@@ -74,6 +79,7 @@ export function SettingsScreen({
           <span className="status-dot is-on">{t('settings.local')}</span>
         </div>
       </div>
+      <AiModelsSettings preferences={ai} onChange={onAiChange} />
     </section>
   );
 }

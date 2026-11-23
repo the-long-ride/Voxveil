@@ -13,6 +13,8 @@ use crate::virtual_endpoint::classify_virtual_endpoint;
 const PLAYBACK_DECODE_FRAMES: usize = 2_048;
 const MAX_QUEUE_FRAMES: usize = 8_192;
 
+#[path = "playback_ai.rs"]
+mod playback_ai;
 #[path = "playback_output.rs"]
 mod playback_output;
 #[path = "playback_worker.rs"]
@@ -51,6 +53,17 @@ impl OwnedPlayback {
         vocal_level: u8,
         profile: ClassicSuppressionProfile,
     ) -> Result<OwnedPlaybackSnapshot, String> {
+        self.open_with_ai(path, endpoint, vocal_level, profile, None)
+    }
+
+    pub fn open_with_ai(
+        &mut self,
+        path: PathBuf,
+        endpoint: EndpointDescriptor,
+        vocal_level: u8,
+        profile: ClassicSuppressionProfile,
+        ai: Option<voxveil_ai::player::AiPlaybackConfig>,
+    ) -> Result<OwnedPlaybackSnapshot, String> {
         self.stop()?;
         if classify_virtual_endpoint(&endpoint).is_some() {
             return Err("a virtual audio endpoint cannot be used for local file playback".into());
@@ -73,14 +86,25 @@ impl OwnedPlayback {
         let (command_tx, command_rx) = mpsc::channel();
         let worker = thread::spawn(move || {
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                run_playback_worker(
-                    path,
-                    endpoint,
-                    vocal_level,
-                    profile,
-                    command_rx,
-                    worker_state,
-                )
+                if let Some(config) = ai {
+                    playback_ai::run(
+                        path,
+                        endpoint,
+                        vocal_level,
+                        config,
+                        command_rx,
+                        worker_state,
+                    )
+                } else {
+                    run_playback_worker(
+                        path,
+                        endpoint,
+                        vocal_level,
+                        profile,
+                        command_rx,
+                        worker_state,
+                    )
+                }
             }));
             match result {
                 Ok(Ok(())) => {}
@@ -144,6 +168,7 @@ impl OwnedPlayback {
             if matches!(
                 snapshot.status,
                 PlaybackStatus::Loading
+                    | PlaybackStatus::Buffering
                     | PlaybackStatus::Playing
                     | PlaybackStatus::Paused
                     | PlaybackStatus::Ended

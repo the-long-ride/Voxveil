@@ -1,6 +1,8 @@
 import { invoke } from '@tauri-apps/api/core';
 import type {
   AiModelStatus,
+  AiModelId,
+  AiPreferences,
   AudioRouteChoice,
   AudioPlaybackSnapshot,
   AudioOutput,
@@ -42,7 +44,8 @@ export function createVoxveilClient(call: InvokeFn = invoke) {
     setQuality: (value: number) => call<void>('set_quality_preference', { value }),
     setAppOverride: (id: string, enabled: boolean) => call<void>('set_app_override', { id, enabled }),
     setOutputRoute: (mode: OutputMode) => call<void>('set_output_route', { mode }),
-    getAiModelStatus: () => call<AiModelStatus>('get_ai_model_status'),
+    getAiModelStatus: (modelId?: AiModelId) => modelId ? call<AiModelStatus>('get_ai_model_status', { modelId }) : call<AiModelStatus>('get_ai_model_status'),
+    setAiPreferences: (preferences: AiPreferences) => call<void>('set_ai_preferences', { preferences }),
     installAiModel: (modelId: string, acceptedTerms: boolean) => call<AiModelStatus>('install_ai_model', { modelId, acceptedTerms }),
     removeAiModel: (modelId: string) => call<AiModelStatus>('remove_ai_model', { modelId }),
   };

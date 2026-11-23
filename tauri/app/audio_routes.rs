@@ -44,11 +44,8 @@ pub(super) fn validate_engine_for_route(
     route: AudioRouteChoice,
     engine: ProcessingEngineKind,
 ) -> Result<(), String> {
-    if route == AudioRouteChoice::OwnedFilePlayback && engine != ProcessingEngineKind::Dsp {
-        Err("local file playback requires the DSP engine".into())
-    } else {
-        Ok(())
-    }
+    let _ = (route, engine);
+    Ok(())
 }
 
 #[tauri::command]
@@ -144,9 +141,6 @@ pub async fn set_audio_route(
         current.audio_route_error = None;
         current.apply_backend(&snapshot);
         current.audio_route_choice = route;
-        if route == AudioRouteChoice::OwnedFilePlayback {
-            current.engine = ProcessingEngineKind::Dsp;
-        }
         return Ok(current.clone());
     }
 
@@ -265,7 +259,7 @@ mod route_validation_tests {
     }
 
     #[test]
-    fn owned_file_route_requires_the_dsp_engine() {
+    fn owned_file_route_allows_auto_and_dsp_engines() {
         assert!(
             validate_engine_for_route(
                 AudioRouteChoice::OwnedFilePlayback,
@@ -278,7 +272,7 @@ mod route_validation_tests {
                 AudioRouteChoice::OwnedFilePlayback,
                 ProcessingEngineKind::Auto,
             )
-            .is_err()
+            .is_ok()
         );
         assert!(
             validate_engine_for_route(AudioRouteChoice::PhysicalApo, ProcessingEngineKind::Auto,)

@@ -1,4 +1,16 @@
 {
+  "aiPlayer": {
+    "models": "Modèles de séparation IA",
+    "choose": "Utiliser {{name}}",
+    "systemWide": "Utiliser l’IA pour l’audio du système",
+    "delay": "Spleeter uniquement. Ajoute environ 12 secondes de retard : vidéos et jeux sont désynchronisés. Enregistré pour l’étape 3, pas encore actif.",
+    "mdxOffline": "MDX peut être plus lent que le temps réel. Le lecteur attend la préparation de la suite ; l’IA système nécessite Spleeter.",
+    "notReady": "IA indisponible. Installez et vérifiez le modèle sélectionné et ONNX Runtime fourni avec l’application.",
+    "preparing": "Préparation de l’IA…",
+    "runtimeMissing": "Le modèle est installé, mais le moteur d’inférence de l’application n’a pas pu être chargé.",
+    "changesStop": "Changer de moteur ou de modèle actif arrête la lecture. Rouvrez le fichier pour appliquer ce choix.",
+    "playerOnly": "L’IA s’applique uniquement au lecteur intégré. Auto utilise l’IA si disponible, sinon le DSP."
+  },
   "app": {
     "name": "Voxveil"
   },

@@ -4,13 +4,18 @@ use super::{catalog, download, dto::AiModelStatusDto, manager::ModelManager, sto
 
 fn status(app: &AppHandle, model_id: &str) -> Result<AiModelStatusDto, String> {
     let descriptor = catalog::find(model_id)?;
-    let installed = storage::is_installed(app, &descriptor)?;
+    let installed =
+        super::storage_files::verified(&storage::paths(app, &descriptor)?, &descriptor)?;
     Ok(AiModelStatusDto::from_descriptor(&descriptor, installed))
 }
 
 #[tauri::command]
-pub fn get_ai_model_status(app: AppHandle) -> Result<AiModelStatusDto, String> {
-    status(&app, catalog::DEFAULT_MODEL_ID)
+pub fn get_ai_model_status(
+    app: AppHandle,
+    model_id: Option<String>,
+) -> Result<AiModelStatusDto, String> {
+    let selected = crate::config::windows_audio::load(&app)?.ai.model;
+    status(&app, model_id.as_deref().unwrap_or(selected.id()))
 }
 
 #[tauri::command]
@@ -40,10 +45,14 @@ pub async fn install_ai_model(
 #[tauri::command]
 pub async fn remove_ai_model(
     app: AppHandle,
+    controller: State<'_, crate::platform::ProcessingController>,
     manager: State<'_, ModelManager>,
     model_id: String,
 ) -> Result<AiModelStatusDto, String> {
     let descriptor = catalog::find(&model_id)?;
+    if crate::config::windows_audio::load(&app)?.ai.model.id() == model_id {
+        controller.stop_owned_playback()?;
+    }
     let gate = manager.gate();
     let task_app = app.clone();
     let task_descriptor = descriptor.clone();

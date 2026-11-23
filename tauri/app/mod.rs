@@ -1,3 +1,4 @@
+pub mod ai_settings;
 pub mod audio_routes;
 pub mod commands;
 pub mod dto;

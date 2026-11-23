@@ -11,7 +11,21 @@ use tauri::AppHandle;
 
 pub use catalog::DEFAULT_MODEL_ID;
 
-pub const AI_RUNTIME_AVAILABLE: bool = false;
+pub fn runtime_path() -> Option<std::path::PathBuf> {
+    if !cfg!(target_os = "windows") {
+        return None;
+    }
+    Some(
+        std::env::current_exe()
+            .ok()?
+            .parent()?
+            .join("onnxruntime.dll"),
+    )
+}
+
+pub fn runtime_available() -> bool {
+    runtime_path().is_some_and(|path| voxveil_ai::runtime_available(&path))
+}
 
 pub fn default_model_installed(app: &AppHandle) -> Result<bool, String> {
     let descriptor = catalog::find(DEFAULT_MODEL_ID)?;
@@ -20,5 +34,27 @@ pub fn default_model_installed(app: &AppHandle) -> Result<bool, String> {
 
 /// Returns true only when a verified local model exists and this build has a real AI inference backend.
 pub fn ai_runtime_ready(app: &AppHandle) -> Result<bool, String> {
-    Ok(AI_RUNTIME_AVAILABLE && default_model_installed(app)?)
+    let selected = crate::config::windows_audio::load(app)?.ai.model;
+    let descriptor = catalog::find(selected.id())?;
+    Ok(runtime_available()
+        && storage_files::verified(&storage::paths(app, &descriptor)?, &descriptor)?)
+}
+
+pub fn player_config(
+    app: &AppHandle,
+    model: voxveil_types::AiModel,
+) -> Result<voxveil_ai::player::AiPlaybackConfig, String> {
+    let descriptor = catalog::find(model.id())?;
+    let paths = storage::paths(app, &descriptor)?;
+    if !runtime_available() || !storage_files::verified(&paths, &descriptor)? {
+        return Err("AI is unavailable: selected model files or app-owned ONNX Runtime are missing or invalid".into());
+    }
+    Ok(voxveil_ai::player::AiPlaybackConfig {
+        model: match model {
+            voxveil_types::AiModel::Spleeter => voxveil_ai::Model::Spleeter,
+            voxveil_types::AiModel::MdxInstHq3 => voxveil_ai::Model::MdxInstHq3,
+        },
+        directory: paths.directory,
+        runtime: runtime_path().ok_or("AI runtime is unavailable on this platform")?,
+    })
 }

@@ -4103,6 +4103,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.11.0",
+ "voxveil-media",
  "voxveil-model-api",
 ]
 
@@ -4156,6 +4157,7 @@ dependencies = [
  "sha2 0.11.0",
  "tauri",
  "tauri-build",
+ "voxveil-ai",
  "voxveil-audio-core",
  "voxveil-dsp",
  "voxveil-model-api",
@@ -4178,6 +4180,7 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+ "voxveil-ai",
  "voxveil-audio-core",
  "voxveil-dsp",
  "voxveil-media",

@@ -85,14 +85,16 @@ export function HomeScreen({ model, aiModelReady }: { model: VoxveilModel; aiMod
           { value: 'per-app', label: t('processing.perApp'), disabled: fileRouteSelected || !state.perAppProcessingAvailable },
         ]} />
         <SegmentedControl label={t('processing.engine')} value={state.engine} onChange={model.setEngine} options={[
-          { value: 'auto', label: t('engine.auto'), disabled: fileRouteSelected },
+          { value: 'auto', label: t('engine.auto') },
           { value: 'dsp', label: t('engine.dsp') },
-          { value: 'ai', label: t('engine.ai'), disabled: fileRouteSelected || !aiModelReady },
+          { value: 'ai', label: t('engine.ai'), disabled: !aiModelReady },
         ]} />
       </div>
 
+      {!aiModelReady && <p className="privacy-note">{t('aiPlayer.notReady')}</p>}
+      <p className="privacy-note">{t('aiPlayer.playerOnly')}</p>
       <div className="status-strip" aria-label={t('status.current')}>
-        <div><span>{t('status.latency')}</span><strong className="mono">~{state.estimatedLatencyMs} ms</strong></div>
+        <div><span>{t('status.latency')}</span><strong className="mono">~{fileRouteSelected && state.engine !== 'dsp' && aiModelReady ? (state.ai?.model === 'mdx-inst-hq3' ? 5921 : 11958) : state.estimatedLatencyMs} ms</strong></div>
         <div><span>{t('status.load')}</span><strong>{t(loadLabelKey(state.load))}</strong></div>
         <div><span>{t('status.output')}</span><strong>{state.physicalOutput}</strong></div>
       </div>

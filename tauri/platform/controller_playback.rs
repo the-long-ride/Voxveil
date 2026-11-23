@@ -7,6 +7,7 @@ impl ProcessingController {
         endpoint_id: Option<String>,
         vocal_level: u8,
         profile: ClassicSuppressionProfile,
+        ai: Option<voxveil_ai::player::AiPlaybackConfig>,
     ) -> Result<AudioPlaybackSnapshot, String> {
         let endpoint = {
             #[cfg(target_os = "windows")]
@@ -39,7 +40,7 @@ impl ProcessingController {
         self.playback
             .lock()
             .map_err(|_| "local playback lock is poisoned".to_string())?
-            .open(path, endpoint, vocal_level, profile)
+            .open_with_ai(path, endpoint, vocal_level, profile, ai)
     }
 
     pub fn playback_snapshot(&self) -> AudioPlaybackSnapshot {

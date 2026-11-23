@@ -81,7 +81,8 @@ test('AI model acquisition is consent-gated, app-local and integrity checked', a
   assert.match(files, /\.download/);
   assert.match(appCommands, /ai_runtime_ready/);
   const modelModule = await readFile('tauri/models/mod.rs', 'utf8');
-  assert.match(modelModule, /AI_RUNTIME_AVAILABLE:\s*bool\s*=\s*false/);
+  assert.match(modelModule, /runtime_available\(\)/);
+  assert.match(modelModule, /storage_files::verified/);
 });
 
 test('master processing cannot claim enabled without a ready audio backend', async () => {

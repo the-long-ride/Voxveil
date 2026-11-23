@@ -90,3 +90,29 @@ pub fn write_receipt(
     fs::write(&paths.receipt, receipt)
         .map_err(|_| "AI model receipt could not be written".to_string())
 }
+
+pub fn verified(paths: &ModelPaths, descriptor: &ModelDescriptor) -> Result<bool, String> {
+    use sha2::{Digest, Sha256};
+    use std::io::Read;
+    if !is_installed(paths, descriptor)? {
+        return Ok(false);
+    }
+    for (path, descriptor) in paths.files.iter().zip(&descriptor.files) {
+        let mut file = fs::File::open(&path.model).map_err(|_| "AI model cannot be verified")?;
+        let mut hasher = Sha256::new();
+        let mut buffer = [0_u8; 65536];
+        loop {
+            let read = file
+                .read(&mut buffer)
+                .map_err(|_| "AI model verification was interrupted")?;
+            if read == 0 {
+                break;
+            }
+            hasher.update(&buffer[..read]);
+        }
+        if super::transfer::hex(hasher.finalize().as_slice()) != descriptor.sha256 {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}

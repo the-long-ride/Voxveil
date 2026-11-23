@@ -1,4 +1,16 @@
 {
+  "aiPlayer": {
+    "models": "Mô hình tách giọng AI",
+    "choose": "Dùng {{name}}",
+    "systemWide": "Dùng AI cho âm thanh toàn hệ thống",
+    "delay": "Chỉ Spleeter. Trễ khoảng 12 giây khiến video và trò chơi lệch tiếng. Lưu cho bước 3; chưa hoạt động trong bản này.",
+    "mdxOffline": "MDX có thể không xử lý kịp thời gian thực. Trình phát sẽ chờ chuẩn bị thêm âm thanh; AI toàn hệ thống cần Spleeter.",
+    "notReady": "AI chưa sẵn sàng. Hãy cài và xác minh mô hình đã chọn cùng ONNX Runtime đi kèm ứng dụng.",
+    "preparing": "Đang chuẩn bị AI…",
+    "runtimeMissing": "Đã cài mô hình nhưng không tải được bộ suy luận đi kèm ứng dụng.",
+    "changesStop": "Đổi bộ xử lý hoặc mô hình sẽ dừng phát. Mở lại tệp để áp dụng lựa chọn mới.",
+    "playerOnly": "AI hiện chỉ áp dụng cho trình phát trong ứng dụng. Tự động dùng AI khi sẵn sàng, nếu không dùng DSP."
+  },
   "app": {
     "name": "Voxveil"
   },

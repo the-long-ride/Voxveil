@@ -23,7 +23,7 @@ export function AppShell({ themeMode, onThemeModeChange }: AppShellProps) {
   const { t } = useTranslation();
   const [route, setRoute] = useState<RouteId>('home');
   const model = useVoxveilState();
-  const aiModel = useAiModelManager(() => model.setEngine('auto'));
+  const aiModel = useAiModelManager(() => model.setEngine('auto'), model.state.ai?.model);
   useEffect(() => {
     setRoute((current) => routeAfterAudioRouteChoiceChanged(current, model.state.audioRouteChoice));
   }, [model.state.audioRouteChoice]);
@@ -46,6 +46,8 @@ export function AppShell({ themeMode, onThemeModeChange }: AppShellProps) {
       onSelectOutput={model.selectPhysicalOutput}
     />,
     settings: <SettingsScreen
+      ai={model.state.ai}
+      onAiChange={model.setAiPreferences}
       edition={model.state.edition}
       windowsAudioRoutesAvailable={model.state.windowsAudioRoutesAvailable}
       audioRouteChoice={model.state.audioRouteChoice}
