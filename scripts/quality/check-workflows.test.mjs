@@ -18,6 +18,9 @@ on:
       windows:
         type: boolean
         default: true
+      windows_drivers:
+        type: boolean
+        default: false
       linux:
         type: boolean
         default: false
@@ -45,6 +48,11 @@ on:
         required: false
         type: boolean
         default: true
+      windows_drivers:
+        description: Include the virtual driver/APO build (needs WDK)
+        required: false
+        type: boolean
+        default: false
       linux:
         description: Build Linux bundles
         required: false
@@ -160,6 +168,7 @@ jobs: {}
 
   assert.deepEqual(await auditWorkflows(root), [
     'manual-build.yml must define windows as boolean with default true',
+    'manual-build.yml must define windows_drivers as boolean with default false',
     'manual-build.yml must define macos as boolean with default false',
   ]);
 });
@@ -168,4 +177,18 @@ test('ignores non-workflow support files in the workflow directory', async () =>
   const root = await mkdtemp(path.join(os.tmpdir(), 'voxveil-workflows-'));
   await writeWorkflow(root, 'README.md', '# manual workflow support\n');
   assert.deepEqual(await auditWorkflows(root), []);
+});
+
+test('rejects a driver build enabled by default or a non-boolean driver input', async () => {
+  for (const input of ['type: boolean\n        default: true', 'type: string\n        default: false']) {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'voxveil-workflows-'));
+    const content = validManualWorkflow.replace(
+      'windows_drivers:\n        type: boolean\n        default: false',
+      `windows_drivers:\n        ${input}`,
+    );
+    await writeWorkflow(root, 'manual-build.yml', content);
+    assert.deepEqual(await auditWorkflows(root), [
+      'manual-build.yml must define windows_drivers as boolean with default false',
+    ]);
+  }
 });

@@ -11,6 +11,11 @@ on:
         required: false
         type: boolean
         default: true
+      windows_drivers:
+        description: Include the virtual driver/APO build (needs WDK)
+        required: false
+        type: boolean
+        default: false
       linux:
         description: Build Linux bundles
         required: false
@@ -42,6 +47,12 @@ jobs:
           cache: npm
 
       - name: Build Windows package
+        if: ${{ !inputs.windows_drivers }}
+        shell: pwsh
+        run: npm run build:windows:driverless
+
+      - name: Build Windows package with drivers
+        if: ${{ inputs.windows_drivers }}
         shell: pwsh
         run: npm run build:windows
 
@@ -49,12 +60,13 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: Voxveil-windows-x64-${{ github.sha }}
-          path: dist/windows-x64/Voxveil/
+          path: ${{ inputs.windows_drivers && 'dist/windows-x64/Voxveil/' || 'dist/windows-x64/Voxveil-Driverless/' }}
           if-no-files-found: error
           compression-level: 0
           retention-days: 7
 
       - name: Upload unsigned driver submission
+        if: ${{ inputs.windows_drivers }}
         uses: actions/upload-artifact@v6
         with:
           name: Voxveil-windows-driver-submission-${{ github.sha }}

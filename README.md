@@ -34,7 +34,7 @@ Build on Windows with Visual Studio C++ Build Tools, Windows SDK, Rust and Node.
 npm run build:windows:driverless
 ```
 
-The driverless package is staged in `dist/windows-x64/Voxveil-Driverless`, with no APO, virtual driver, privileged installer or system-audio component. The existing full Windows build remains available.
+The driverless package is staged in `dist/windows-x64/Voxveil-Driverless`, with no APO, virtual driver, privileged installer or system-audio component. Manual Build produces this package by default; enable `windows_drivers` to include the virtual driver/APO build (requires WDK). The existing full Windows build remains available.
 
 ### Windows system audio
 

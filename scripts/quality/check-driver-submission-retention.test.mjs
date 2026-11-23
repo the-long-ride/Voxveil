@@ -11,6 +11,7 @@ test('exact unsigned driver signing handoff is retained for at least 30 days', (
   const block = workflow.slice(start, nextStep >= 0 ? nextStep : workflow.length);
 
   assert.ok(start >= 0, 'unsigned driver submission upload step must exist');
+  assert.match(block, /if: \$\{\{ inputs\.windows_drivers \}\}/);
   assert.match(block, /Voxveil-windows-driver-submission-\$\{\{ github\.sha \}\}/);
   const retention = Number(block.match(/retention-days:\s*(\d+)/)?.[1] ?? 0);
   assert.ok(retention >= 30, 'signing handoff artifact must be retained for at least 30 days');
