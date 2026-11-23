@@ -1,6 +1,7 @@
+use super::clock_tests::observe_frames;
 use super::*;
 
-fn submit(buffer: &mut RelayBuffer, padding: &mut usize, captured_frames: usize) {
+pub(super) fn submit(buffer: &mut RelayBuffer, padding: &mut usize, captured_frames: usize) {
     buffer.balance(*padding, captured_frames);
     let frames_to_write = (buffer.render_capacity - *padding).min(buffer.queued_frames());
     buffer.render_queue().drain(..frames_to_write * FRAME_BYTES);
@@ -117,12 +118,15 @@ fn clock_drift_keeps_the_fifo_in_a_bounded_band_in_both_directions() {
         let mut padding = buffer.render_capacity;
         let target = padding + buffer.reserve;
         let mut correction = 0;
+        let mut rendered = 0;
         for tick in 1..=8_000 {
             let render_per_tick =
                 480_usize.saturating_add_signed(if tick % 10 == 0 { drift_frames } else { 0 });
             assert!(padding >= render_per_tick, "underrun at tick {tick}");
             padding -= render_per_tick;
+            rendered += render_per_tick as u64;
             buffer.push_capture(&packet);
+            observe_frames(&mut buffer, tick * 480, rendered);
             let before_balance = padding + buffer.queued_frames();
             submit(&mut buffer, &mut padding, 480);
             let total = padding + buffer.queued_frames();
@@ -134,69 +138,19 @@ fn clock_drift_keeps_the_fifo_in_a_bounded_band_in_both_directions() {
 }
 
 #[test]
-fn sustained_clock_drift_preserves_reserve_with_quantized_render_padding() {
-    let rate = 48_000;
-    let period = 480;
-    let packet = [0; 480 * FRAME_BYTES];
-    let mut failures = Vec::new();
-
-    for quantum in [1, period] {
-        for ppm in [-500_isize, -200, 200, 500] {
-            let mut buffer = RelayBuffer::new(rate * DEVICE_BUFFER_MS / 1_000, rate as u32);
-            let mut padding = buffer.render_capacity;
-            let mut rendered = 0;
-            let mut correction = 0;
-            let mut min_reserve = buffer.reserve;
-            let mut max_reserve = buffer.reserve;
-            let mut failure = None;
-
-            for tick in 1..=48_000_u64 {
-                let due = (tick * period as u64 * (1_000_000 + ppm) as u64 / 1_000_000) as usize
-                    / quantum
-                    * quantum;
-                let consumed = due - rendered;
-                rendered = due;
-                if consumed >= padding || buffer.queued_frames() + period > buffer.queue_limit {
-                    failure = Some(tick);
-                    break;
-                }
-                padding -= consumed;
-                buffer.push_capture(&packet);
-                let before = padding + buffer.queued_frames();
-                submit(&mut buffer, &mut padding, period);
-                let queued = buffer.queued_frames();
-                correction += (padding + queued) as isize - before as isize;
-                min_reserve = min_reserve.min(queued);
-                max_reserve = max_reserve.max(queued);
-            }
-
-            if failure.is_some()
-                || correction.signum() != ppm.signum()
-                || min_reserve < buffer.reserve - 2 * period
-                // The slower clock can start one period behind before any drift accumulates.
-                || max_reserve > buffer.reserve + 3 * period
-            {
-                failures.push(format!(
-                    "{ppm:+} ppm, {quantum}-frame quantum: reserve {min_reserve}..={max_reserve}, \
-                     net correction {correction}, first depletion/overflow tick {failure:?}"
-                ));
-            }
-        }
-    }
-    assert!(failures.is_empty(), "{}", failures.join("\n"));
-}
-
-#[test]
 fn faster_render_clock_preserves_reserve_for_late_capture() {
     let mut buffer = RelayBuffer::new(1_536, 48_000);
     let mut padding = buffer.render_capacity;
     let packet = [0; 480 * FRAME_BYTES];
 
     // One extra render frame per ten capture packets is about 208 ppm at 48 kHz.
+    let mut rendered = 0;
     for tick in 1..=8_000 {
         let render_frames = 480 + usize::from(tick % 10 == 0);
         padding -= render_frames;
+        rendered += render_frames as u64;
         buffer.push_capture(&packet);
+        observe_frames(&mut buffer, tick * 480, rendered);
         submit(&mut buffer, &mut padding, 480);
     }
 
@@ -221,10 +175,15 @@ fn rate_matched_vac_bursts_and_packet_phase_shift_never_splice() {
 
     // Relay-07 had 1,680 frames at capture polls before falling to a 1,200-frame plateau.
     buffer.render_queue().truncate(240 * FRAME_BYTES);
+    let mut capture_position = 0;
     let mut process = |render_frames: usize, capture_packets: usize| {
         padding -= render_frames;
         for _ in 0..capture_packets {
             buffer.push_capture(&packet);
+        }
+        if capture_packets != 0 {
+            capture_position += capture_packets as u64 * 480;
+            observe_frames(&mut buffer, capture_position, capture_position);
         }
         let total = padding + buffer.queued_frames();
         submit(&mut buffer, &mut padding, capture_packets * 480);
@@ -234,7 +193,7 @@ fn rate_matched_vac_bursts_and_packet_phase_shift_never_splice() {
             "spliced at fill {total}"
         );
     };
-    for tick in 0..2_000 {
+    for tick in 0..3_000 {
         if tick == 1_334 {
             process(480, 0);
         }

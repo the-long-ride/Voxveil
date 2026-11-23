@@ -1,5 +1,11 @@
 use std::collections::VecDeque;
 
+#[path = "relay_clock.rs"]
+mod clock;
+#[cfg(windows)]
+pub(crate) use clock::RenderClock;
+use clock::{ClockPosition, DriftTracker};
+
 pub(crate) const FRAME_BYTES: usize = 8;
 pub(crate) const MAX_CAPTURE_FRAMES: usize = 4096;
 pub(crate) const DEVICE_BUFFER_MS: usize = 100;
@@ -92,6 +98,16 @@ impl RelayBuffer {
         self.drift = DriftTracker::default();
     }
 
+    pub(crate) fn observe_clocks(
+        &mut self,
+        position: u64,
+        timestamp: u64,
+        sample_render: impl FnOnce() -> Option<ClockPosition>,
+    ) {
+        let capture = ClockPosition::new(position, timestamp, self.sample_rate as u64);
+        self.drift.observe(capture, sample_render);
+    }
+
     pub(crate) fn balance(&mut self, padding: usize, captured_frames: usize) {
         if padding == 0 {
             self.reset_drift();
@@ -113,14 +129,7 @@ impl RelayBuffer {
         if captured_frames < 2 {
             return;
         }
-        let total = queued + padding;
-        let deadband = (self.sample_rate * 12 / 1_000)
-            .min(self.reserve * 3 / 4)
-            .max(1);
-        match self
-            .drift
-            .observe(total, captured_frames, self.sample_rate, deadband)
-        {
+        match self.drift.correction(captured_frames) {
             1 if queued < self.queue_limit => self.splice_tail(true),
             -1 => self.splice_tail(false),
             _ => {}
@@ -153,69 +162,10 @@ impl RelayBuffer {
     }
 }
 
-#[derive(Default)]
-struct DriftTracker {
-    weighted_total: u64,
-    frames: usize,
-    baseline: Option<f64>,
-    trend_anchor: f64,
-    trend: i8,
-    adjustment: i8,
-}
-
-impl DriftTracker {
-    fn observe(&mut self, total: usize, frames: usize, sample_rate: usize, deadband: usize) -> i8 {
-        self.weighted_total += total as u64 * frames as u64;
-        self.frames += frames;
-        if self.frames >= sample_rate * 2 {
-            let average = self.weighted_total as f64 / self.frames as f64;
-            self.frames = 0;
-            self.weighted_total = 0;
-
-            if let Some(baseline) = self.baseline {
-                let error = average - baseline;
-                if self.adjustment != 0 {
-                    if error * f64::from(self.adjustment) >= -(deadband as f64 / 4.0) {
-                        self.adjustment = 0;
-                        self.trend = 0;
-                        self.trend_anchor = average;
-                    }
-                } else {
-                    // Period-quantized padding can stay flat for many windows between slips.
-                    let change = average - self.trend_anchor;
-                    if change.abs() > deadband as f64 / 8.0 {
-                        let step = if change > 0.0 { 1 } else { -1 };
-                        self.trend = if step == self.trend.signum() {
-                            self.trend.saturating_add(step)
-                        } else {
-                            step
-                        };
-                        self.trend_anchor = average;
-                    }
-                    if error.abs() > deadband as f64
-                        && error * f64::from(self.trend) > 0.0
-                        && self.trend.unsigned_abs() >= 2
-                    {
-                        self.adjustment = -self.trend.signum();
-                    }
-                }
-            } else {
-                self.baseline = Some(average);
-                self.trend_anchor = average;
-            }
-        }
-
-        let Some(baseline) = self.baseline else {
-            return 0;
-        };
-        if (total as f64 - baseline) * f64::from(self.adjustment) < 0.0 {
-            self.adjustment
-        } else {
-            0
-        }
-    }
-}
-
 #[cfg(test)]
 #[path = "relay_buffer_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "relay_clock_tests.rs"]
+mod clock_tests;
