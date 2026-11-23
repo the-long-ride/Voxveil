@@ -1,10 +1,27 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getI18n } from '../../i18n';
 import { AiModelsSettings } from './AiModelsSettings';
+import * as manager from '../engine/useAiModelManager';
+
+afterEach(() => vi.restoreAllMocks());
 
 describe('AI model settings', () => {
+  it.each(['spleeter-2stems-fp16', 'mdx-inst-hq3'] as const)('requests Auto only when removing the active %s model', async (active) => {
+    vi.spyOn(manager, 'useAiModelManager').mockImplementation((onRemoved, id) => ({
+      status: { id: id!, displayName: id!, approximateSizeMb: 40, license: 'MIT', source: 'test', sourceRevision: 'test', installed: true, runtimeAvailable: true, bundled: false, downloadAvailable: true, consentRequired: true },
+      native: true, busy: false, error: null, progress: null,
+      install: vi.fn(), remove: async () => { onRemoved?.(); },
+    }));
+    const fallback = vi.fn();
+    render(<I18nextProvider i18n={getI18n()}><AiModelsSettings preferences={{ model: active, systemWide: false }} onChange={vi.fn()} onActiveModelRemoved={fallback} /></I18nextProvider>);
+    const buttons = screen.getAllByRole('button', { name: /remove/i });
+    fireEvent.click(buttons[active === 'spleeter-2stems-fp16' ? 1 : 0]);
+    expect(fallback).not.toHaveBeenCalled();
+    fireEvent.click(buttons[active === 'spleeter-2stems-fp16' ? 0 : 1]);
+    await waitFor(() => expect(fallback).toHaveBeenCalledOnce());
+  });
   it('shows both models, sizes and UVR credit and persists the selected model', () => {
     const onChange = vi.fn();
     render(<I18nextProvider i18n={getI18n()}><AiModelsSettings preferences={{ model: 'spleeter-2stems-fp16', systemWide: true }} onChange={onChange} /></I18nextProvider>);

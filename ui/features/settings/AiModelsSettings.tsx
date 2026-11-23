@@ -4,10 +4,10 @@ import { Toggle } from '../../components/Toggle';
 import { AiModelManager } from '../engine/AiModelManager';
 import { useAiModelManager } from '../engine/useAiModelManager';
 
-export function AiModelsSettings({ preferences, onChange }: { preferences: AiPreferences; onChange: (next: AiPreferences) => void }) {
+export function AiModelsSettings({ preferences, onChange, onActiveModelRemoved }: { preferences: AiPreferences; onChange: (next: AiPreferences) => void; onActiveModelRemoved?: () => void }) {
   const { t } = useTranslation();
-  const spleeter = useAiModelManager(undefined, 'spleeter-2stems-fp16');
-  const mdx = useAiModelManager(undefined, 'mdx-inst-hq3');
+  const spleeter = useAiModelManager(() => { if (preferences.model === 'spleeter-2stems-fp16') onActiveModelRemoved?.(); }, 'spleeter-2stems-fp16');
+  const mdx = useAiModelManager(() => { if (preferences.model === 'mdx-inst-hq3') onActiveModelRemoved?.(); }, 'mdx-inst-hq3');
   return <section className="settings-group" aria-label={t('aiPlayer.models')}>
     <h2>{t('aiPlayer.models')}</h2>
     <p>{t('aiPlayer.changesStop')}</p>

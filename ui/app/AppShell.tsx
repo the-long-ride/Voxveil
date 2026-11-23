@@ -48,6 +48,7 @@ export function AppShell({ themeMode, onThemeModeChange }: AppShellProps) {
     settings: <SettingsScreen
       ai={model.state.ai}
       onAiChange={model.setAiPreferences}
+      onActiveModelRemoved={() => model.setEngine('auto')}
       edition={model.state.edition}
       windowsAudioRoutesAvailable={model.state.windowsAudioRoutesAvailable}
       audioRouteChoice={model.state.audioRouteChoice}

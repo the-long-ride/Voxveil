@@ -11,6 +11,7 @@ import { AiModelsSettings } from './AiModelsSettings';
 interface SettingsScreenProps {
   ai?: AiPreferences;
   onAiChange?: (preferences: AiPreferences) => void;
+  onActiveModelRemoved?: () => void;
   edition?: 'standard' | 'pro-system';
   windowsAudioRoutesAvailable: boolean;
   audioRouteChoice: AudioRouteChoice;
@@ -21,7 +22,7 @@ interface SettingsScreenProps {
 }
 
 export function SettingsScreen({
-  ai = { model: 'spleeter-2stems-fp16', systemWide: false }, onAiChange = () => {},
+  ai = { model: 'spleeter-2stems-fp16', systemWide: false }, onAiChange = () => {}, onActiveModelRemoved,
   edition = 'standard', windowsAudioRoutesAvailable, audioRouteChoice, audioRouteError, onAudioRouteChange,
   themeMode, onThemeModeChange,
 }: SettingsScreenProps) {
@@ -79,7 +80,7 @@ export function SettingsScreen({
           <span className="status-dot is-on">{t('settings.local')}</span>
         </div>
       </div>
-      <AiModelsSettings preferences={ai} onChange={onAiChange} />
+      <AiModelsSettings preferences={ai} onChange={onAiChange} onActiveModelRemoved={onActiveModelRemoved} />
     </section>
   );
 }
