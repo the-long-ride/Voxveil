@@ -1,4 +1,8 @@
 use super::*;
+use std::sync::{
+    Arc,
+    atomic::{AtomicUsize, Ordering},
+};
 
 struct Identity;
 impl ChunkModel for Identity {
@@ -12,6 +16,27 @@ impl ChunkModel for Failure {
     fn run(&mut self, _: &[f32]) -> Result<Vec<f32>, SeparationError> {
         Err(SeparationError::BackendFailure)
     }
+}
+
+#[test]
+fn finish_can_run_two_model_chunks_before_returning_the_tail() {
+    struct Counting(Arc<AtomicUsize>);
+    impl ChunkModel for Counting {
+        fn run(&mut self, input: &[f32]) -> Result<Vec<f32>, SeparationError> {
+            self.0.fetch_add(1, Ordering::SeqCst);
+            Ok(input.to_vec())
+        }
+    }
+    let runs = Arc::new(AtomicUsize::new(0));
+    let mut engine =
+        AiEngine::with_model(Model::MdxInstHq3, 44100, Box::new(Counting(runs.clone())));
+    let frames = 4 * engine.latency_frames() - 5 * 16384;
+    process(&mut engine, &vec![0.0; frames * 2]);
+    let before = runs.load(Ordering::SeqCst);
+    let (vocals, accompaniment) = engine.finish().unwrap();
+    assert_eq!(runs.load(Ordering::SeqCst) - before, 2);
+    assert_eq!(vocals.len(), engine.latency_frames() * 2);
+    assert_eq!(accompaniment.len(), vocals.len());
 }
 
 #[test]

@@ -14,6 +14,7 @@ struct Listener {
     queue: VecDeque<(f32, f32)>,
     started: Option<u64>,
     stalls: usize,
+    tail_stalls: usize,
     stalled: bool,
     eof: bool,
     frames: usize,
@@ -104,7 +105,11 @@ impl SeparationEngine for Slow {
 impl FileEngine for Slow {
     fn drain(&mut self) -> Result<(Vec<f32>, Vec<f32>), SeparationError> {
         if self.pending > 0 {
+            let before = self.listener.lock().unwrap().stalls;
             self.compute();
+            self.compute();
+            let mut listener = self.listener.lock().unwrap();
+            listener.tail_stalls += listener.stalls - before;
         }
         let values: Vec<_> = self.delay.drain(..).collect();
         Ok((
@@ -113,7 +118,7 @@ impl FileEngine for Slow {
         ))
     }
 }
-fn simulate(total: Option<u64>, old_streaming: bool) -> (u64, usize, usize) {
+fn simulate(total: Option<u64>, old_streaming: bool) -> (u64, usize, usize, usize) {
     let clock = Arc::new(AtomicU64::new(0));
     let time = clock.clone();
     let cache = Arc::new(Mutex::new(Cache::with_clock(Box::new(move || {
@@ -127,6 +132,7 @@ fn simulate(total: Option<u64>, old_streaming: bool) -> (u64, usize, usize) {
         queue: VecDeque::new(),
         started: None,
         stalls: 0,
+        tail_stalls: 0,
         stalled: false,
         eof: false,
         frames: 0,
@@ -158,28 +164,35 @@ fn simulate(total: Option<u64>, old_streaming: bool) -> (u64, usize, usize) {
         listener.started.unwrap(),
         listener.stalls,
         listener.frames / 2,
+        listener.tail_stalls,
     )
 }
 #[test]
 fn rtf_1_2_plays_the_whole_track_without_stalls_after_one_upfront_wait() {
-    let (_, old_stalls, _) = simulate(Some(2900), true);
+    let (_, old_stalls, _, old_tail_stalls) = simulate(Some(2900), true);
     assert!(
         old_stalls >= 3,
         "control must reproduce repeated streaming stalls"
     );
-    let (start, stalls, frames) = simulate(Some(2900), false);
+    assert!(
+        old_tail_stalls > 0,
+        "control must exhaust the reserve during the two-chunk tail flush"
+    );
+    let (start, stalls, frames, tail_stalls) = simulate(Some(2900), false);
     assert!(
         start > 14000 && start < 30000,
         "wait should be upfront, not whole-file preparation: {start}"
     );
+    assert_eq!(tail_stalls, 0);
     assert_eq!(stalls, 0);
     assert_eq!(frames, 2900);
 }
 #[test]
 fn unknown_duration_waits_for_eof_then_plays_without_stalls() {
-    let (start, stalls, frames) = simulate(None, false);
-    assert!(start >= 36000);
+    let (start, stalls, frames, tail_stalls) = simulate(None, false);
+    assert!(start >= 43200);
     assert_eq!((stalls, frames), (0, 2900));
+    assert_eq!(tail_stalls, 0);
 }
 #[test]
 fn seek_discards_measurements_and_recalculates_the_remaining_wait() {

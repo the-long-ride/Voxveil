@@ -52,11 +52,12 @@ impl Prefetch {
         let remaining = self.total?.saturating_sub(written) as f64 / self.rate as f64;
         let buffered = written as f64 / self.rate as f64;
         let rtf = self.rtf * 1.1;
-        let burst = rtf * remaining.min(self.context as f64 / self.rate as f64);
+        let flush_reserve = 2.0 * rtf * self.context as f64 / self.rate as f64;
         let credit = self.active.map_or(0.0, |start| {
-            now.saturating_sub(start).as_secs_f64().min(burst)
+            now.saturating_sub(start).as_secs_f64().min(flush_reserve)
         });
-        let wait = ((rtf - 1.0).max(0.0) * remaining + burst + 0.25 - buffered - credit).max(0.0);
+        let wait =
+            ((rtf - 1.0).max(0.0) * remaining + flush_reserve + 0.25 - buffered - credit).max(0.0);
         Some((wait.max(warmup) * 1000.0).ceil() as u64)
     }
 }
