@@ -160,6 +160,16 @@ mod tests {
     use crate::platform::BackendSnapshot;
 
     #[test]
+    fn default_state_uses_legacy_automatic_route() {
+        let state = AppViewState::default();
+        assert_eq!(state.audio_route_choice, AudioRouteChoice::LegacyAutomatic);
+        assert_eq!(
+            serde_json::to_value(state).unwrap()["audioRouteChoice"],
+            "legacy-automatic"
+        );
+    }
+
+    #[test]
     fn missing_physical_output_clears_stale_display_name_and_active_state() {
         let mut state = AppViewState::default();
         state.physical_output = "Removed Speakers".into();

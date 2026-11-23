@@ -95,6 +95,9 @@ fn physical_apo_only_never_selects_a_running_virtual_relay() {
     assert_eq!(decision.route.interception, None);
     assert_eq!(decision.route.source_endpoint_id, None);
     assert!(decision.detail.as_deref().unwrap().contains("physical APO"));
+    assert!(decision.detail.as_deref().unwrap().contains(
+        "switch to the automatic route in Settings to use the driver-free relay"
+    ));
     assert!(!decision.detail.as_deref().unwrap().contains("VB-CABLE"));
 }
 

@@ -176,7 +176,7 @@ mod tests {
         assert!(object.contains_key("preferredInterception"));
         assert_eq!(
             object.get("routeChoice").and_then(|value| value.as_str()),
-            Some("physical-apo")
+            Some("legacy-automatic")
         );
         assert_eq!(
             object.get("classicSuppressionProfile").and_then(|value| value.as_str()),
@@ -185,10 +185,14 @@ mod tests {
     }
 
     #[test]
-    fn new_install_defaults_to_physical_apo() {
+    fn new_install_defaults_to_legacy_automatic() {
         assert_eq!(
             WindowsAudioPreferences::default().route_choice,
-            AudioRouteChoice::PhysicalApo
+            AudioRouteChoice::LegacyAutomatic
+        );
+        assert_eq!(
+            decode_preferences(b"{}").unwrap().route_choice,
+            AudioRouteChoice::LegacyAutomatic
         );
     }
 

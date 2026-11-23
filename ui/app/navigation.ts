@@ -37,6 +37,6 @@ export function routeAfterAudioRouteChoiceChanged(
     : currentRoute;
 }
 
-export function mobileNavigation(route: AudioRouteChoice = 'physical-apo'): readonly NavigationItem[] {
+export function mobileNavigation(route: AudioRouteChoice = 'legacy-automatic'): readonly NavigationItem[] {
   return navigationForAudioRoute(route).filter((item) => item.mobile);
 }

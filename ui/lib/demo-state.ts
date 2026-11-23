@@ -33,7 +33,7 @@ export const PREVIEW_STATE: VoxveilState = {
 export const SAFE_NATIVE_STATE: VoxveilState = {
   edition: 'standard',
   windowsAudioRoutesAvailable: false,
-  audioRouteChoice: 'physical-apo',
+  audioRouteChoice: 'legacy-automatic',
   audioRouteError: null,
   playback: { status: 'stopped', fileName: null, outputEndpointId: null, outputName: null, sampleRate: null, positionFrames: 0, totalFrames: null, error: null },
   masterEnabled: false,
