@@ -37,7 +37,8 @@ pub async fn open_audio_file(
         let current = state.lock()?;
         let ready = current.engine != voxveil_types::ProcessingEngineKind::Dsp
             && crate::models::ai_runtime_ready(&app).unwrap_or(false);
-        let use_ai = voxveil_types::player_uses_ai(current.engine, ready)?;
+        let rate = voxveil_media::MediaDecoder::open(&path).map_err(|e| e.to_string())?.info().sample_rate;
+        let use_ai = voxveil_types::player_engine::player_uses_ai_at_rate(current.engine, ready, rate)?;
         let ai = if use_ai {
             Some(crate::models::player_config(&app, current.ai.model)?)
         } else {

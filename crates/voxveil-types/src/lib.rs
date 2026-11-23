@@ -3,6 +3,7 @@
 pub mod ai;
 pub mod audio;
 pub mod processing;
+pub mod player_engine;
 pub mod routing;
 
 pub use ai::{AiModel, AiPreferences, player_uses_ai};
