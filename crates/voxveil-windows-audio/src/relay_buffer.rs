@@ -2,7 +2,9 @@ use std::collections::VecDeque;
 
 pub(crate) const FRAME_BYTES: usize = 8;
 pub(crate) const MAX_CAPTURE_FRAMES: usize = 4096;
-const MAX_QUEUE_FRAMES: usize = 8192;
+pub(crate) const DEVICE_BUFFER_MS: usize = 100;
+const RESERVE_MS: usize = 64;
+const MIN_QUEUE_LIMIT_FRAMES: usize = 8192;
 
 #[derive(Default)]
 pub(crate) struct CaptureTimeline {
@@ -43,20 +45,25 @@ pub(crate) struct RelayBuffer {
     bytes: VecDeque<u8>,
     render_capacity: usize,
     reserve: usize,
+    queue_limit: usize,
     sample_rate: usize,
     drift: DriftTracker,
 }
 
 impl RelayBuffer {
     pub(crate) fn new(render_capacity: usize, sample_rate: u32) -> Self {
-        let reserve = (render_capacity / 2).clamp(1, MAX_QUEUE_FRAMES / 4);
-        let mut bytes = VecDeque::with_capacity(MAX_QUEUE_FRAMES * FRAME_BYTES);
+        let sample_rate = sample_rate as usize;
+        let reserve = (sample_rate * RESERVE_MS).div_ceil(1_000);
+        let queue_limit =
+            (render_capacity + reserve + MAX_CAPTURE_FRAMES).max(MIN_QUEUE_LIMIT_FRAMES);
+        let mut bytes = VecDeque::with_capacity(queue_limit * FRAME_BYTES);
         bytes.resize(reserve * FRAME_BYTES, 0);
         Self {
             bytes,
             render_capacity,
             reserve,
-            sample_rate: sample_rate as usize,
+            queue_limit,
+            sample_rate,
             drift: DriftTracker::default(),
         }
     }
@@ -73,7 +80,7 @@ impl RelayBuffer {
         debug_assert!(packet.len().is_multiple_of(FRAME_BYTES));
         debug_assert!(packet.len() <= MAX_CAPTURE_FRAMES * FRAME_BYTES);
         let overflow =
-            (self.bytes.len() + packet.len()).saturating_sub(MAX_QUEUE_FRAMES * FRAME_BYTES);
+            (self.bytes.len() + packet.len()).saturating_sub(self.queue_limit * FRAME_BYTES);
         if overflow != 0 {
             self.reset_drift();
         }
@@ -96,7 +103,7 @@ impl RelayBuffer {
         let queued = self.queued_frames();
         if padding == 0 && queued < self.render_capacity {
             // After a complete underrun, rebuild the reserve without dropping queued audio.
-            let target = (self.render_capacity + self.reserve).min(MAX_QUEUE_FRAMES);
+            let target = self.render_capacity + self.reserve;
             self.bytes
                 .extend(std::iter::repeat_n(0, (target - queued) * FRAME_BYTES));
             self.bytes.rotate_right((target - queued) * FRAME_BYTES);
@@ -114,7 +121,7 @@ impl RelayBuffer {
             .drift
             .observe(total, captured_frames, self.sample_rate, deadband)
         {
-            1 if queued < MAX_QUEUE_FRAMES => self.splice_tail(true),
+            1 if queued < self.queue_limit => self.splice_tail(true),
             -1 => self.splice_tail(false),
             _ => {}
         }
