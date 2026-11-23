@@ -17,6 +17,10 @@ export interface PlaybackScreenProps {
   onSelectOutput: (endpointId: string) => void;
 }
 
+const seekKeys = new Set([
+  'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'End', 'Home', 'PageDown', 'PageUp',
+]);
+
 function clockTime(frames: number, sampleRate: number | null): string {
   if (!sampleRate || !Number.isFinite(frames)) return '0:00';
   const seconds = Math.max(0, Math.floor(frames / sampleRate));
@@ -48,9 +52,10 @@ export function PlaybackScreen({
   const outputName = playback.outputName ?? (selectedOutputId
     ? outputs.find((output) => output.endpointId === selectedOutputId)?.displayName ?? selectedOutputName
     : null);
-  const commitSeek = (value: number) => {
+  const commitSeek = () => {
+    if (seekDraft === null) return;
     setSeekDraft(null);
-    if (canSeek) void onSeek(Math.round((Math.min(100, Math.max(0, value)) / 100) * duration));
+    if (canSeek) void onSeek(Math.round((Math.min(100, Math.max(0, seekDraft)) / 100) * duration));
   };
 
   return (
@@ -116,8 +121,10 @@ export function PlaybackScreen({
           value={sliderValue}
           disabled={!canSeek}
           onChange={(event) => setSeekDraft(Number(event.currentTarget.value))}
-          onPointerUp={(event) => commitSeek(Number(event.currentTarget.value))}
-          onKeyUp={(event) => commitSeek(Number(event.currentTarget.value))}
+          onPointerUp={commitSeek}
+          onKeyUp={(event) => {
+            if (seekKeys.has(event.key)) commitSeek();
+          }}
         />
         <div className="range-labels mono">
           <span>{clockTime(positionFrames, sampleRate)}</span>
