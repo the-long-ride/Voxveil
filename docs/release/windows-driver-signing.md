@@ -47,7 +47,7 @@ The repository must not contain or automate access to:
 
 1. Enroll the organization in Microsoft Hardware Dev Center / Partner Center.
 2. Associate the required valid EV certificate with the Hardware Dev Center account.
-3. Obtain the validated unsigned submission for the exact release commit.
+3. Obtain the validated unsigned submission for the exact release commit. For Manual Build, enable `windows_drivers`; the default driverless build does not produce a submission artifact.
 
    Preferred CI handoff: run **Manual Build** for the exact commit SHA and download the artifact named `Voxveil-windows-driver-submission-${{ github.sha }}`. The artifact is the validated `native\windows\driver\out\x64\submission` signing input produced by that exact SHA; do not reuse an artifact from an older run. It also contains `submission-manifest.json`, which records the exact Voxveil commit, architecture, pinned Windows Driver Samples/SysVAD identities, and INF/CAT/SYS/PDB SHA-256 values. Retain this manifest for returned-package validation; it is handoff metadata and is intentionally not placed inside the attestation CAB. The CI signing-handoff artifact is retained for **30 days** so the exact submission can survive a realistic external signing/qualification cycle. Download and archive it in the release record system before that window closes; do not treat GitHub Actions retention as the long-term release archive.
 

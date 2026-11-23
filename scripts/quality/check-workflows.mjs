@@ -6,6 +6,7 @@ const ALLOWED_WORKFLOW = 'manual-build.yml';
 const VERIFICATION_PUSH_BRANCH = 'feat/windows-signed-audio-paths';
 const PLATFORM_INPUTS = [
   ['windows', 'true'],
+  ['windows_drivers', 'false'],
   ['linux', 'false'],
   ['macos', 'false'],
 ];
