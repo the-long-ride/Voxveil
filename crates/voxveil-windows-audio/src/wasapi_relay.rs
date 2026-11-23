@@ -11,8 +11,8 @@ use crate::relay_buffer::{
     CaptureTimeline, DEVICE_BUFFER_MS, FRAME_BYTES, MAX_CAPTURE_FRAMES, RelayBuffer, RenderClock,
 };
 use crate::relay_engine::{RelayCommand, RelayRuntimeState, RelaySpec};
-use crate::relay_processing::RelayProcessor;
 use crate::relay_idle::IdleCapture;
+use crate::relay_processing::RelayProcessor;
 
 const MAX_PACKETS_PER_TICK: usize = 16;
 
@@ -148,8 +148,6 @@ fn run_relay_worker_inner(
         .map_err(|error| error.to_string())? as usize;
     let sample_rate = source_format.get_samplespersec();
     let mut queue = RelayBuffer::new(render_capacity, sample_rate);
-    let mut timeline = CaptureTimeline::default();
-    let mut idle = IdleCapture::new(std::time::Instant::now());
     let mut capture_buffer = vec![0_u8; MAX_CAPTURE_FRAMES * FRAME_BYTES];
     let mut gap_buffer = vec![0_u8; MAX_CAPTURE_FRAMES * FRAME_BYTES];
     let mut processor = RelayProcessor::new(sample_rate, initial_vocal_level, initial_profile, ai);
@@ -169,6 +167,8 @@ fn run_relay_worker_inner(
         return Err(error.to_string());
     }
 
+    let mut timeline = CaptureTimeline::default();
+    let mut idle = IdleCapture::new(std::time::Instant::now());
     set_state(state, processor.runtime_state());
 
     let loop_result: Result<(), String> = 'relay: loop {
@@ -217,19 +217,17 @@ fn run_relay_worker_inner(
                 capture_drained = true;
                 break;
             }
-            let resumed = idle.captured(std::time::Instant::now());
-            if resumed { timeline = CaptureTimeline::default(); queue.reset_drift(); }
-            let gap = timeline.missing_frames(
+            let update = processor.capture_packet(
+                &mut timeline,
                 info.index,
                 read_frames,
                 info.flags.data_discontinuity,
                 info.flags.timestamp_error,
+                idle.captured(std::time::Instant::now()),
             );
-            if gap != 0 || info.flags.data_discontinuity || info.flags.timestamp_error {
+            let gap = update.gap;
+            if update.reset_clock {
                 queue.reset_drift();
-                if info.flags.timestamp_error || (info.flags.data_discontinuity && gap == 0 && !resumed) {
-                    processor.discontinuity();
-                }
             } else {
                 queue.observe_clocks(info.index, info.timestamp, || render_clock.position());
             }
@@ -256,7 +254,14 @@ fn run_relay_worker_inner(
             Ok(frames) => frames as usize,
             Err(error) => break Err(error.to_string()),
         };
-        if let Err(error) = processor.fill_idle(&mut idle, std::time::Instant::now(), &mut queue, render_capacity - writable, capture_drained, &mut gap_buffer) {
+        if let Err(error) = processor.fill_idle(
+            &mut idle,
+            std::time::Instant::now(),
+            &mut queue,
+            render_capacity - writable,
+            capture_drained,
+            &mut gap_buffer,
+        ) {
             break Err(error);
         }
         queue.balance(render_capacity - writable, captured_frames);

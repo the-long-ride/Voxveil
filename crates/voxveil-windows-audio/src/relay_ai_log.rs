@@ -6,7 +6,11 @@ use std::{
 };
 
 pub(crate) fn fallback(path: Option<&Path>, reason: &str) {
-    eprintln!("Voxveil relay: {reason}; falling back to DSP");
+    event(path, reason, "falling back to DSP");
+}
+
+pub(crate) fn event(path: Option<&Path>, reason: &str, action: &str) {
+    eprintln!("Voxveil relay: {reason}; {action}");
     let Some(path) = path else {
         return;
     };
@@ -28,7 +32,7 @@ pub(crate) fn fallback(path: Option<&Path>, reason: &str) {
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs();
-        let _ = writeln!(file, "{timestamp} {reason}; falling back to DSP");
+        let _ = writeln!(file, "{timestamp} {reason}; {action}");
     }
 }
 
@@ -49,6 +53,16 @@ mod tests {
         fs::write(&path, vec![0; 1024 * 1024]).unwrap();
         fallback(Some(&path), "runtime failed");
         assert!(fs::metadata(&path).unwrap().len() < 1024);
+        event(
+            Some(&path),
+            "capture frame=123 discontinuity=true",
+            "rebuffering AI",
+        );
+        assert!(
+            fs::read_to_string(&path)
+                .unwrap()
+                .contains("capture frame=123 discontinuity=true; rebuffering AI")
+        );
         fallback(Some(&path.join("invalid")), "cannot log here");
         fs::remove_dir_all(root).unwrap();
     }

@@ -32,8 +32,9 @@ requires the separate **Use AI for system-wide audio** opt-in and Spleeter, and
 applies to the WASAPI relay, not physical APOs. It adds a fixed model latency plus
 500 ms compute headroom (about 12.5 seconds, plus device/reserve buffering):
 **video and games will be out of sync**. Stems stay separate for live slider
-changes. A missed inference deadline or capture discontinuity is logged and
-crossfades to DSP; toggle processing to retry. Fallbacks go to stderr and a bounded
+changes. Real capture discontinuities restart AI buffering; startup flags and
+timestamp-only errors do not disable AI. A missed inference deadline is logged
+and crossfades to DSP; toggle processing to retry. Events go to stderr and a bounded
 `relay-ai.log` in the application log directory. Engine/opt-in changes restart the
 relay. MDX remains a file-playback option because it may not sustain real time.
 

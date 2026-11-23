@@ -15,9 +15,41 @@ const MIN_QUEUE_LIMIT_FRAMES: usize = 8192;
 #[derive(Default)]
 pub(crate) struct CaptureTimeline {
     next_frame: Option<u64>,
+    started: bool,
+}
+
+pub(crate) struct CaptureUpdate {
+    pub gap: usize,
+    pub resync_ai: bool,
+    pub reset_clock: bool,
+    pub first: bool,
+    pub previous_end: Option<u64>,
 }
 
 impl CaptureTimeline {
+    pub(crate) fn observe(
+        &mut self,
+        position: u64,
+        frames: usize,
+        discontinuity: bool,
+        timestamp_error: bool,
+        resumed: bool,
+    ) -> CaptureUpdate {
+        let first = !std::mem::replace(&mut self.started, true);
+        if resumed {
+            self.next_frame = None;
+        }
+        let previous_end = self.next_frame;
+        let gap = self.missing_frames(position, frames, discontinuity, timestamp_error);
+        let jumped = !timestamp_error && previous_end.is_some_and(|expected| expected != position);
+        CaptureUpdate {
+            gap,
+            resync_ai: !first && !resumed && (discontinuity || jumped),
+            reset_clock: first || resumed || discontinuity || timestamp_error || jumped,
+            first,
+            previous_end,
+        }
+    }
     pub(crate) fn missing_frames(
         &mut self,
         position: u64,
@@ -247,3 +279,7 @@ mod tests;
 #[cfg(test)]
 #[path = "relay_clock_tests.rs"]
 mod clock_tests;
+
+#[cfg(test)]
+#[path = "relay_capture_tests.rs"]
+mod capture_tests;

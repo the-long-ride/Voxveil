@@ -6,6 +6,7 @@ use voxveil_types::{ClassicSuppressionProfile, SystemAiStatus, VocalLevel};
 pub(crate) struct RelayProcessor {
     dsp: SpectralCenterSuppressor,
     ai: Option<LiveAi>,
+    ai_factory: Option<Box<dyn Fn() -> LiveAi + Send>>,
     pub status: SystemAiStatus,
     level: u8,
     last: [f32; 2],
@@ -44,7 +45,10 @@ impl RelayProcessor {
         profile: ClassicSuppressionProfile,
         options: crate::RelayAiOptions,
     ) -> Self {
-        let ai = options.config.map(|config| LiveAi::new(config, rate));
+        let ai_factory = options.config.map(|config| {
+            Box::new(move || LiveAi::new(config.clone(), rate)) as Box<dyn Fn() -> LiveAi + Send>
+        });
+        let ai = ai_factory.as_ref().map(|start| start());
         let status = if ai.is_some() {
             SystemAiStatus::Buffering
         } else {
@@ -57,6 +61,7 @@ impl RelayProcessor {
                 profile,
             ),
             ai,
+            ai_factory,
             status,
             level,
             last: [0.0; 2],
@@ -72,13 +77,42 @@ impl RelayProcessor {
     pub fn set_profile(&mut self, profile: ClassicSuppressionProfile) {
         self.dsp.set_profile(profile);
     }
-    pub fn discontinuity(&mut self) {
-        if self.ai.is_some() {
-            self.fallback(
-                "AI capture timeline became discontinuous",
-                SystemAiStatus::FellBehind,
+    pub fn capture_packet(
+        &mut self,
+        timeline: &mut crate::relay_buffer::CaptureTimeline,
+        position: u64,
+        frames: usize,
+        discontinuity: bool,
+        timestamp_error: bool,
+        resumed: bool,
+    ) -> crate::relay_buffer::CaptureUpdate {
+        let update = timeline.observe(position, frames, discontinuity, timestamp_error, resumed);
+        if self.ai_factory.is_some() && (update.resync_ai || (update.first && self.ai.is_some())) {
+            let reason = format!(
+                "AI capture frame={position} previous={:?} first={} discontinuity={discontinuity} timestamp_error={timestamp_error} idle_resume={resumed}",
+                update.previous_end, update.first
             );
+            if update.resync_ai {
+                self.discontinuity(&reason);
+            } else {
+                crate::relay_ai_log::event(
+                    self.log_path.as_deref(),
+                    &reason,
+                    "starting AI with fresh capture origin",
+                );
+            }
         }
+        update
+    }
+    pub fn discontinuity(&mut self, reason: &str) {
+        let Some(start) = self.ai_factory.as_ref() else {
+            return;
+        };
+        crate::relay_ai_log::event(self.log_path.as_deref(), reason, "rebuffering AI");
+        self.ai.take();
+        self.ai = Some(start());
+        self.status = SystemAiStatus::Buffering;
+        self.fade = 256;
     }
     fn fallback(&mut self, reason: &str, status: SystemAiStatus) {
         crate::relay_ai_log::fallback(self.log_path.as_deref(), reason);
@@ -147,3 +181,7 @@ impl RelayProcessor {
 #[cfg(test)]
 #[path = "relay_idle_processing_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "relay_recovery_tests.rs"]
+mod recovery_tests;
