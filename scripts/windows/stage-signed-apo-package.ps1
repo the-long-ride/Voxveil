@@ -10,6 +10,21 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+function Get-Sha256Hex([string]$Path) {
+  $stream = [IO.File]::OpenRead($Path)
+  try {
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+      $hashBytes = $sha256.ComputeHash($stream)
+      return ([BitConverter]::ToString($hashBytes)).Replace('-', '').ToLowerInvariant()
+    } finally {
+      $sha256.Dispose()
+    }
+  } finally {
+    $stream.Dispose()
+  }
+}
 Set-StrictMode -Version Latest
 
 function Assert-StagedHash {
@@ -19,7 +34,7 @@ function Assert-StagedHash {
     [Parameter(Mandatory = $true)][string]$Label
   )
 
-  $actual = (Get-FileHash $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+  $actual = (Get-Sha256Hex $Path)
   if ($actual -ne $Expected.ToLowerInvariant()) {
     throw "Staged $Label hash changed after verification."
   }

@@ -6,7 +6,23 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+function Get-Sha256Hex([string]$Path) {
+  $stream = [IO.File]::OpenRead($Path)
+  try {
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+      $hashBytes = $sha256.ComputeHash($stream)
+      return ([BitConverter]::ToString($hashBytes)).Replace('-', '').ToLowerInvariant()
+    } finally {
+      $sha256.Dispose()
+    }
+  } finally {
+    $stream.Dispose()
+  }
+}
 Set-StrictMode -Version Latest
+Import-Module (Join-Path $PSHOME 'Modules\Microsoft.PowerShell.Security\Microsoft.PowerShell.Security.psd1') -ErrorAction Stop
 
 function Get-TrustedProgramFilesX86 {
   $path = [Environment]::GetFolderPath([Environment+SpecialFolder]::ProgramFilesX86)
@@ -228,11 +244,11 @@ $extensionCatalogSignature = Assert-MicrosoftSignature -File $extensionCat -Desc
 [ordered]@{
   packageDirectory = $package
   voxveilCommit = $voxveilCommit
-  apoInfSha256 = (Get-FileHash $apoInf.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-  apoDllSha256 = (Get-FileHash $apoDll.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-  apoCatalogSha256 = (Get-FileHash $apoCat.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-  extensionInfSha256 = (Get-FileHash $extensionInf.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-  extensionCatalogSha256 = (Get-FileHash $extensionCat.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+  apoInfSha256 = (Get-Sha256Hex $apoInf.FullName)
+  apoDllSha256 = (Get-Sha256Hex $apoDll.FullName)
+  apoCatalogSha256 = (Get-Sha256Hex $apoCat.FullName)
+  extensionInfSha256 = (Get-Sha256Hex $extensionInf.FullName)
+  extensionCatalogSha256 = (Get-Sha256Hex $extensionCat.FullName)
   apoSigner = $apoSignature.Subject
   apoThumbprint = $apoSignature.Thumbprint
   apoCatalogSigner = $apoCatalogSignature.Subject

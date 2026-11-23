@@ -4,13 +4,13 @@ import { readdirSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 
-const evaluationDir = path.resolve('scripts/evaluation');
-const scripts = readdirSync(evaluationDir)
-  .filter((name) => name.endsWith('.ps1'))
-  .sort()
-  .map((name) => path.join(evaluationDir, name));
+const scripts = ['scripts/evaluation', 'scripts/windows'].flatMap((directory) =>
+  readdirSync(directory)
+    .filter((name) => name.endsWith('.ps1'))
+    .sort()
+    .map((name) => path.resolve(directory, name)));
 
-test('evaluation PowerShell scripts parse on the Windows release runner', { skip: process.platform !== 'win32' }, () => {
+test('build and evaluation PowerShell scripts parse on the Windows release runner', { skip: process.platform !== 'win32' }, () => {
   const parseCommand = [
     '$tokens = $null',
     '$errors = $null',

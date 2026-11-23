@@ -5,6 +5,21 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+function Get-Sha256Hex([string]$Path) {
+  $stream = [IO.File]::OpenRead($Path)
+  try {
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+      $hashBytes = $sha256.ComputeHash($stream)
+      return ([BitConverter]::ToString($hashBytes)).Replace('-', '').ToLowerInvariant()
+    } finally {
+      $sha256.Dispose()
+    }
+  } finally {
+    $stream.Dispose()
+  }
+}
+
 $trustedSystemDirectoryForModules = [Environment]::SystemDirectory
 if (-not $trustedSystemDirectoryForModules) {
   throw 'Windows system directory could not be resolved for PowerShell module loading.'
@@ -28,7 +43,7 @@ function Assert-StagedFileHash(
   if ($ExpectedSha256 -notmatch '^[0-9A-Fa-f]{64}$') {
     throw "verification.json contains an invalid SHA-256 value for $Description."
   }
-  $actual = (Get-FileHash $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+  $actual = (Get-Sha256Hex $Path)
   if ($actual -ne $ExpectedSha256.ToLowerInvariant()) {
     throw "Verified virtual-driver artifact changed after staging: $Description."
   }

@@ -76,7 +76,8 @@ test('Windows packages stage only the pinned CPU runtime beside the app with ups
   const staging = readFileSync('scripts/windows/stage-onnx-runtime.ps1', 'utf8');
   assert.match(staging, /microsoft\.ml\.onnxruntime\/1\.23\.2\/microsoft\.ml\.onnxruntime\.1\.23\.2\.nupkg/);
   assert.match(staging, /25fe172f7fcdf34f2b5b02c8b997f6b88abc282956849d4af4335af23d0c4e4a/);
-  assert.match(staging, /Get-FileHash[^\n]+-Algorithm SHA256/);
+  assert.match(staging, /Security\.Cryptography\.SHA256\]::Create\(\)/);
+  assert.match(staging, /Get-Sha256Hex \$cache/);
   assert.match(staging, /runtimes\/win-x64\/native\/onnxruntime\.dll/);
   assert.match(staging, /onnxruntime_providers_shared\.dll/);
   assert.match(staging, /ONNX_RUNTIME_LICENSE\.txt/);

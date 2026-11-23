@@ -5,6 +5,21 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+function Get-Sha256Hex([string]$Path) {
+  $stream = [IO.File]::OpenRead($Path)
+  try {
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+      $hashBytes = $sha256.ComputeHash($stream)
+      return ([BitConverter]::ToString($hashBytes)).Replace('-', '').ToLowerInvariant()
+    } finally {
+      $sha256.Dispose()
+    }
+  } finally {
+    $stream.Dispose()
+  }
+}
 Set-StrictMode -Version Latest
 
 $url = 'https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/1.23.2/microsoft.ml.onnxruntime.1.23.2.nupkg'
@@ -16,7 +31,7 @@ if (-not (Test-Path -LiteralPath $Destination -PathType Container)) {
 if (-not (Test-Path -LiteralPath $cache -PathType Leaf)) {
   Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $cache
 }
-if ((Get-FileHash -LiteralPath $cache -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) {
+if ((Get-Sha256Hex $cache) -ne $expected) {
   throw 'ONNX Runtime package SHA-256 mismatch; remove the cached package and retry.'
 }
 
