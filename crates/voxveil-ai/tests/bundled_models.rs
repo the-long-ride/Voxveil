@@ -14,6 +14,8 @@ use std::{
     path::{Path, PathBuf},
     sync::atomic::{AtomicU64, Ordering},
 };
+#[cfg(windows)]
+use std::{fs::OpenOptions, os::windows::fs::OpenOptionsExt};
 
 struct Fixture(PathBuf);
 impl Fixture {
@@ -157,13 +159,16 @@ fn empty_descriptors_cannot_be_treated_as_installed() {
 }
 
 #[test]
-fn resource_io_errors_fall_back_to_downloads_without_skipping_verification() {
+fn invalid_resource_paths_fall_back_to_downloads_without_skipping_verification() {
     let fixture = Fixture::new();
     let model = descriptor("mdx-inst-hq3");
     let resources = fixture.0.join("not-a-directory");
     fs::write(&resources, b"abc").unwrap();
     let bundled = storage_files::paths(&resources, &model);
-    assert!(storage_files::verified_files(&bundled, &model).is_err());
+    assert!(!matches!(
+        storage_files::verified_files(&bundled, &model),
+        Ok(true)
+    ));
     let resolve = || {
         location::resolve(
             fixture.paths("downloads", &model),
@@ -185,4 +190,36 @@ fn resource_io_errors_fall_back_to_downloads_without_skipping_verification() {
     fs::remove_file(&downloaded.receipt).unwrap();
     fs::create_dir(&downloaded.receipt).unwrap();
     assert!(resolve().is_err());
+}
+
+#[cfg(windows)]
+#[test]
+fn bundled_file_sharing_violations_fall_back_to_verified_downloads() {
+    for id in ["spleeter-2stems-fp16", "mdx-inst-hq3"] {
+        let fixture = Fixture::new();
+        let model = descriptor(id);
+        let bundled = fixture.paths("resources", &model);
+        write_files(&bundled);
+        let locked = OpenOptions::new()
+            .read(true)
+            .share_mode(0)
+            .open(&bundled.files[0].model)
+            .unwrap();
+        let error = fs::File::open(&bundled.files[0].model).unwrap_err();
+        assert_eq!(error.raw_os_error(), Some(32));
+        assert!(storage_files::verified_files(&bundled, &model).is_err());
+        assert!(!fixture.resolve(&model).installed);
+
+        let downloaded = fixture.paths("downloads", &model);
+        write_download(&downloaded, &model);
+        let fallback = fixture.resolve(&model);
+        assert!(fallback.installed && !fallback.bundled);
+        assert_eq!(fallback.paths.directory, downloaded.directory);
+        fs::write(&downloaded.files[0].model, b"abd").unwrap();
+        assert!(!fixture.resolve(&model).installed);
+
+        drop(locked);
+        let restored = fixture.resolve(&model);
+        assert!(restored.installed && restored.bundled);
+    }
 }
