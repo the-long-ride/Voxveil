@@ -313,6 +313,7 @@ Remove-Item $output -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $systemAudio | Out-Null
 
 Copy-Item $app (Join-Path $output 'voxveil.exe')
+& (Join-Path $PSScriptRoot 'stage-onnx-runtime.ps1') -Repo $repo.Path -Destination $output
 Copy-Item $requiredNative -Destination $systemAudio
 if (-not $ApoOnly) {
   Copy-Item $virtualDeviceHelper (Join-Path $systemAudio 'voxveil-virtual-device.exe')

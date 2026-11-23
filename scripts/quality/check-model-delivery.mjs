@@ -14,16 +14,29 @@ export function inspectCatalog(entries) {
   for (const entry of entries) {
     if (!entry.id || ids.has(entry.id)) issues.push(`${entry.id || '<missing>'}: model id must be unique`);
     ids.add(entry.id);
-    if (!String(entry.downloadUrl ?? '').startsWith('https://')) issues.push(`${entry.id}: download URL must use HTTPS`);
     const revision = String(entry.sourceRevision ?? '');
-    const downloadUrl = String(entry.downloadUrl ?? '');
     if (!COMMIT_SHA.test(revision)) issues.push(`${entry.id}: source revision must be a 40-character commit SHA`);
-    if (revision && !downloadUrl.includes(`/resolve/${revision}/`)) issues.push(`${entry.id}: download URL must pin the declared source revision`);
-    if (!SHA256.test(String(entry.sha256 ?? ''))) issues.push(`${entry.id}: exact SHA-256 is required`);
     if (entry.commercialUse !== true) issues.push(`${entry.id}: commercial use must be explicitly approved`);
     if (entry.directDownloadOnly !== true) issues.push(`${entry.id}: model must be downloaded directly by the user`);
-    if (!entry.license || !entry.fileName || !Number.isInteger(entry.maxBytes) || entry.maxBytes <= 0) {
-      issues.push(`${entry.id}: complete license, filename and size-limit metadata are required`);
+    if (!entry.license || !entry.attribution || !entry.licenseUrls?.length
+      || entry.licenseUrls.some((url) => !String(url).startsWith('https://'))) {
+      issues.push(`${entry.id}: complete license and attribution metadata are required`);
+    }
+    if (!Array.isArray(entry.files) || !entry.files.length) {
+      issues.push(`${entry.id}: at least one model file is required`);
+      continue;
+    }
+    const names = new Set();
+    for (const file of entry.files) {
+      const downloadUrl = String(file.downloadUrl ?? '');
+      if (!downloadUrl.startsWith('https://')) issues.push(`${entry.id}: download URL must use HTTPS`);
+      if (revision && !downloadUrl.includes(`/resolve/${revision}/`)) issues.push(`${entry.id}: download URL must pin the declared source revision`);
+      if (!SHA256.test(String(file.sha256 ?? ''))) issues.push(`${entry.id}: exact SHA-256 is required for every file`);
+      if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]*\.onnx$/.test(file.fileName ?? '') || names.has(file.fileName)
+        || !Number.isSafeInteger(file.maxBytes) || file.maxBytes <= 0) {
+        issues.push(`${entry.id}: unique safe filename and size-limit metadata are required`);
+      }
+      names.add(file.fileName);
     }
   }
   return issues;

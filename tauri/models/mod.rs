@@ -4,6 +4,8 @@ mod download;
 mod dto;
 pub mod manager;
 mod storage;
+mod storage_files;
+mod transfer;
 
 use tauri::AppHandle;
 

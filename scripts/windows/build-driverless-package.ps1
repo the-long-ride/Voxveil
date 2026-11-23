@@ -33,6 +33,7 @@ Assert-NoReparsePointInPath -Path $output -Boundary $Repo
 Remove-Item $output -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $output | Out-Null
 Copy-Item $app (Join-Path $output 'voxveil.exe')
+& (Join-Path $PSScriptRoot 'stage-onnx-runtime.ps1') -Repo $Repo -Destination $output
 
 @'
 Voxveil Windows x64 driverless package
