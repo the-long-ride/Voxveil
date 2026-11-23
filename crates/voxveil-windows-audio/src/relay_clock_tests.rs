@@ -38,13 +38,27 @@ fn matched_clocks_do_not_splice_after_a_phase_shift_across_windows() {
 
 #[test]
 fn sustained_clock_drift_preserves_reserve_with_quantized_render_padding() {
+    check_drift_reserve(&[-500, -200, 200, 500], 48_000, 2, 3);
+}
+
+#[test]
+fn sub_deadband_clock_drift_preserves_reserve_for_an_hour() {
+    check_drift_reserve(&[-50, 50], 360_000, 4, 5);
+}
+
+fn check_drift_reserve(
+    ppms: &[isize],
+    ticks: u64,
+    max_loss_periods: usize,
+    max_gain_periods: usize,
+) {
     let rate = 48_000;
     let period = 480;
     let packet = [0; 480 * FRAME_BYTES];
     let mut failures = Vec::new();
 
     for quantum in [1, period] {
-        for ppm in [-500_isize, -200, 200, 500] {
+        for &ppm in ppms {
             let mut buffer = RelayBuffer::new(rate * DEVICE_BUFFER_MS / 1_000, rate as u32);
             let mut padding = buffer.render_capacity;
             let mut rendered = 0;
@@ -53,7 +67,7 @@ fn sustained_clock_drift_preserves_reserve_with_quantized_render_padding() {
             let mut max_reserve = buffer.reserve;
             let mut failure = None;
 
-            for tick in 1..=48_000_u64 {
+            for tick in 1..=ticks {
                 let capture = tick * period as u64;
                 let render = capture * (1_000_000 + ppm) as u64 / 1_000_000;
                 let due = render as usize / quantum * quantum;
@@ -76,9 +90,9 @@ fn sustained_clock_drift_preserves_reserve_with_quantized_render_padding() {
 
             if failure.is_some()
                 || correction.signum() != ppm.signum()
-                || min_reserve < buffer.reserve - 2 * period
+                || min_reserve < buffer.reserve - max_loss_periods * period
                 // The slower clock can start one period behind before any drift accumulates.
-                || max_reserve > buffer.reserve + 3 * period
+                || max_reserve > buffer.reserve + max_gain_periods * period
             {
                 failures.push(format!(
                     "{ppm:+} ppm, {quantum}-frame quantum: reserve {min_reserve}..={max_reserve}, \
