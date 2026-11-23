@@ -115,7 +115,7 @@ fn run_relay_worker_inner(
         sample_type == SampleType::Float,
     ) {
         return Err(
-            "virtual interception endpoint shared format must be stereo 32-bit float for this relay version".into(),
+            "The Windows source output shared format must be stereo 32-bit float. Select that format in Windows Sound device properties or choose another spare output".into(),
         );
     }
 

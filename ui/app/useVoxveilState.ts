@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PREVIEW_STATE, SAFE_NATIVE_STATE } from '../lib/demo-state';
 import { errorMessage } from '../lib/errors';
 import { createVoxveilClient } from '../lib/tauri';
+import { estimatedLatency } from './estimatedLatency';
 import { usePlaybackControls } from './usePlaybackControls';
 import type {
   AudioOutput,
@@ -21,19 +22,13 @@ function isTauriRuntime(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 }
 
-function estimatedLatency(engine: EngineKind, quality: number): number {
-  if (engine === 'dsp') return Math.round(8 + quality * 0.22);
-  if (engine === 'ai') return Math.round(55 + quality * 1.35);
-  return Math.round(24 + quality * 0.72);
-}
-
 function canRequestProcessingStart(state: VoxveilState): boolean {
   if (state.audioRouteChoice === 'owned-file-playback') return false;
   if (state.backendStatus === 'ready') return true;
   if (state.backendStatus !== 'routing-required' || state.physicalOutputEndpointId === null) {
     return false;
   }
-  return state.backendKind === 'vb-cable-relay' || state.backendKind === 'voxveil-cable-relay';
+  return state.backendKind === 'endpoint-relay' || state.backendKind === 'vb-cable-relay' || state.backendKind === 'voxveil-cable-relay';
 }
 
 export function useVoxveilState() {
@@ -214,11 +209,7 @@ export function useVoxveilState() {
   }, [client, native]);
 
   const playbackControls = usePlaybackControls(
-    native,
-    client,
-    refreshPlayback,
-    setPlaybackOperationError,
-    updatePlayback,
+    native, client, refreshPlayback, setPlaybackOperationError, updatePlayback,
   );
 
   const setMasterEnabled = (masterEnabled: boolean) => {
@@ -231,6 +222,12 @@ export function useVoxveilState() {
         setProcessingOperationError(errorMessage(error));
         throw error;
       }
+      let refreshed: VoxveilState;
+      try { refreshed = await client.getState(); } catch { return; }
+      const { audioRouteChoice, backendStatus, backendDetail, backendKind } = refreshed;
+      setState((current) => current.masterEnabled === masterEnabled && current.audioRouteChoice === audioRouteChoice
+        ? { ...current, backendStatus, backendDetail, backendKind }
+        : current);
     });
   };
   const setProcessingMode = (processingMode: ProcessingMode) =>

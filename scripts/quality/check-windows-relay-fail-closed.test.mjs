@@ -6,6 +6,7 @@ const relay = () => [
   'crates/voxveil-windows-audio/src/relay.rs',
   'crates/voxveil-windows-audio/src/relay_probe.rs',
   'crates/voxveil-windows-audio/src/relay_support.rs',
+  'crates/voxveil-windows-audio/src/relay_decision.rs',
   'crates/voxveil-windows-audio/src/relay_control.rs',
 ].map((path) => readFileSync(path, 'utf8')).join('\n');
 

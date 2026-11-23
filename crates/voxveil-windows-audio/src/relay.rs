@@ -5,9 +5,9 @@ use voxveil_types::{ClassicSuppressionProfile, WindowsInterceptionPolicy};
 use crate::device::{BackendProbe, EndpointDescriptor};
 use crate::discovery::{SystemAudioEndpoint, SystemAudioEndpointStatus, enrich_endpoints};
 use crate::relay_engine::{RelayHandle, RelayRuntimeState, RelaySpec};
-use crate::route::select_physical_output;
+use crate::route::{select_physical_output, select_relay_output, select_relay_source};
 use crate::virtual_endpoint::{
-    VirtualEndpointKind, classify_virtual_endpoint, find_preferred_virtual_endpoint,
+    VirtualEndpointKind, classify_virtual_endpoint,
 };
 
 #[path = "relay_control.rs"]
@@ -97,27 +97,20 @@ impl WindowsAudioBackend {
             return Ok(self.probe());
         }
 
-        let (virtual_kind, source) = find_preferred_virtual_endpoint(&endpoints).ok_or_else(|| {
-            "Install the standard VB-CABLE virtual audio device or a verified Voxveil virtual audio driver to enable system-wide processing".to_string()
+        let selected = select_relay_source(&endpoints);
+        let (virtual_kind, source) = selected.ok_or_else(|| {
+            "Connect a spare Windows output for driverless relay, or install VB-CABLE / a verified Voxveil virtual driver".to_string()
         })?;
         if !source.is_default {
             return Err(match virtual_kind {
-                VirtualEndpointKind::VoxveilCable => {
-                    "Set Voxveil Input as the Windows default output before enabling Voxveil".into()
-                }
-                VirtualEndpointKind::VbCable => {
-                    "Set CABLE Input as the Windows default output before enabling Voxveil".into()
-                }
+                VirtualEndpointKind::VoxveilCable => "Set Voxveil Input as the Windows default output before enabling Voxveil".into(),
+                VirtualEndpointKind::VbCable => "Set CABLE Input as the Windows default output before enabling Voxveil".into(),
+                VirtualEndpointKind::EndpointRelay => crate::route::ENDPOINT_RELAY_INSTRUCTION.into(),
             });
         }
-        let physical = select_physical_output(
-            &endpoints,
-            &source.id,
-            self.preferred_physical_output_id.as_deref(),
-        )
-        .ok_or_else(|| {
-            "No safe physical playback endpoint is available for the relay".to_string()
-        })?;
+        let physical = select_relay_output(
+            &endpoints, selected, self.preferred_physical_output_id.as_deref(),
+        ).ok_or_else(|| crate::route::ENDPOINT_RELAY_INSTRUCTION.to_string())?;
 
         if let Some(mut relay) = self.relay.take() {
             relay.stop()?;

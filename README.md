@@ -19,6 +19,23 @@ This source tree contains:
 - a render-only first-party Windows virtual-driver source/package boundary derived from a pinned and cryptographically identified Microsoft SysVAD subtree;
 - local/manual-only Windows application + native component staging via `npm run build:windows`.
 
+### Windows without drivers
+
+- **Local files:** select local file playback and open an audio file in Voxveil. Audio goes directly through Voxveil to your output; no driver or system-wide routing is needed.
+- **Other apps (spare-output endpoint relay):** select the automatic route. When no loaded Voxveil APO or supported virtual cable is available:
+  1. Set an unused physical output (for example monitor HDMI or spare line-out) as the Windows default output.
+  2. In Voxveil, choose a **different** physical output, such as your headphones.
+  3. Enable processing. Restart or reroute apps that continue playing to their previous output.
+  Do not listen to the spare output: it still carries unprocessed audio. This requires two distinct Windows render endpoints; it cannot capture and play back on the same device. The source shared format must be stereo 32-bit float (configure it in Windows Sound device properties). Unsupported formats produce an error rather than being processed.
+
+Build on Windows with Visual Studio C++ Build Tools, Windows SDK, Rust and Node.js (no WDK required):
+
+```powershell
+npm run build:windows:driverless
+```
+
+The driverless package is staged in `dist/windows-x64/Voxveil-Driverless`, with no APO, virtual driver, privileged installer or system-audio component. The existing full Windows build remains available.
+
 ### Windows system audio
 
 Windows interception uses explicit backend precedence:
@@ -26,6 +43,7 @@ Windows interception uses explicit backend precedence:
 1. **Endpoint-scoped loaded Voxveil APO** — `VoxveilApo.dll` must have a real non-discovery AudioDG instance and `install-state.json` must show that Voxveil installed/bound the APO on the current Windows default render endpoint. A stale loaded instance on another endpoint does not win backend selection.
 2. **Voxveil virtual endpoint relay** — otherwise, if a verified Voxveil virtual render endpoint is installed, it is preferred as the relay source.
 3. **Standard VB-CABLE relay** — otherwise, standard VB-Audio `CABLE Input` can provide the same relay path.
+4. **Driverless endpoint relay** — otherwise, loopback capture of the current default physical output relays to a different, explicitly selected physical output.
 
 When Windows changes the default output away from an APO-installed physical endpoint while an old AudioDG graph remains alive, Voxveil does not treat the process-wide `loaded>0` counter as proof that the APO covers the new route. The APO app gate is disabled before virtual-relay processing so a stale instance cannot suppress relay fallback or double-process the relay destination.
 
@@ -41,7 +59,7 @@ Windows applications
 
 The Classic DSP relay retains a persistent 512-frame / 128-hop spectral-center processor. It estimates center likelihood from stereo magnitude balance and phase coherence, protects bass/high-frequency detail and transients, and uses non-zero suppression floors so maximum vocal reduction does not hard-delete the center. **Music preservation** is the default; **Balanced** trades more centered-instrument attenuation for stronger vocal reduction. See `docs/specs/audio/classic-dsp.md`.
 
-The selected physical output is stored by endpoint ID, virtual endpoints are excluded from the physical-output list, and Voxveil rejects a route that would render back into the interception endpoint. `ready` is reported only while the selected interception strategy is actually active. A missing supported virtual endpoint is `component-required`; installed-but-not-default routing or a missing safe sink is `routing-required`; relay startup/runtime failures are `faulted`.
+The selected physical output is stored by endpoint ID, virtual endpoints are excluded from the physical-output list, and Voxveil rejects a route that would render back into the interception endpoint. `ready` is reported only while the selected interception strategy is actually active. A missing relay source is `component-required`; installed-but-not-default routing or a missing safe sink is `routing-required`; relay startup/runtime failures are `faulted`.
 
 Voxveil does **not** bundle, redistribute, silently download, or silently install VB-CABLE. When it is needed, the UI can open the official VB-Audio page and Windows Sound settings. The relay intentionally does not mutate Windows defaults through undocumented `PolicyConfig` interfaces.
 

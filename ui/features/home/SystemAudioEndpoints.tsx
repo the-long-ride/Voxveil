@@ -44,6 +44,7 @@ function backendLabel(kind: WindowsInterceptionKind | null): string | null {
 }
 
 function routeInstructionKey(kind: WindowsInterceptionKind | null): string {
+  if (kind === 'endpoint-relay') return 'systemAudio.routeInstructionEndpointRelay';
   return kind === 'voxveil-cable-relay'
     ? 'systemAudio.routeInstructionVoxveilCable'
     : 'systemAudio.routeInstructionVbCable';
@@ -67,12 +68,12 @@ export function SystemAudioEndpoints({
 }: SystemAudioEndpointsProps) {
   const { t } = useTranslation();
   const [physicalOutputBusy, setPhysicalOutputBusy] = useState(false);
-  const label = backendLabel(backendKind);
+  const label = backendKind === 'endpoint-relay' ? t('systemAudio.endpointRelay') : backendLabel(backendKind);
   const missingVbCable = audioRouteChoice === 'legacy-automatic'
     && backendStatus === 'component-required'
     && backendKind !== 'apo';
   const physicalApoUnavailable = audioRouteChoice === 'physical-apo' && backendStatus === 'component-required';
-  const usingRelay = backendKind === 'vb-cable-relay' || backendKind === 'voxveil-cable-relay';
+  const usingRelay = backendKind === 'endpoint-relay' || backendKind === 'vb-cable-relay' || backendKind === 'voxveil-cable-relay';
   const selectPhysicalOutput = async (endpointId: string) => {
     if (busy || physicalOutputBusy) return;
     setPhysicalOutputBusy(true);

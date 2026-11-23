@@ -50,7 +50,7 @@ export function HomeScreen({ model, aiModelReady }: { model: VoxveilModel; aiMod
         </div>
       ) : state.backendStatus !== 'ready' && (
         <div className="backend-notice" role="status">
-          <strong>{t('processing.backendUnavailable')}</strong>
+          {!model.canStartProcessing && <strong>{t('processing.backendUnavailable')}</strong>}
           <span>{state.backendDetail ?? backendDescription(state.backendStatus, t)}</span>
         </div>
       )}

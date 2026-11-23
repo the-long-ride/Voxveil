@@ -7,6 +7,7 @@ export interface PlaybackScreenProps {
   playback: AudioPlaybackSnapshot;
   outputs: AudioOutput[];
   selectedOutputId: string | null;
+  selectedOutputName?: string | null;
   operationError: string | null;
   onOpen: () => void | Promise<void>;
   onPause: () => void | Promise<void>;
@@ -26,6 +27,7 @@ export function PlaybackScreen({
   playback,
   outputs,
   selectedOutputId,
+  selectedOutputName,
   operationError,
   onOpen,
   onPause,
@@ -43,6 +45,9 @@ export function PlaybackScreen({
   const canSeek = duration > 0 && sampleRate !== null && status !== 'loading';
   const isActive = status === 'playing' || status === 'paused';
   const error = operationError ?? playback.error;
+  const outputName = playback.outputName ?? (selectedOutputId
+    ? outputs.find((output) => output.endpointId === selectedOutputId)?.displayName ?? selectedOutputName
+    : null);
   const commitSeek = (value: number) => {
     setSeekDraft(null);
     if (canSeek) void onSeek(Math.round((Math.min(100, Math.max(0, value)) / 100) * duration));
@@ -59,7 +64,7 @@ export function PlaybackScreen({
       <div className="player-track" aria-live="polite">
         <span className="meta">{t(`playback.status.${status}`)}</span>
         <strong>{playback.fileName ?? t('playback.noFile')}</strong>
-        <span>{playback.outputName ?? t('playback.noOutput')}</span>
+        <span>{outputName ?? t('playback.noOutput')}</span>
       </div>
 
       <div className="player-controls" aria-label={t('playback.controls')}>

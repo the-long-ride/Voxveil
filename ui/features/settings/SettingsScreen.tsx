@@ -36,14 +36,14 @@ export function SettingsScreen({
           <span className="mono">{t(edition === 'pro-system' ? 'settings.editionProSystem' : 'settings.editionStandard')}</span>
         </div>
         {windowsAudioRoutesAvailable && <div className="settings-row settings-row-stacked">
-          <label htmlFor="audio-route">
-            <strong>{t('systemAudio.processingRouteLabel')}</strong>
-            <small>{t('systemAudio.processingRouteDescription')}</small>
-          </label>
+          <span>
+            <label htmlFor="audio-route"><strong>{t('systemAudio.processingRouteLabel')}</strong></label>
+            <small id="audio-route-hint">{t('systemAudio.processingRouteDescription')}</small>
+          </span>
           <select
             id="audio-route"
             value={audioRouteChoice}
-            aria-describedby="audio-route-description"
+            aria-describedby="audio-route-hint audio-route-description"
             onChange={(event) => void onAudioRouteChange(event.currentTarget.value as AudioRouteChoice)}
           >
             <option value="physical-apo">{t('systemAudio.physicalApoRoute')}</option>
@@ -57,7 +57,7 @@ export function SettingsScreen({
         </div>}
         <div className="settings-row settings-row-stacked">
           <span><strong>{t('settings.appearance')}</strong><small>{t('settings.appearanceDescription')}</small></span>
-          <SegmentedControl label={t('settings.appearance')} value={themeMode} onChange={onThemeModeChange} options={[
+          <SegmentedControl label={t('settings.appearance')} hideLabel value={themeMode} onChange={onThemeModeChange} options={[
             { value: 'system', label: t('settings.themeSystem') },
             { value: 'light', label: t('settings.themeLight') },
             { value: 'dark', label: t('settings.themeDark') },

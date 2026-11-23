@@ -3,6 +3,7 @@ param(
   [switch]$SkipNpmInstall,
   [switch]$SkipTests,
   [switch]$ApoOnly,
+  [switch]$NoDrivers,
   [string]$OutputDirectory
 )
 
@@ -149,8 +150,7 @@ function Assert-SafeOutputDirectory(
   }
 }
 
-$msbuild = Find-MSBuild
-Assert-Wdk
+if ($NoDrivers -and $ApoOnly) { throw '-NoDrivers and -ApoOnly cannot be combined.' }
 
 $git = Get-Command git.exe -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
 if (-not $git) {
@@ -172,6 +172,14 @@ if (-not $SkipTests) {
   npm run test:quality
   if ($LASTEXITCODE -ne 0) { throw "quality tests failed with exit code $LASTEXITCODE" }
 }
+
+if ($NoDrivers) {
+  & (Join-Path $PSScriptRoot 'build-driverless-package.ps1') -Repo $repo.Path -OutputDirectory $OutputDirectory -Commit $currentCommit
+  return
+}
+
+$msbuild = Find-MSBuild
+Assert-Wdk
 
 $native = Join-Path $repo 'native\windows\apo'
 if (-not $SkipTests) {

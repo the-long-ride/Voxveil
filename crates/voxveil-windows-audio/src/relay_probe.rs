@@ -19,18 +19,15 @@ impl WindowsAudioBackend {
         let selected = self
             .interception_policy
             .allows_virtual_relay()
-            .then(|| find_preferred_virtual_endpoint(&endpoints))
+            .then(|| select_relay_source(&endpoints))
             .flatten();
-        let virtual_id = selected
-            .map(|(_, endpoint)| endpoint.id.as_str())
-            .unwrap_or("");
         let preferred_physical_output_id =
             if self.interception_policy == WindowsInterceptionPolicy::PhysicalApoOnly {
                 None
             } else {
                 self.preferred_physical_output_id.as_deref()
             };
-        let physical = select_physical_output(&endpoints, virtual_id, preferred_physical_output_id);
+        let physical = select_relay_output(&endpoints, selected, preferred_physical_output_id);
 
         if !self.interception_policy.allows_virtual_relay() {
             if let Some(mut relay) = self.relay.take() {
@@ -93,7 +90,9 @@ impl WindowsAudioBackend {
                     );
                 }
             }
-            return decide_backend(true, selected, physical, None);
+            let apo_output =
+                select_physical_output(&endpoints, "", preferred_physical_output_id);
+            return decide_backend(true, selected, apo_output, None);
         }
 
         if !self.interception_policy.allows_virtual_relay() {
@@ -128,6 +127,18 @@ impl WindowsAudioBackend {
             }
         }
 
+        if self.relay.as_ref().is_some_and(|relay| {
+            !selected.zip(physical).is_some_and(|((_, source), output)| {
+                relay.matches_route(&source.id, &output.id)
+            })
+        }) {
+            if let Some(mut relay) = self.relay.take() {
+                self.enabled = false;
+                if let Err(error) = relay.stop() {
+                    return fault_probe(None, error);
+                }
+            }
+        }
         let relay_state = self.relay.as_ref().map(RelayHandle::state);
         let decision = decide_backend(false, selected, physical, relay_state.as_ref());
         if should_fail_closed_after_probe(decision.readiness) {

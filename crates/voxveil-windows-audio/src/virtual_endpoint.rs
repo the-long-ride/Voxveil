@@ -4,6 +4,7 @@ use crate::device::EndpointDescriptor;
 pub(crate) enum VirtualEndpointKind {
     VbCable,
     VoxveilCable,
+    EndpointRelay,
 }
 
 fn is_standard_vb_cable(endpoint: &EndpointDescriptor) -> bool {

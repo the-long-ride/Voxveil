@@ -7,7 +7,7 @@ export type OutputMode = 'physical' | 'virtual' | 'both';
 export type ThemeMode = 'system' | 'light' | 'dark';
 export type ProcessingLoad = 'idle' | 'low' | 'medium' | 'high';
 export type ProcessingBackendStatus = 'ready' | 'component-required' | 'routing-required' | 'unsupported' | 'faulted';
-export type WindowsInterceptionKind = 'apo' | 'vb-cable-relay' | 'voxveil-cable-relay';
+export type WindowsInterceptionKind = 'apo' | 'vb-cable-relay' | 'voxveil-cable-relay' | 'endpoint-relay';
 export type SystemAudioEndpointStatus = 'ready' | 'installable' | 'component-required' | 'ambiguous' | 'unsupported';
 
 export interface AppSource {

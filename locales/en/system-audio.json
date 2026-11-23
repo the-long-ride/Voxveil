@@ -14,7 +14,7 @@
   "detecting": "Detecting playback outputs…",
   "none": "No playback outputs detected.",
   "routeTitle": "System-wide route",
-  "vbCableMissing": "Install the standard VB-CABLE virtual audio device to enable system-wide processing.",
+  "vbCableMissing": "Use a spare Windows output for driverless relay, or install the standard VB-CABLE virtual audio device.",
   "getVbCable": "Get VB-CABLE",
   "routeInstructionVbCable": "Set CABLE Input as the Windows output, choose the physical destination below, then return to Voxveil.",
   "routeInstructionVoxveilCable": "Set Voxveil Input as the Windows output, choose the physical destination below, then return to Voxveil.",
@@ -29,7 +29,9 @@
   "physicalApoUnavailable": "The physical APO route is selected. To use your installed VB-CABLE, select System-wide — automatic in Settings.",
   "ownedPlaybackRoute": "Play files in Voxveil",
   "ownedPlaybackDescription": "Processes only a local file opened here. Other apps play normally; no audio component is installed.",
-  "legacyAutomaticRoute": "System-wide — automatic (APO or VB-CABLE)",
-  "legacyAutomaticDescription": "Uses Voxveil’s physical APO when loaded. Otherwise, routes Windows audio through VB-CABLE or Voxveil Virtual Cable to your selected physical output.",
-  "routeConfigError": "Audio route settings need attention. Choose a route to replace the invalid saved value."
+  "legacyAutomaticRoute": "System-wide — automatic (driverless fallback)",
+  "legacyAutomaticDescription": "Uses the Voxveil APO if it is loaded on the default Windows output. Otherwise, it prefers Voxveil Virtual Cable, then VB-CABLE. If neither cable is available, the driverless relay sends audio from a spare physical output set as the Windows default to a different physical output you select.",
+  "routeConfigError": "Audio route settings need attention. Choose a route to replace the invalid saved value.",
+  "endpointRelay": "Driverless relay",
+  "routeInstructionEndpointRelay": "Set a spare output device as the Windows default output and choose a different device for Voxveil output."
 }

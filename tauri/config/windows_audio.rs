@@ -13,6 +13,7 @@ pub enum LegacyInterceptionPreference {
     Apo,
     VbCableRelay,
     VoxveilCableRelay,
+    EndpointRelay,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
@@ -77,6 +78,7 @@ fn parse_route_choice(value: &str) -> Result<AudioRouteChoice, String> {
 
 fn parse_legacy_interception(value: &str) -> Result<LegacyInterceptionPreference, String> {
     match value {
+        "endpoint-relay" => Ok(LegacyInterceptionPreference::EndpointRelay),
         "apo" => Ok(LegacyInterceptionPreference::Apo),
         "vb-cable-relay" => Ok(LegacyInterceptionPreference::VbCableRelay),
         "voxveil-cable-relay" => Ok(LegacyInterceptionPreference::VoxveilCableRelay),
