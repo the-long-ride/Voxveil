@@ -76,13 +76,27 @@ fn music_preservation_keeps_centered_low_bass_within_three_db() {
 }
 
 #[test]
-fn balanced_is_stronger_than_music_preservation_in_vocal_band() {
+fn music_preservation_reduces_centered_vocal_band_by_at_least_twenty_db() {
     let input = tone(1_000.0, false);
     let (music, music_latency) = render(&input, 0.0, ClassicSuppressionProfile::MusicPreservation);
-    let (balanced, balanced_latency) = render(&input, 0.0, ClassicSuppressionProfile::Balanced);
+    let input_rms = rms(&input[SETTLE_FRAMES * 2..(FRAMES - SETTLE_FRAMES) * 2]);
     let music_rms = rms(&settled_left_channel(&music, music_latency));
-    let balanced_rms = rms(&settled_left_channel(&balanced, balanced_latency));
-    assert!(balanced_rms < music_rms * 0.8, "balanced={balanced_rms}, music={music_rms}");
+    assert!(music_rms <= input_rms * 0.1, "ratio={}", music_rms / input_rms);
+}
+
+#[test]
+fn music_preservation_slider_smoothly_restores_centered_vocals() {
+    let input = tone(1_000.0, false);
+    let mut previous = 0.0;
+    for percent in 0..=100 {
+        let (output, latency) = render(
+            &input, percent as f32 / 100.0, ClassicSuppressionProfile::MusicPreservation,
+        );
+        let amplitude = rms(&settled_left_channel(&output, latency));
+        assert!(amplitude >= previous, "percent={percent}, amplitude={amplitude}, previous={previous}");
+        assert!(amplitude - previous < 0.015, "percent={percent}, step={}", amplitude - previous);
+        previous = amplitude;
+    }
 }
 
 fn tone_amplitude(samples: &[f32], start_frame: usize, end_frame: usize, frequency: f32) -> f32 {
@@ -124,22 +138,27 @@ fn side_only_signal_is_preserved() {
 fn full_vocal_level_is_transparent_after_latency() {
     let input = tone(777.0, false);
     let input_left: Vec<f32> = input.chunks_exact(2).map(|frame| frame[0]).collect();
-    let (output, latency) = render(&input, 1.0, ClassicSuppressionProfile::Balanced);
-    let output_left = settled_left_channel(&output, latency);
-    let reference = &input_left[SETTLE_FRAMES..FRAMES - SETTLE_FRAMES];
-    let max_error = output_left
-        .iter()
-        .zip(reference)
-        .map(|(actual, expected)| (actual - expected).abs())
-        .fold(0.0_f32, f32::max);
-    assert!(max_error <= 0.002, "max_error={max_error}");
+    for profile in [
+        ClassicSuppressionProfile::MusicPreservation,
+        ClassicSuppressionProfile::Balanced,
+        ClassicSuppressionProfile::Strong,
+    ] {
+        let (output, latency) = render(&input, 1.0, profile);
+        let output_left = settled_left_channel(&output, latency);
+        let reference = &input_left[SETTLE_FRAMES..FRAMES - SETTLE_FRAMES];
+        let max_error = output_left
+            .iter()
+            .zip(reference)
+            .map(|(actual, expected)| (actual - expected).abs())
+            .fold(0.0_f32, f32::max);
+        assert!(max_error <= 0.002, "profile={profile:?}, max_error={max_error}");
+    }
 }
 
 #[test]
 fn mono_signal_remains_audible_at_maximum_suppression() {
     let input = tone(1_000.0, false);
     for profile in [
-        ClassicSuppressionProfile::MusicPreservation,
         ClassicSuppressionProfile::Balanced,
         ClassicSuppressionProfile::Strong,
     ] {

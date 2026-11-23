@@ -171,7 +171,11 @@ impl SpectralCenterSuppressor {
             let frequency_hz = mirrored_bin as f32 * self.sample_rate / FFT_SIZE as f32;
             let frequency_weight = frequency_weight(frequency_hz, parameters);
             let transient_weight = 1.0 - transient * parameters.transient_protection;
-            let center_weight = center_likelihood * center_likelihood;
+            let center_weight = if self.profile == ClassicSuppressionProfile::MusicPreservation {
+                center_likelihood.sqrt()
+            } else {
+                center_likelihood * center_likelihood
+            };
             let attenuation = (1.0 - parameters.floor_gain)
                 * suppression
                 * center_weight
