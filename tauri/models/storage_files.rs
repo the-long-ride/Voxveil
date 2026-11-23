@@ -116,3 +116,14 @@ pub fn verified(paths: &ModelPaths, descriptor: &ModelDescriptor) -> Result<bool
     }
     Ok(true)
 }
+
+pub fn prepare_install(paths: &ModelPaths, descriptor: &ModelDescriptor) -> Result<bool, String> {
+    if verified(paths, descriptor)? { return Ok(false); }
+    fs::create_dir_all(&paths.directory).map_err(|_| "AI model directory could not be created")?;
+    match fs::remove_file(&paths.receipt) {
+        Ok(()) => {},
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {},
+        Err(_) => return Err("AI model receipt could not be cleared for repair".into()),
+    }
+    Ok(true)
+}

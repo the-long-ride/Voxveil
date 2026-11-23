@@ -52,13 +52,10 @@ fn cleanup(path: &std::path::Path) {
 }
 
 pub fn install(app: &AppHandle, descriptor: &ModelDescriptor) -> Result<(), String> {
-    if storage::is_installed(app, descriptor)? {
+    let paths = storage::paths(app, descriptor)?;
+    if !storage_files::prepare_install(&paths, descriptor)? {
         return Ok(());
     }
-    let paths = storage::paths(app, descriptor)?;
-    fs::create_dir_all(&paths.directory)
-        .map_err(|_| "AI model directory could not be created".to_string())?;
-    cleanup(&paths.receipt);
     let result = install_files(app, descriptor, &paths);
     if result.is_err() {
         cleanup(&paths.receipt);

@@ -31,9 +31,15 @@ fn readiness_rehashes_files_even_when_size_and_receipt_still_match() {
     }
     storage_files::write_receipt(&paths, &model, &[3, 3]).unwrap();
     assert!(storage_files::verified(&paths, &model).unwrap());
+    assert!(!storage_files::prepare_install(&paths, &model).unwrap());
     fs::write(&paths.files[1].model, b"abd").unwrap();
     assert!(storage_files::is_installed(&paths, &model).unwrap());
     assert!(!storage_files::verified(&paths, &model).unwrap());
+    assert!(storage_files::prepare_install(&paths, &model).unwrap());
+    assert!(!paths.receipt.exists());
+    for path in &paths.files { fs::write(&path.model, b"abc").unwrap(); }
+    storage_files::write_receipt(&paths, &model, &[3, 3]).unwrap();
+    assert!(!storage_files::prepare_install(&paths, &model).unwrap());
 }
 impl Directory {
     fn new() -> Self {
