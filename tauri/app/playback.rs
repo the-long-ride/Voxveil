@@ -4,6 +4,21 @@ use voxveil_types::{AudioPlaybackSnapshot, AudioRouteChoice};
 use super::state::AppState;
 use crate::platform::ProcessingController;
 
+#[cfg(any(target_os = "windows", test))]
+fn prepare_with_selection<T>(
+    state: &AppState,
+    prepare: impl FnOnce(
+        voxveil_types::ProcessingEngineKind,
+        voxveil_types::AiModel,
+    ) -> Result<T, String>,
+) -> Result<T, String> {
+    let (engine, model) = {
+        let current = state.lock()?;
+        (current.engine, current.ai.model)
+    };
+    prepare(engine, model)
+}
+
 #[tauri::command]
 pub async fn open_audio_file(
     app: tauri::AppHandle,
@@ -34,17 +49,20 @@ pub async fn open_audio_file(
         };
 
         controller.set_enabled(false, level)?;
-        let current = state.lock()?;
-        let ready = current.engine != voxveil_types::ProcessingEngineKind::Dsp
-            && crate::models::ai_runtime_ready(&app).unwrap_or(false);
-        let rate = voxveil_media::MediaDecoder::open(&path).map_err(|e| e.to_string())?.info().sample_rate;
-        let use_ai = voxveil_types::player_engine::player_uses_ai_at_rate(current.engine, ready, rate)?;
-        let ai = if use_ai {
-            Some(crate::models::player_config(&app, current.ai.model)?)
-        } else {
-            None
-        };
-        drop(current);
+        let ai = prepare_with_selection(&state, |engine, model| {
+            let ready = engine != voxveil_types::ProcessingEngineKind::Dsp
+                && crate::models::ai_runtime_ready(&app).unwrap_or(false);
+            let rate = voxveil_media::MediaDecoder::open(&path)
+                .map_err(|e| e.to_string())?
+                .info()
+                .sample_rate;
+            let use_ai = voxveil_types::player_engine::player_uses_ai_at_rate(engine, ready, rate)?;
+            if use_ai {
+                Ok(Some(crate::models::player_config(&app, model)?))
+            } else {
+                Ok(None)
+            }
+        })?;
         controller.open_owned_playback(path, endpoint, level, profile, ai)
     }
 
@@ -92,7 +110,40 @@ pub async fn stop_playback(controller: State<'_, ProcessingController>) -> Resul
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::app::dto::AppViewState;
+    use std::{
+        sync::{Arc, mpsc},
+        time::Duration,
+    };
+
+    #[test]
+    fn slow_file_preparation_does_not_block_playback_state_reads() {
+        let state = Arc::new(AppState::default());
+        let preparing = Arc::clone(&state);
+        let (entered, scan_started) = mpsc::channel();
+        let (release, wait) = mpsc::channel();
+        let scan = std::thread::spawn(move || {
+            prepare_with_selection(&preparing, |engine, model| {
+                assert_eq!(engine, voxveil_types::ProcessingEngineKind::Auto);
+                assert_eq!(model, voxveil_types::AiModel::Spleeter);
+                entered.send(()).unwrap();
+                wait.recv_timeout(Duration::from_secs(2)).unwrap();
+                Err::<(), _>("probe failed".to_string())
+            })
+        });
+        scan_started.recv_timeout(Duration::from_secs(2)).unwrap();
+        let (read, available) = mpsc::channel();
+        let reader = std::thread::spawn(move || {
+            let _current = state.lock().unwrap();
+            read.send(()).unwrap();
+        });
+        let responsive = available.recv_timeout(Duration::from_millis(500)).is_ok();
+        release.send(()).unwrap();
+        assert_eq!(scan.join().unwrap().unwrap_err(), "probe failed");
+        reader.join().unwrap();
+        assert!(responsive, "state reads waited for the file scan");
+    }
 
     #[test]
     fn selected_file_path_is_not_part_of_the_frontend_app_state() {
