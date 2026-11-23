@@ -158,7 +158,7 @@ struct DriftTracker {
     weighted_total: u64,
     frames: usize,
     baseline: Option<f64>,
-    previous_average: f64,
+    trend_anchor: f64,
     trend: i8,
     adjustment: i8,
 }
@@ -172,39 +172,37 @@ impl DriftTracker {
             self.frames = 0;
             self.weighted_total = 0;
 
-            if self.adjustment == 0
-                && (average - self.previous_average).abs() > sample_rate as f64 / 200.0
-            {
-                // A step of more than 5 ms in a window is a new occupancy baseline, not drift.
-                self.baseline = Some(average);
-                self.trend = 0;
-            } else if let Some(baseline) = self.baseline {
-                let step = match average.total_cmp(&self.previous_average) {
-                    std::cmp::Ordering::Less => -1,
-                    std::cmp::Ordering::Equal => 0,
-                    std::cmp::Ordering::Greater => 1,
-                };
-                self.trend = if step == self.trend.signum() {
-                    self.trend.saturating_add(step)
-                } else {
-                    step
-                };
+            if let Some(baseline) = self.baseline {
                 let error = average - baseline;
                 if self.adjustment != 0 {
                     if error * f64::from(self.adjustment) >= -(deadband as f64 / 4.0) {
                         self.adjustment = 0;
                         self.trend = 0;
+                        self.trend_anchor = average;
                     }
-                } else if error.abs() > deadband as f64
-                    && error * f64::from(self.trend) > 0.0
-                    && self.trend.unsigned_abs() >= 2
-                {
-                    self.adjustment = -self.trend.signum();
+                } else {
+                    // Period-quantized padding can stay flat for many windows between slips.
+                    let change = average - self.trend_anchor;
+                    if change.abs() > deadband as f64 / 8.0 {
+                        let step = if change > 0.0 { 1 } else { -1 };
+                        self.trend = if step == self.trend.signum() {
+                            self.trend.saturating_add(step)
+                        } else {
+                            step
+                        };
+                        self.trend_anchor = average;
+                    }
+                    if error.abs() > deadband as f64
+                        && error * f64::from(self.trend) > 0.0
+                        && self.trend.unsigned_abs() >= 2
+                    {
+                        self.adjustment = -self.trend.signum();
+                    }
                 }
             } else {
                 self.baseline = Some(average);
+                self.trend_anchor = average;
             }
-            self.previous_average = average;
         }
 
         let Some(baseline) = self.baseline else {
