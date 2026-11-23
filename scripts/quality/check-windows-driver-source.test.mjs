@@ -116,6 +116,13 @@ test('SysVAD importer verifies the exact fetched commit and subtree before mater
 });
 
 
+test('SysVAD archive extraction uses the .NET Framework-compatible two-argument API', () => {
+  const text = read('scripts/windows/import-sysvad-source.ps1');
+  assert.match(text, /Add-Type -AssemblyName System\.IO\.Compression\.FileSystem/);
+  assert.match(text, /\[System\.IO\.Compression\.ZipFile\]::ExtractToDirectory\(\$Archive,\s*\$Extract\)/);
+  assert.doesNotMatch(text, /Expand-Archive|Compress-Archive/i);
+});
+
 test('materialized SysVAD applies only the reviewed non-sideband engine-node compatibility patch', () => {
   const importer = read('scripts/windows/import-sysvad-source.ps1');
   const patcher = read('scripts/windows/patch-sysvad-source.ps1');

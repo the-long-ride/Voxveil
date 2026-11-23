@@ -120,7 +120,8 @@ try {
   }
 
   New-Item -ItemType Directory -Force -Path $Extract | Out-Null
-  Expand-Archive -Path $Archive -DestinationPath $Extract -Force
+  Add-Type -AssemblyName System.IO.Compression.FileSystem
+  [System.IO.Compression.ZipFile]::ExtractToDirectory($Archive, $Extract)
 
   $Source = Join-Path $Extract 'audio\sysvad'
   if (-not (Test-Path $Source -PathType Container)) {
