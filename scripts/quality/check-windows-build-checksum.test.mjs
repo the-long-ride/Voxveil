@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
+const powershell = process.platform === 'win32' ? 'powershell.exe' : process.env.VOXVEIL_TEST_POWERSHELL;
 const buildScript = () => readFileSync('scripts/windows/build-windows.ps1', 'utf8');
 const scripts = readdirSync('scripts/windows')
   .filter((name) => name.endsWith('.ps1'))
@@ -44,13 +45,13 @@ test('Windows module-dependent signature, CIM, DISM and certificate calls use tr
       assert.match(text, /\$trustedSystemDirectoryForModules\s*=\s*\[Environment\]::SystemDirectory/, script);
       assert.match(text, /WindowsPowerShell\\v1\.0\\Modules/, script);
     } else {
-      assert.match(text, /Import-Module \(Join-Path \$PSHOME 'Modules\\Microsoft\.PowerShell\.Security\\Microsoft\.PowerShell\.Security\.psd1'\) -ErrorAction Stop/, script);
+      assert.match(text, /Import-Module \(\[IO\.Path\]::Combine\(\$PSHOME, 'Modules', 'Microsoft\.PowerShell\.Security', 'Microsoft\.PowerShell\.Security\.psd1'\)\) -ErrorAction Stop/, script);
       assert.doesNotMatch(text, /\b(?:Get-CimInstance|Get-WindowsDriver|New-SelfSignedCertificate|Export-Certificate)\b/, script);
     }
   }
 });
 
-test('Windows SHA-256 helpers hash literal paths and empty files without module autoloading', { skip: process.platform !== 'win32' }, () => {
+test('Windows SHA-256 helpers hash literal paths and empty files without module autoloading', { skip: !powershell }, () => {
   const directory = mkdtempSync(path.join(tmpdir(), 'voxveil-sha256-'));
   try {
     const payload = Buffer.from([0, 255, 1, 128, 10]);
@@ -65,7 +66,7 @@ test('Windows SHA-256 helpers hash literal paths and empty files without module 
       function Get-FileHash { throw 'Module-dependent hashing must not be called.' }
       $tokens = $null; $errors = $null
       $ast = [System.Management.Automation.Language.Parser]::ParseFile($env:VOXVEIL_SCRIPT, [ref]$tokens, [ref]$errors)
-      if ($errors.Count) { throw 'PowerShell script failed to parse.' }
+      if ($errors.Count) { throw ("Line {0}: {1}" -f $errors[0].Extent.StartLineNumber, $errors[0].Message) }
       $helper = $ast.Find({ param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Get-Sha256Hex' }, $true)
       if (-not $helper) { throw 'SHA-256 helper was not found.' }
       . ([scriptblock]::Create($helper.Extent.Text))
@@ -79,7 +80,7 @@ test('Windows SHA-256 helpers hash literal paths and empty files without module 
       if (-not $failed) { throw 'Hashing a missing file did not fail.' }
     `;
     for (const script of hashingScripts) {
-      const result = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', command], {
+      const result = spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-Command', command], {
         encoding: 'utf8',
         env: { ...process.env, VOXVEIL_SCRIPT: path.resolve(script), VOXVEIL_PAYLOAD: file,
           VOXVEIL_EXPECTED: createHash('sha256').update(payload).digest('hex'), VOXVEIL_EMPTY: empty,
@@ -92,12 +93,13 @@ test('Windows SHA-256 helpers hash literal paths and empty files without module 
   }
 });
 
-test('signature verifiers load their own Security module with an empty module search path', { skip: process.platform !== 'win32' }, () => {
+test('signature verifiers bootstrap their Security module without module autoloading', { skip: !powershell }, () => {
   for (const script of ['scripts/windows/verify-signed-apo-package.ps1', 'scripts/windows/verify-signed-virtual-driver.ps1']) {
     const importCommand = readFileSync(script, 'utf8').match(/^Import-Module[^\r\n]+/m)?.[0];
     assert.ok(importCommand, script);
-    const command = `$ErrorActionPreference = 'Stop'; $env:PSModulePath = ''; $PSModuleAutoLoadingPreference = 'None'; ${importCommand}; $signature = Get-Command Get-AuthenticodeSignature -ErrorAction Stop; if ($signature.Source -ne 'Microsoft.PowerShell.Security') { throw 'Wrong signature module.' }`;
-    const result = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', command], { encoding: 'utf8' });
+    const securityCommand = process.platform === 'win32' ? 'Get-AuthenticodeSignature' : 'ConvertTo-SecureString';
+    const command = `$ErrorActionPreference = 'Stop'; $env:PSModulePath = ''; $PSModuleAutoLoadingPreference = 'None'; function Join-Path { throw 'Management cmdlets must not be needed for Security module bootstrap.' }; ${importCommand}; $signature = Get-Command ${securityCommand} -ErrorAction Stop; if ($signature.Source -ne 'Microsoft.PowerShell.Security') { throw 'Wrong signature module.' }`;
+    const result = spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-Command', command], { encoding: 'utf8' });
     assert.equal(result.status, 0, `${script}: ${result.error ?? ''}\n${result.stdout}\n${result.stderr}`);
   }
 });

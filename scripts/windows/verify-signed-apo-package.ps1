@@ -22,7 +22,7 @@ function Get-Sha256Hex([string]$Path) {
   }
 }
 Set-StrictMode -Version Latest
-Import-Module (Join-Path $PSHOME 'Modules\Microsoft.PowerShell.Security\Microsoft.PowerShell.Security.psd1') -ErrorAction Stop
+Import-Module ([IO.Path]::Combine($PSHOME, 'Modules', 'Microsoft.PowerShell.Security', 'Microsoft.PowerShell.Security.psd1')) -ErrorAction Stop
 
 function Get-TrustedProgramFilesX86 {
   $path = [Environment]::GetFolderPath([Environment+SpecialFolder]::ProgramFilesX86)

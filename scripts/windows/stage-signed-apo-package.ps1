@@ -137,7 +137,7 @@ $resolved = [Collections.Generic.List[IO.FileInfo]]::new()
 foreach ($name in $expectedFiles) {
   $matches = @($allFiles | Where-Object Name -ieq $name)
   if ($matches.Count -ne 1) {
-    throw "Verified signed APO package cardinality changed unexpectedly for $name: found $($matches.Count)."
+    throw "Verified signed APO package cardinality changed unexpectedly for ${name}: found $($matches.Count)."
   }
   $resolved.Add($matches[0])
 }

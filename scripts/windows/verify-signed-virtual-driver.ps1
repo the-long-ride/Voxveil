@@ -25,7 +25,7 @@ function Get-Sha256Hex([string]$Path) {
   }
 }
 Set-StrictMode -Version Latest
-Import-Module (Join-Path $PSHOME 'Modules\Microsoft.PowerShell.Security\Microsoft.PowerShell.Security.psd1') -ErrorAction Stop
+Import-Module ([IO.Path]::Combine($PSHOME, 'Modules', 'Microsoft.PowerShell.Security', 'Microsoft.PowerShell.Security.psd1')) -ErrorAction Stop
 
 $package = [IO.Path]::GetFullPath($PackageDir)
 $validator = Join-Path $PSScriptRoot 'validate-virtual-driver-package.ps1'

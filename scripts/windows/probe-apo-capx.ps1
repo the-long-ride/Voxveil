@@ -21,7 +21,7 @@ if (-not $ControlPath -or -not (Test-Path $ControlPath -PathType Leaf)) {
 
 $statusOutput = & $ControlPath status 2>&1
 if ($LASTEXITCODE -ne 0) {
-  throw "voxveil-control status failed with exit code $LASTEXITCODE: $statusOutput"
+  throw "voxveil-control status failed with exit code ${LASTEXITCODE}: $statusOutput"
 }
 
 $status = ($statusOutput -join ' ').Trim()

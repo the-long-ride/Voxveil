@@ -79,6 +79,6 @@ finally {
   Remove-Item $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-Write-Host "Created attestation CAB for $Architecture: $outputPath"
+Write-Host "Created attestation CAB for ${Architecture}: $outputPath"
 Write-Host 'The CAB contains VoxveilVirtualAudio/{INF,SYS,CAT,PDB}.'
 Write-Host 'Before Hardware Dev Center upload, Authenticode-sign this CAB externally with the approved EV-certificate process and SHA-256 timestamping.'
