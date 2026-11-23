@@ -5,6 +5,8 @@ mod binding;
 mod device;
 mod device_interfaces;
 mod discovery;
+#[cfg(any(windows, test))]
+mod relay_buffer;
 mod relay_engine;
 mod route;
 #[cfg(any(windows, test))]
