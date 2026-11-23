@@ -95,8 +95,8 @@ pub enum ClassicSuppressionProfile {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum AudioRouteChoice {
-    LegacyAutomatic,
     #[default]
+    LegacyAutomatic,
     PhysicalApo,
     OwnedFilePlayback,
 }
@@ -208,6 +208,15 @@ mod tests {
         assert_eq!(
             serde_json::to_string(&AudioRouteChoice::OwnedFilePlayback).unwrap(),
             "\"owned-file-playback\""
+        );
+    }
+
+    #[test]
+    fn default_audio_route_uses_automatic_interception() {
+        assert_eq!(AudioRouteChoice::default(), AudioRouteChoice::LegacyAutomatic);
+        assert_eq!(
+            AudioRouteChoice::default().interception_policy(),
+            WindowsInterceptionPolicy::Automatic
         );
     }
 

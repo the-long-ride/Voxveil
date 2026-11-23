@@ -149,7 +149,7 @@ pub(crate) fn decide_backend_with_policy(
                 ..WindowsAudioRoute::default()
             },
             detail: Some(if physical.is_some() {
-                "No compatible Voxveil physical APO is loaded on the active physical output endpoint".into()
+                "No compatible Voxveil physical APO is loaded on the active physical output endpoint; switch to the automatic route in Settings to use the driver-free relay".into()
             } else {
                 "Connect or select a physical playback endpoint before enabling physical APO processing".into()
             }),
