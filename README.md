@@ -28,6 +28,8 @@ This source tree contains:
   3. Enable processing. Restart or reroute apps that continue playing to their previous output.
   Do not listen to the spare output: it still carries unprocessed audio. This requires two distinct Windows render endpoints; it cannot capture and play back on the same device. The source shared format must be stereo 32-bit float (configure it in Windows Sound device properties). Unsupported formats produce an error rather than being processed.
 
+Without a driver, the relay processes the whole mix on the Windows default output, including call/VoIP audio playing there while Processing is on. To keep calls untouched, set the call app (or the Windows default communications device) to a different output; per-app call bypass requires the APO.
+
 Build on Windows with Visual Studio C++ Build Tools, Windows SDK, Rust and Node.js (no WDK required):
 
 ```powershell
