@@ -93,7 +93,7 @@ impl RelayBuffer {
             return;
         }
         let total = queued + padding;
-        if total < self.render_capacity && queued < MAX_QUEUE_FRAMES {
+        if total < self.render_capacity + self.reserve && queued < MAX_QUEUE_FRAMES {
             self.splice_tail(true);
         } else if total > self.render_capacity + self.reserve * 2 {
             self.splice_tail(false);
