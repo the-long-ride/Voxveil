@@ -87,6 +87,7 @@ impl StemProducer {
         let c = Arc::clone(&cancel);
         let p = Arc::clone(&paused);
         let worker = thread::spawn(move || {
+            if c.load(Ordering::Acquire) { return; }
             let result =
                 std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| work(&sender, &c, &p)));
             let error = match result {
@@ -112,9 +113,9 @@ impl StemProducer {
 
     pub fn stop(&mut self) {
         self.cancel.store(true, Ordering::Release);
-        if let Some(worker) = self.worker.take() {
-            let _ = worker.join();
-        }
+        drop(self.worker.take());
+        let (_, empty) = mpsc::channel();
+        self.receiver = empty;
     }
 }
 impl Drop for StemProducer {

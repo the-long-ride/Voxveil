@@ -3,6 +3,7 @@ use std::{collections::VecDeque, sync::atomic::AtomicUsize};
 use voxveil_model_api::{SeparationCapabilities, SeparationReport};
 
 struct Fake {
+    gate: Option<(mpsc::SyncSender<()>, Receiver<()>)>,
     delay: VecDeque<f32>,
     live: Arc<AtomicUsize>,
 }
@@ -10,6 +11,7 @@ impl Fake {
     fn new(live: Arc<AtomicUsize>) -> Self {
         live.fetch_add(1, Ordering::SeqCst);
         Self {
+            gate: None,
             delay: VecDeque::from(vec![0.0; 4]),
             live,
         }
@@ -26,6 +28,10 @@ impl SeparationEngine for Fake {
         input: &[f32],
         output: &mut StemOutput<'_>,
     ) -> Result<voxveil_model_api::SeparationReport, SeparationError> {
+        if let Some((entered, release)) = self.gate.take() {
+            entered.send(()).unwrap();
+            release.recv_timeout(Duration::from_secs(2)).unwrap();
+        }
         self.delay.extend(input);
         for i in 0..input.len() {
             let sample = self.delay.pop_front().unwrap();
@@ -114,7 +120,7 @@ fn preparation_strips_latency_and_retains_the_complete_tail() {
     }
     producer.stop();
     assert_eq!(output, vec![1.0; 24]);
-    assert_eq!(live.load(Ordering::SeqCst), 0);
+    assert_finished(&live);
 }
 
 #[test]
@@ -130,7 +136,7 @@ fn seek_replaces_old_audio_and_teardown_joins_even_a_full_paused_queue() {
     );
     producer.pause(true);
     producer.stop();
-    assert_eq!(live.load(Ordering::SeqCst), 0);
+    assert_finished(&live);
     let mut restarted = fake_producer(2.0, Arc::clone(&live));
     if let Prepared::Stems {
         vocals,
@@ -151,7 +157,7 @@ fn seek_replaces_old_audio_and_teardown_joins_even_a_full_paused_queue() {
         panic!("expected restarted stems");
     }
     restarted.stop();
-    assert_eq!(live.load(Ordering::SeqCst), 0);
+    assert_finished(&live);
 }
 
 #[test]
@@ -186,4 +192,31 @@ fn slow_preparation_is_pending_not_synthetic_silence_and_errors_surface() {
     release.store(true, Ordering::Release);
     assert!(matches!(slow.receiver.recv_timeout(Duration::from_secs(2)).unwrap().unwrap(), Prepared::End));
     slow.stop();
+}
+
+fn assert_finished(live: &AtomicUsize) {
+    let deadline = std::time::Instant::now() + Duration::from_secs(2);
+    while live.load(Ordering::SeqCst) != 0 && std::time::Instant::now() < deadline { thread::yield_now(); }
+    assert_eq!(live.load(Ordering::SeqCst), 0);
+}
+
+#[test]
+fn stop_abandons_inference_immediately_and_discards_its_eventual_output() {
+    let live = Arc::new(AtomicUsize::new(0));
+    let resource = Arc::clone(&live);
+    let (entered, observed) = mpsc::sync_channel(1);
+    let (release, gate) = mpsc::channel();
+    let mut producer = StemProducer::start(move |sender, cancel, paused| {
+        let mut engine = Fake::new(resource);
+        engine.gate = Some((entered, gate));
+        produce(&mut engine, |pcm| { pcm.clear(); pcm.resize(8, 1.0); Ok(4) }, sender, cancel, paused)
+    });
+    observed.recv_timeout(Duration::from_secs(2)).unwrap();
+    let start = std::time::Instant::now();
+    producer.stop();
+    assert!(start.elapsed() < Duration::from_millis(100));
+    assert!(matches!(producer.receiver.try_recv(), Err(mpsc::TryRecvError::Disconnected)));
+    assert_eq!(live.load(Ordering::SeqCst), 1);
+    release.send(()).unwrap();
+    assert_finished(&live);
 }
