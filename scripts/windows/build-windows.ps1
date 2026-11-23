@@ -173,6 +173,9 @@ if (-not $SkipTests) {
   if ($LASTEXITCODE -ne 0) { throw "quality tests failed with exit code $LASTEXITCODE" }
 }
 
+node (Join-Path $PSScriptRoot 'stage-ai-models.mjs') --repo $repo.Path
+if ($LASTEXITCODE -ne 0) { throw 'Bundled AI model staging failed.' }
+
 if ($NoDrivers) {
   & (Join-Path $PSScriptRoot 'build-driverless-package.ps1') -Repo $repo.Path -OutputDirectory $OutputDirectory -Commit $currentCommit
   return
@@ -254,7 +257,7 @@ if ($signedApoDir) {
 }
 
 Write-Host 'Building Voxveil Tauri executable...'
-npm run tauri -- build --no-bundle
+npm run tauri -- build --no-bundle --config (Join-Path $repo.Path 'target\ai-model-resources.json')
 if ($LASTEXITCODE -ne 0) { throw "Tauri build failed with exit code $LASTEXITCODE" }
 
 $app = Join-Path $repo 'target\release\voxveil.exe'
@@ -314,6 +317,8 @@ New-Item -ItemType Directory -Force -Path $systemAudio | Out-Null
 
 Copy-Item $app (Join-Path $output 'voxveil.exe')
 & (Join-Path $PSScriptRoot 'stage-onnx-runtime.ps1') -Repo $repo.Path -Destination $output
+node (Join-Path $PSScriptRoot 'stage-ai-models.mjs') --repo $repo.Path --destination $output
+if ($LASTEXITCODE -ne 0) { throw 'Bundled AI model packaging failed.' }
 Copy-Item $requiredNative -Destination $systemAudio
 if (-not $ApoOnly) {
   Copy-Item $virtualDeviceHelper (Join-Path $systemAudio 'voxveil-virtual-device.exe')

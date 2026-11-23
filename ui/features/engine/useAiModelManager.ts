@@ -22,7 +22,7 @@ function isTauriRuntime(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 }
 
-function preview(modelId?: AiModelId): AiModelStatus {
+function preview(modelId: AiModelId = 'mdx-inst-hq3'): AiModelStatus {
   return modelId === 'mdx-inst-hq3' ? { ...PREVIEW_STATUS, id: modelId, displayName: 'UVR MDX Inst HQ3', approximateSizeMb: 67, source: 'Anjok/model-repo', sourceRevision: '048ddcf9a0db28453d71943c1e18a1e25291a642', attribution: 'Ultimate Vocal Remover (UVR), Anjok07 and aufr33; MDX-Net by KUIELab / Woosung Choi.' } : PREVIEW_STATUS;
 }
 
@@ -68,7 +68,7 @@ export function useAiModelManager(onRemoved?: () => void, modelId?: AiModelId) {
   }, [client, native, status.id, listenerId]);
 
   const remove = useCallback(async () => {
-    if (!native) return;
+    if (!native || status.bundled) return;
     setBusy(true); setError(null); setProgress(null);
     try {
       setStatus(await client.removeAiModel(status.id));
@@ -76,7 +76,7 @@ export function useAiModelManager(onRemoved?: () => void, modelId?: AiModelId) {
       onRemoved?.();
     } catch { setError('remove'); }
     finally { setBusy(false); }
-  }, [client, native, onRemoved, status.id, listenerId]);
+  }, [client, native, onRemoved, status.id, status.bundled, listenerId]);
 
   return { status, native, busy, progress, error, install, remove };
 }

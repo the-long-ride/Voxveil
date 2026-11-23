@@ -41,4 +41,14 @@ describe('AiModelManager', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Remove model' }));
     expect(value.remove).toHaveBeenCalledTimes(1);
   });
+
+  it('shows bundled installation and hides download and removal for package resources', () => {
+    const value = controller({ status: { ...controller().status, installed: true, bundled: true, runtimeAvailable: true } });
+    renderManager(value);
+    expect(screen.getByText('Bundled · installed')).toBeInTheDocument();
+    expect(screen.getByText(/part of this application.*cannot be removed/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Remove model' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Install AI model' })).not.toBeInTheDocument();
+    expect(value.remove).not.toHaveBeenCalled();
+  });
 });

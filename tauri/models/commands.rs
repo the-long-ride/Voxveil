@@ -4,9 +4,8 @@ use super::{catalog, download, dto::AiModelStatusDto, manager::ModelManager, sto
 
 fn status(app: &AppHandle, model_id: &str) -> Result<AiModelStatusDto, String> {
     let descriptor = catalog::find(model_id)?;
-    let installed =
-        super::storage_files::verified(&storage::paths(app, &descriptor)?, &descriptor)?;
-    Ok(AiModelStatusDto::from_descriptor(&descriptor, installed))
+    let location = storage::resolve(app, &descriptor)?;
+    Ok(AiModelStatusDto::from_descriptor(&descriptor, location.installed, location.bundled))
 }
 
 fn refresh_relay(app: &AppHandle) -> Result<(), String> {
@@ -58,6 +57,7 @@ pub async fn remove_ai_model(
     model_id: String,
 ) -> Result<AiModelStatusDto, String> {
     let descriptor = catalog::find(&model_id)?;
+    storage::resolve(&app, &descriptor)?.ensure_removable()?;
     controller.stop_owned_playback_for_model(&model_id)?;
     let gate = manager.gate();
     let task_app = app.clone();

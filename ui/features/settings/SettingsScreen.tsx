@@ -22,7 +22,7 @@ interface SettingsScreenProps {
 }
 
 export function SettingsScreen({
-  ai = { model: 'spleeter-2stems-fp16', systemWide: false }, onAiChange = () => {}, onActiveModelRemoved,
+  ai = { model: 'mdx-inst-hq3', systemWide: false }, onAiChange = () => {}, onActiveModelRemoved,
   edition = 'standard', windowsAudioRoutesAvailable, audioRouteChoice, audioRouteError, onAudioRouteChange,
   themeMode, onThemeModeChange,
 }: SettingsScreenProps) {

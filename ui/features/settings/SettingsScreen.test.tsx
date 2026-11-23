@@ -22,6 +22,7 @@ describe('SettingsScreen', () => {
     );
 
     const route = screen.getByRole('combobox', { name: 'Audio processing route' });
+    expect(screen.getByRole('radio', { name: 'Use UVR MDX Inst HQ3' })).toBeChecked();
     expect(screen.getByRole('option', { name: /automatic.*driverless fallback/i })).toBeInTheDocument();
     fireEvent.change(route, { target: { value: 'legacy-automatic' } });
     expect(onAudioRouteChange).toHaveBeenCalledWith('legacy-automatic');

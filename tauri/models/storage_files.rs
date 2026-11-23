@@ -92,15 +92,31 @@ pub fn write_receipt(
 }
 
 pub fn verified(paths: &ModelPaths, descriptor: &ModelDescriptor) -> Result<bool, String> {
-    use sha2::{Digest, Sha256};
-    use std::io::Read;
     if !is_installed(paths, descriptor)? {
         return Ok(false);
     }
+    verified_files(paths, descriptor)
+}
+
+pub fn verified_files(paths: &ModelPaths, descriptor: &ModelDescriptor) -> Result<bool, String> {
+    use sha2::{Digest, Sha256};
+    use std::io::Read;
+    if descriptor.files.is_empty() || paths.files.len() != descriptor.files.len() {
+        return Ok(false);
+    }
     for (path, descriptor) in paths.files.iter().zip(&descriptor.files) {
+        let metadata = match fs::metadata(&path.model) {
+            Ok(metadata) => metadata,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+            Err(_) => return Err("AI model file cannot be inspected".into()),
+        };
+        if !metadata.is_file() || metadata.len() == 0 || metadata.len() > descriptor.max_bytes {
+            return Ok(false);
+        }
         let mut file = fs::File::open(&path.model).map_err(|_| "AI model cannot be verified")?;
         let mut hasher = Sha256::new();
         let mut buffer = [0_u8; 65536];
+        let mut bytes = 0;
         loop {
             let read = file
                 .read(&mut buffer)
@@ -108,6 +124,8 @@ pub fn verified(paths: &ModelPaths, descriptor: &ModelDescriptor) -> Result<bool
             if read == 0 {
                 break;
             }
+            bytes += read as u64;
+            if bytes > descriptor.max_bytes { return Ok(false); }
             hasher.update(&buffer[..read]);
         }
         if super::transfer::hex(hasher.finalize().as_slice()) != descriptor.sha256 {

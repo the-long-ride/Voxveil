@@ -12,12 +12,12 @@ export function inspectCatalog(entries) {
   const issues = [];
   const ids = new Set();
   for (const entry of entries) {
-    if (!entry.id || ids.has(entry.id)) issues.push(`${entry.id || '<missing>'}: model id must be unique`);
+    if (!/^[a-z0-9][a-z0-9-]*$/.test(entry.id ?? '') || ids.has(entry.id)) issues.push(`${entry.id || '<missing>'}: model id must be unique and path-safe`);
     ids.add(entry.id);
     const revision = String(entry.sourceRevision ?? '');
     if (!COMMIT_SHA.test(revision)) issues.push(`${entry.id}: source revision must be a 40-character commit SHA`);
     if (entry.commercialUse !== true) issues.push(`${entry.id}: commercial use must be explicitly approved`);
-    if (entry.directDownloadOnly !== true) issues.push(`${entry.id}: model must be downloaded directly by the user`);
+    if (entry.directDownloadOnly !== true) issues.push(`${entry.id}: fallback downloads must use the catalog source directly`);
     if (!entry.license || !entry.attribution || !entry.licenseUrls?.length
       || entry.licenseUrls.some((url) => !String(url).startsWith('https://'))) {
       issues.push(`${entry.id}: complete license and attribution metadata are required`);
@@ -45,7 +45,7 @@ export function inspectCatalog(entries) {
 export function inspectModelFiles(repositoryFiles, bundleResources) {
   const issues = [];
   for (const file of repositoryFiles) {
-    if (MODEL_EXTENSIONS.has(path.extname(file).toLowerCase())) issues.push(`${file}: model binary must not be committed or bundled`);
+    if (MODEL_EXTENSIONS.has(path.extname(file).toLowerCase())) issues.push(`${file}: model binary must not be committed; generate verified bundle resources at build time`);
   }
   for (const resource of bundleResources) {
     if (MODEL_EXTENSIONS.has(path.extname(String(resource)).toLowerCase())) issues.push(`${resource}: model binary is forbidden as a bundle resource`);

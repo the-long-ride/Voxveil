@@ -3,6 +3,8 @@ use serde::Deserialize;
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelDescriptor {
+    #[serde(default)]
+    pub bundled_by_default: bool,
     pub id: String,
     pub display_name: String,
     pub source: String,
@@ -30,7 +32,7 @@ struct Catalog {
     models: Vec<ModelDescriptor>,
 }
 
-pub const DEFAULT_MODEL_ID: &str = "spleeter-2stems-fp16";
+pub const DEFAULT_MODEL_ID: &str = "mdx-inst-hq3";
 
 pub fn find(model_id: &str) -> Result<ModelDescriptor, String> {
     let catalog: Catalog = serde_json::from_str(include_str!("catalog.json"))
@@ -48,14 +50,18 @@ mod tests {
 
     #[test]
     fn default_model_is_pinned_and_commercially_approved() {
-        let model = find(DEFAULT_MODEL_ID).expect("default model must exist");
-        assert_eq!(model.files.len(), 2);
-        for file in &model.files {
-            assert!(file.download_url.starts_with("https://"));
-            assert_eq!(file.sha256.len(), 64);
+        assert_eq!(DEFAULT_MODEL_ID, "mdx-inst-hq3");
+        for (id, files) in [("spleeter-2stems-fp16", 2), (DEFAULT_MODEL_ID, 1)] {
+            let model = find(id).expect("bundled model must exist");
+            assert_eq!(model.files.len(), files);
+            for file in &model.files {
+                assert!(file.download_url.starts_with("https://"));
+                assert_eq!(file.sha256.len(), 64);
+            }
+            assert!(!model.attribution.is_empty());
+            assert!(model.commercial_use);
+            assert!(model.direct_download_only);
+            assert!(model.bundled_by_default);
         }
-        assert!(!model.attribution.is_empty());
-        assert!(model.commercial_use);
-        assert!(model.direct_download_only);
     }
 }

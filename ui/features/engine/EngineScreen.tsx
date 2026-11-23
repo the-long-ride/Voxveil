@@ -26,7 +26,7 @@ export function EngineScreen({ model, aiModel }: EngineScreenProps) {
           <div><strong>{t('engine.dsp')}</strong><span>{t('engine.dspDescription')}</span></div><span className="mono">{t('engine.builtIn')}</span>
         </article>
         <article className={model.state.engine === 'ai' ? 'engine-row is-active' : 'engine-row'}>
-          <div><strong>{t('engine.ai')}</strong><span>{t('engine.aiDescription')}</span></div><span className="mono">{aiModel.status.installed ? t('engine.modelInstalled') : t('engine.noModel')}</span>
+          <div><strong>{t('engine.ai')}</strong><span>{t('engine.aiDescription')}</span></div><span className="mono">{aiModel.status.bundled ? t('engine.modelBundled') : aiModel.status.installed ? t('engine.modelInstalled') : t('engine.noModel')}</span>
         </article>
       </div>
       {model.state.engine !== 'ai' && (

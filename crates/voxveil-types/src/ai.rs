@@ -10,7 +10,6 @@ pub enum SystemAiStatus {
 pub fn relay_ai_status(prefs: &AiPreferences, engine: ProcessingEngineKind, ready: bool) -> SystemAiStatus {
     if !prefs.system_wide { SystemAiStatus::Off }
     else if engine == ProcessingEngineKind::Dsp { SystemAiStatus::DspSelected }
-    else if prefs.model != AiModel::Spleeter { SystemAiStatus::ModelUnsupported }
     else if !ready { SystemAiStatus::Unavailable }
     else { SystemAiStatus::Buffering }
 }
@@ -18,9 +17,9 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AiModel {
-    #[default]
     #[serde(rename = "spleeter-2stems-fp16")]
     Spleeter,
+    #[default]
     #[serde(rename = "mdx-inst-hq3")]
     MdxInstHq3,
 }
@@ -43,11 +42,11 @@ pub struct AiPreferences {
 
 impl AiPreferences {
     pub fn validate(&self) -> Result<(), String> {
-        if self.system_wide && self.model != AiModel::Spleeter {
-            Err("System-wide AI supports Spleeter only; MDX cannot sustain real time".into())
-        } else {
-            Ok(())
-        }
+        Ok(())
+    }
+
+    pub const fn system_wide_model(&self) -> AiModel {
+        AiModel::Spleeter
     }
 }
 
@@ -73,8 +72,12 @@ mod tests {
         assert_eq!(relay_ai_status(&prefs, ProcessingEngineKind::Dsp, true), SystemAiStatus::DspSelected);
         assert_eq!(relay_ai_status(&prefs, ProcessingEngineKind::Auto, false), SystemAiStatus::Unavailable);
         assert_eq!(relay_ai_status(&prefs, ProcessingEngineKind::Auto, true), SystemAiStatus::Buffering);
-        prefs.model = AiModel::MdxInstHq3;
-        assert_eq!(relay_ai_status(&prefs, ProcessingEngineKind::Ai, true), SystemAiStatus::ModelUnsupported);
+        for player_model in [AiModel::Spleeter, AiModel::MdxInstHq3] {
+            prefs.model = player_model;
+            assert_eq!(prefs.system_wide_model(), AiModel::Spleeter);
+            assert_eq!(relay_ai_status(&prefs, ProcessingEngineKind::Ai, true), SystemAiStatus::Buffering);
+            assert!(prefs.validate().is_ok());
+        }
     }
     #[test]
     fn engine_selection_never_silently_falls_back_from_explicit_ai() {
@@ -89,7 +92,7 @@ mod tests {
     fn defaults_and_old_settings_do_not_opt_into_delayed_audio() {
         let prefs: AiPreferences = serde_json::from_str("{}").unwrap();
         assert_eq!(prefs, AiPreferences::default());
-        assert_eq!(prefs.model, AiModel::Spleeter);
+        assert_eq!(prefs.model, AiModel::MdxInstHq3);
         assert!(!prefs.system_wide);
         assert!(
             AiPreferences {
@@ -97,7 +100,10 @@ mod tests {
                 system_wide: true
             }
             .validate()
-            .is_err()
+            .is_ok()
         );
+        let saved: AiPreferences = serde_json::from_str(r#"{"model":"spleeter-2stems-fp16","systemWide":true}"#).unwrap();
+        assert_eq!(saved.model, AiModel::Spleeter);
+        assert!(saved.system_wide);
     }
 }

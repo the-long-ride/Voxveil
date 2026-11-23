@@ -173,7 +173,7 @@ mod tests {
     }
 
     #[test]
-    fn old_configs_default_to_spleeter_with_system_wide_ai_off() {
+    fn old_configs_default_to_mdx_with_system_wide_ai_off() {
         let prefs = decode_preferences(br#"{"routeChoice":"owned-file-playback"}"#).unwrap();
         assert_eq!(prefs.ai, voxveil_types::AiPreferences::default());
         let prefs =

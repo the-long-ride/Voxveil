@@ -10,7 +10,7 @@ This source tree contains:
 - English, Vietnamese, Chinese, Korean, Japanese, Spanish, and French bundles;
 - local-only state and a narrow typed Tauri command bridge;
 - Classic DSP adaptive stereo-center suppression with user-selectable **Music preservation** and **Balanced** profiles and no AI dependency;
-- stem-agnostic optional AI interface with no model bundled;
+- local AI separation with both models bundled in Windows packages;
 - global/per-app routing policy and communication-audio bypass rules;
 - fixed-capacity audio buffering and runtime degradation primitives;
 - Standard/Pro System edition metadata and platform capability contracts;
@@ -21,14 +21,17 @@ This source tree contains:
 
 ### AI separation
 
-Spleeter 2-stems FP16 (default, about 40 MB) and UVR MDX Inst HQ3 (optional,
-about 67 MB) are downloaded only with consent; no weights are bundled. Both use
+Windows packages bundle UVR MDX Inst HQ3 (the default player model, about 67 MB)
+and Spleeter 2-stems FP16 (the system-wide model, about 40 MB), adding about
+**106 MB** of model weights. AI works on first launch without a model download.
+Existing saved player selections are preserved. Both use
 MIT-licensed weights; retain Deezer/Spleeter and Ultimate Vocal Remover (UVR)
 credits. ONNX Runtime is MIT; full licenses and attribution are in
 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
 Auto uses ready AI for 44.1/48 kHz files, otherwise Classic DSP. System-wide AI
-requires the separate **Use AI for system-wide audio** opt-in and Spleeter, and
+requires the separate **Use AI for system-wide audio** opt-in, always uses Spleeter
+independently of the player selection, and
 applies to the WASAPI relay, not physical APOs. It adds a fixed model latency plus
 500 ms compute headroom (about 12.5 seconds, plus device/reserve buffering):
 **video and games will be out of sync**. Stems stay separate for live slider
@@ -37,6 +40,16 @@ timestamp-only errors do not disable AI. A missed inference deadline is logged
 and crossfades to DSP; toggle processing to retry. Events go to stderr and a bounded
 `relay-ai.log` in the application log directory. Engine/opt-in changes restart the
 relay. MDX remains a file-playback option because it may not sustain real time.
+
+Builds fetch both models from the revision-pinned catalog URLs, check size limits
+and SHA-256, and stage them as Tauri resources; no model binaries are committed.
+`scripts/windows/build-windows.ps1` does this for both full and `-NoDrivers`
+packages. Manual builds cache the downloads in `target/ai-model-cache`, keyed by
+the catalog; restored files are always rehashed. Runtime prefers bundled files
+and verifies hashes again before inference. Settings marks them **Bundled ·
+installed** and hides Remove; the backend also rejects their removal. If bundled
+files are absent or invalid (for example in development), consent-based download
+to local application data remains available, as does removal of downloaded copies.
 MDX measures initial separation throughput and, above roughly RTF 0.9, waits
 upfront for a play-through reserve (10% rate margin plus a two-chunk tail/250 ms guard),
 showing an estimated remaining wait. Seeking re-estimates for the remaining
@@ -138,4 +151,4 @@ Voxveil processing is designed to work with no network connection. The applicati
 
 ### Optional AI model
 
-Voxveil does not bundle AI weights. The Engine screen can install a reviewed model only after explicit user consent. Downloads are pinned to an approved source revision, stored under Voxveil's local application-data directory, and SHA-256 verified before installation. The model can be removed from the same screen. See `docs/specs/audio/ai-model-delivery.md`.
+Windows packages include reviewed, hash-pinned AI weights, verified again before inference. Settings shows them as bundled/installed and hides Remove. Without bundled files, the Engine and Settings screens offer consent-based downloads pinned to an approved revision, stored in local application data and verified before installation. Downloaded copies can be removed when no bundled copy is present. See `docs/specs/audio/ai-model-delivery.md`.

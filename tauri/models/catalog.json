@@ -3,6 +3,7 @@
   "models": [
     {
       "id": "spleeter-2stems-fp16",
+      "bundledByDefault": true,
       "displayName": "Spleeter 2-stems FP16",
       "source": "csukuangfj/sherpa-onnx-spleeter-2stems-fp16",
       "sourceRevision": "93ba771920ade509f8cbd6825b1a90856c797e08",
@@ -33,6 +34,7 @@
     },
     {
       "id": "mdx-inst-hq3",
+      "bundledByDefault": true,
       "displayName": "UVR MDX Inst HQ3",
       "source": "Anjok/model-repo",
       "sourceRevision": "048ddcf9a0db28453d71943c1e18a1e25291a642",

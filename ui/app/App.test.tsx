@@ -47,7 +47,7 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: 'Virtual' })).toHaveAttribute('aria-pressed', 'true');
     open('Engine');
     expect(screen.getAllByText('No model').length).toBeGreaterThan(0);
-    expect(screen.getByText(/does not bundle AI weights/i)).toBeInTheDocument();
+    expect(screen.getByText(/Only approved, hash-pinned models are bundled/i)).toBeInTheDocument();
   });
 
   it('lets the user choose classic DSP suppression priority', () => {

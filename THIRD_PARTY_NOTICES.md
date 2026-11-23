@@ -3,7 +3,12 @@
 Driver-source notices remain in `native/windows/driver/NOTICE.md` and
 `third_party/microsoft/windows-driver-samples`.
 
-## Optional AI models (downloaded only with user consent)
+## AI models (bundled in Windows packages)
+
+Windows builds fetch both models from the revision-pinned catalog URLs and verify
+their SHA-256 before bundling them as resources (about 106 MB total). Weights are
+not committed to git. Builds without these resources can download them only with
+user consent. Runtime verifies bundled and downloaded weights before inference.
 
 ### Spleeter 2-stems FP16
 
@@ -37,7 +42,7 @@ ONNX Runtime 1.23.2 CPU: Copyright (c) Microsoft Corporation, MIT.
 Windows packages include `ONNX_RUNTIME_LICENSE.txt` and the complete upstream
 `ONNX_RUNTIME_ThirdPartyNotices.txt` from the hash-pinned Microsoft NuGet package.
 `onnxruntime.dll` and `onnxruntime_providers_shared.dll` are app-local libraries,
-not system drivers. No model weights are bundled.
+not system drivers. The models listed above are bundled separately as resources.
 
 `ort` 2.0.0-rc.11 and `rustfft` 6.4.1: MIT OR Apache-2.0.
 `rubato` 0.16.2: MIT, Copyright (c) 2020 Henrik Enquist.

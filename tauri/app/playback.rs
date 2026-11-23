@@ -126,7 +126,7 @@ mod tests {
         let scan = std::thread::spawn(move || {
             prepare_with_selection(&preparing, |engine, model| {
                 assert_eq!(engine, voxveil_types::ProcessingEngineKind::Auto);
-                assert_eq!(model, voxveil_types::AiModel::Spleeter);
+                assert_eq!(model, voxveil_types::AiModel::MdxInstHq3);
                 entered.send(()).unwrap();
                 wait.recv_timeout(Duration::from_secs(2)).unwrap();
                 Err::<(), _>("probe failed".to_string())

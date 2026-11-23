@@ -31,9 +31,29 @@ test('rejects unpinned or non-commercial model metadata', () => {
   assert.match(issues.join('\n'), /SHA-256/);
 });
 
-test('rejects model binaries from repository or bundle resources', () => {
+test('rejects committed model binaries and static unverified binary resource paths', () => {
   assert.match(inspectModelFiles(['models/foo.onnx'], []).join('\n'), /model binary/);
   assert.match(inspectModelFiles([], ['models/foo.onnx']).join('\n'), /bundle resource/);
+});
+
+test('both Windows package paths use generated verified model resources before checksumming', () => {
+  const full = readFileSync('scripts/windows/build-windows.ps1', 'utf8');
+  assert.ok(full.indexOf("'stage-ai-models.mjs'") < full.indexOf('if ($NoDrivers)'));
+  for (const builder of ['build-windows.ps1', 'build-driverless-package.ps1']) {
+    const script = readFileSync(`scripts/windows/${builder}`, 'utf8');
+    assert.match(script, /tauri -- build --no-bundle --config[^\n]+ai-model-resources\.json/);
+    assert.match(script, /stage-ai-models\.mjs[^\n]+--destination \$output/);
+    assert.ok(script.indexOf('--destination $output') < script.indexOf('$hashLines'));
+  }
+});
+
+test('bundled removal is rejected before stopping playback and never targets resource files', () => {
+  const commands = readFileSync('tauri/models/commands.rs', 'utf8');
+  const remove = commands.split('pub async fn remove_ai_model')[1];
+  assert.ok(remove.indexOf('ensure_removable') < remove.indexOf('stop_owned_playback_for_model'));
+  const storage = readFileSync('tauri/models/storage.rs', 'utf8').split('pub fn remove')[1];
+  assert.match(storage, /ensure_removable/);
+  assert.match(storage, /let paths = paths\(app, descriptor\)/);
 });
 
 

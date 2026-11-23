@@ -2,18 +2,22 @@
 
 ## Purpose
 
-Voxveil does not bundle AI model weights in installers or release artifacts. AI model acquisition is an explicit, user-initiated operation that downloads an approved model directly to device-local application data.
+Windows packages bundle both approved AI models: MDX HQ3 defaults to player use,
+while the opt-in system-wide relay always uses Spleeter. Build-time acquisition
+uses catalog-pinned URLs and verifies SHA-256 and size limits. The models add about
+106 MB; binaries are never committed to git. When bundled files are missing or
+invalid, explicit user-initiated download to local application data is the fallback.
 
 ## User flow
 
-1. Engine screen shows the approved model, declared license, source, and approximate size.
+1. Settings and Engine screens show the approved model, declared license, source, and approximate size. Verified bundled models are marked installed and bundled; Remove is hidden and rejected by the backend.
 2. No network request occurs during startup or status checks.
 3. User selects **Install AI model**.
 4. Voxveil displays a consent dialog explaining the third-party download, local storage, license, and network contact.
 5. The download action remains disabled until the user checks the agreement control.
 6. Rust receives `acceptedTerms=true`; the backend rejects any request without explicit consent.
 7. Voxveil downloads only the catalog-pinned URL, verifies the byte limit and SHA-256, and installs the model only after verification succeeds.
-8. The model can be removed at any time from the Engine screen.
+8. Downloaded copies can be removed when no valid bundled copy exists. Bundled resources are never removed by model commands.
 
 ## Storage
 
@@ -27,6 +31,12 @@ Models are stored below Tauri's `app_local_data_dir()` under:
 
 A temporary `<model-file>.onnx.download` is used while receiving bytes. Partial or hash-mismatched files are never promoted to the installed path.
 
+Bundled files live at `<resource_dir>/models/<model-id>/<model-file>.onnx` and do
+not require a download receipt. Every file must pass catalog size and SHA-256
+checks. Bundled files take precedence over app-data copies, which still require
+both a receipt and matching hashes. An invalid bundle falls back to a valid
+app-data installation or reports not installed; startup never downloads anything.
+
 ## Security boundary
 
 The UI cannot provide a URL. The Rust downloader accepts only model IDs present in `tauri/models/catalog.json`.
@@ -39,7 +49,8 @@ Each catalog entry must include:
 - hard maximum byte count;
 - declared commercial-use approval;
 - declared license and source;
-- `directDownloadOnly=true`.
+- `directDownloadOnly=true` (fallback downloads contact the catalog source directly);
+- `bundledByDefault=true` for the models fetched by Windows packaging.
 
 Redirects are followed manually and only when the next URL is HTTPS. A maximum of five redirects is allowed. No generic Tauri HTTP plugin is enabled.
 
@@ -49,7 +60,13 @@ The model host receives the normal network metadata required for the user-reques
 
 ## Bundling rule
 
-`.onnx`, `.pt`, `.pth`, `.ckpt`, `.safetensors`, `.tflite`, and `.mlmodel` files are rejected by the repository model-delivery quality gate. Tauri bundle resources are also checked for model binaries.
+Committed `.onnx`, `.pt`, `.pth`, `.ckpt`, `.safetensors`, `.tflite`, `.mlmodel`
+files are rejected by the repository model-delivery quality gate. Static Tauri
+resource lists may not point to unverified model binaries. The Windows staging
+script generates `target/ai-model-resources.json`, mapping only the verified
+`target/bundled-ai-models/` tree to `models/`. Both package paths supply that Tauri
+config and copy the same resources into portable packages before checksumming.
+The manual workflow caches hash-addressed downloads, never verification results.
 
 ## Runtime integration boundary
 

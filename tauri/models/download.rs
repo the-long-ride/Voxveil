@@ -52,6 +52,7 @@ fn cleanup(path: &std::path::Path) {
 }
 
 pub fn install(app: &AppHandle, descriptor: &ModelDescriptor) -> Result<(), String> {
+    if storage::resolve(app, descriptor)?.bundled { return Ok(()); }
     let paths = storage::paths(app, descriptor)?;
     if !storage_files::prepare_install(&paths, descriptor)? {
         return Ok(());

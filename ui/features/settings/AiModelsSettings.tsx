@@ -15,7 +15,7 @@ export function AiModelsSettings({ preferences, onChange, onActiveModelRemoved }
       <label>
         <input type="radio" name="ai-model" value={controller.status.id}
           checked={preferences.model === controller.status.id}
-          onChange={() => onChange({ model: controller.status.id as AiPreferences['model'], systemWide: controller.status.id === 'spleeter-2stems-fp16' && preferences.systemWide })} />
+          onChange={() => onChange({ ...preferences, model: controller.status.id as AiPreferences['model'] })} />
         {t('aiPlayer.choose', { name: controller.status.displayName })}
       </label>
       <AiModelManager controller={controller} />
@@ -23,7 +23,7 @@ export function AiModelsSettings({ preferences, onChange, onActiveModelRemoved }
     <div className="settings-row">
       <span><strong>{t('aiPlayer.systemWide')}</strong><small>{t('aiPlayer.delay')}</small></span>
       <Toggle label={t('aiPlayer.systemWide')} checked={preferences.systemWide}
-        disabled={preferences.model !== 'spleeter-2stems-fp16'} onChange={(systemWide) => onChange({ ...preferences, systemWide })} />
+        onChange={(systemWide) => onChange({ ...preferences, systemWide })} />
     </div>
     {preferences.model === 'mdx-inst-hq3' && <p>{t('aiPlayer.mdxOffline')}</p>}
   </section>;

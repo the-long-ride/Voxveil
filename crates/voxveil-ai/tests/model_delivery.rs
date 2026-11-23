@@ -19,7 +19,7 @@ struct Directory(PathBuf);
 #[test]
 fn readiness_rehashes_files_even_when_size_and_receipt_still_match() {
     let root = Directory::new();
-    let mut model = catalog::find(catalog::DEFAULT_MODEL_ID).unwrap();
+    let mut model = catalog::find("spleeter-2stems-fp16").unwrap();
     for file in &mut model.files {
         file.sha256 = transfer::hex(Sha256::digest(b"abc").as_slice());
         file.max_bytes = 3;
@@ -63,7 +63,7 @@ impl Drop for Directory {
 
 #[test]
 fn single_and_multi_file_installations_require_every_file_and_matching_receipt() {
-    for id in [catalog::DEFAULT_MODEL_ID, "mdx-inst-hq3"] {
+    for id in ["spleeter-2stems-fp16", "mdx-inst-hq3"] {
         let root = Directory::new();
         let mut model = catalog::find(id).unwrap();
         for file in &mut model.files {

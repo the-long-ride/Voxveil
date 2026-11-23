@@ -17,6 +17,6 @@ describe('system-wide AI relay status', () => {
     const view = render(<I18nextProvider i18n={getI18n()}><SystemAiNotice status="off" /></I18nextProvider>);
     expect(screen.queryByRole('status')).toBeNull();
     view.rerender(<I18nextProvider i18n={getI18n()}><SystemAiNotice status="unavailable" /></I18nextProvider>);
-    expect(screen.getByRole('status')).toHaveTextContent('model or runtime is unavailable');
+    expect(screen.getByRole('status')).toHaveTextContent('Spleeter or the app-owned runtime is unavailable');
   });
 });

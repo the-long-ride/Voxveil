@@ -28,9 +28,9 @@ export function AiModelManager({ controller }: { controller: AiModelController }
     <section className="model-manager" aria-labelledby={titleId}>
       <div className="model-manager-header">
         <div><strong id={titleId}>{status.displayName}</strong><span>{status.license} · ~{status.approximateSizeMb} MB</span></div>
-        <span className="mono">{status.installed ? t('engine.modelInstalled') : t('engine.noModel')}</span>
+        <span className="mono">{status.bundled ? t('engine.modelBundled') : status.installed ? t('engine.modelInstalled') : t('engine.noModel')}</span>
       </div>
-      <p>{t('engine.modelStorage')}</p>
+      <p>{t(status.bundled ? 'engine.bundledStorage' : 'engine.modelStorage')}</p>
       <p className="meta">{t('engine.modelSource', { source: status.source })}</p>
       {status.attribution && <p className="meta">{status.attribution}</p>}
       {status.installed && !status.runtimeAvailable && <p className="meta">{t('aiPlayer.runtimeMissing')}</p>}
@@ -41,7 +41,7 @@ export function AiModelManager({ controller }: { controller: AiModelController }
       </div>}
       <div className="model-actions">
         {!status.installed && <button className="action-button" type="button" disabled={!controller.native || !status.downloadAvailable || controller.busy} onClick={() => setConsentOpen(true)}>{t('engine.installModel')}</button>}
-        {status.installed && <button className="action-button" type="button" disabled={controller.busy} onClick={() => void controller.remove()}>{t('engine.removeModel')}</button>}
+        {status.installed && !status.bundled && <button className="action-button" type="button" disabled={controller.busy} onClick={() => void controller.remove()}>{t('engine.removeModel')}</button>}
       </div>
 
       {consentOpen && <div className="dialog-backdrop" role="presentation">

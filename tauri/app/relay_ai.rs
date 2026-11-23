@@ -9,10 +9,9 @@ pub fn configure(
     engine: ProcessingEngineKind,
 ) -> Result<BackendSnapshot, String> {
     let may_use_ai = prefs.system_wide
-        && prefs.model == voxveil_types::AiModel::Spleeter
         && engine != ProcessingEngineKind::Dsp;
     let config = if may_use_ai {
-        crate::models::player_config(app, prefs.model).ok()
+        crate::models::player_config(app, prefs.system_wide_model()).ok()
     } else {
         None
     };

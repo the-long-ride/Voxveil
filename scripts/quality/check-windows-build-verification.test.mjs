@@ -37,3 +37,14 @@ test('opt-in Windows driver build preserves the validated unsigned driver submis
   assert.match(workflow, /uses:\s*actions\/upload-artifact@v6/);
   assert.match(workflow, /name: Upload unsigned driver submission\n\s+if: \$\{\{ inputs\.windows_drivers \}\}/);
 });
+
+test('manual Windows packages cache catalog-pinned models and stage them for both variants', async () => {
+  const workflow = await readFile('.github/workflows/manual-build.yml', 'utf8');
+  assert.match(workflow, /uses: actions\/cache@v5/);
+  assert.match(workflow, /path: target\/ai-model-cache/);
+  assert.match(workflow, /key: windows-ai-models-\$\{\{ hashFiles\('tauri\/models\/catalog\.json'\) \}\}/);
+  const stage = workflow.split('- name: Stage pinned AI models')[1].split('- name:')[0];
+  assert.doesNotMatch(stage, /\bif:/);
+  assert.match(stage, /node scripts\/windows\/stage-ai-models\.mjs/);
+  assert.ok(workflow.indexOf('- name: Stage pinned AI models') < workflow.indexOf('- name: Build Windows package'));
+});
