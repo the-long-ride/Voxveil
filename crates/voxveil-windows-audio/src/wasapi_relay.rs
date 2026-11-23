@@ -140,17 +140,14 @@ fn run_relay_worker_inner(
     let render_capacity = render_client
         .get_buffer_size()
         .map_err(|error| error.to_string())? as usize;
-    let mut queue = RelayBuffer::new(render_capacity);
+    let sample_rate = source_format.get_samplespersec();
+    let mut queue = RelayBuffer::new(render_capacity, sample_rate);
     let mut timeline = CaptureTimeline::default();
     let mut capture_buffer = vec![0_u8; MAX_CAPTURE_FRAMES * FRAME_BYTES];
     let mut gap_buffer = vec![0_u8; MAX_CAPTURE_FRAMES * FRAME_BYTES];
     let initial_level =
         VocalLevel::new(initial_vocal_level.min(100) as f32 / 100.0).map_err(str::to_string)?;
-    let mut processor = SpectralCenterSuppressor::new(
-        source_format.get_samplespersec(),
-        initial_level,
-        initial_profile,
-    );
+    let mut processor = SpectralCenterSuppressor::new(sample_rate, initial_level, initial_profile);
 
     render
         .write_to_device(
@@ -223,6 +220,9 @@ fn run_relay_worker_inner(
                 info.flags.data_discontinuity,
                 info.flags.timestamp_error,
             );
+            if gap != 0 || info.flags.data_discontinuity || info.flags.timestamp_error {
+                queue.reset_drift();
+            }
             for (buffer, silent) in [
                 (&mut gap_buffer[..gap * FRAME_BYTES], true),
                 (
