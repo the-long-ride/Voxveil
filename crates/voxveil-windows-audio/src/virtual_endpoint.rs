@@ -6,6 +6,18 @@ pub(crate) enum VirtualEndpointKind {
     EndpointRelay,
 }
 
+pub(crate) fn is_virtual_endpoint(endpoint: &EndpointDescriptor) -> bool {
+    classify_virtual_endpoint(endpoint).is_some()
+        || [
+            Some(endpoint.name.as_str()),
+            endpoint.interface_name.as_deref(),
+            endpoint.description.as_deref(),
+        ]
+        .into_iter()
+        .flatten()
+        .any(|value| value.to_ascii_lowercase().contains("vb-audio"))
+}
+
 pub(crate) fn classify_virtual_endpoint(
     endpoint: &EndpointDescriptor,
 ) -> Option<VirtualEndpointKind> {
@@ -77,6 +89,34 @@ mod tests {
         let (kind, selected) = find_preferred_virtual_endpoint(&endpoints).unwrap();
         assert_eq!(kind, VirtualEndpointKind::VoxveilCable);
         assert_eq!(selected.id, "voxveil");
+    }
+
+    #[test]
+    fn vendor_devices_are_non_physical_but_never_supported_relay_backends() {
+        for (name, interface, description) in [
+            ("CABLE Input (VB-Audio Virtual Cable)", "", ""),
+            ("CABLE In 16ch", "VB-Audio Virtual Cable", ""),
+            ("CABLE Output", "", "vB-aUdIo Virtual Cable"),
+        ] {
+            let device = endpoint("vendor", name, interface, description);
+            assert!(is_virtual_endpoint(&device));
+            assert_eq!(classify_virtual_endpoint(&device), None);
+            assert!(find_preferred_virtual_endpoint(&[device]).is_none());
+        }
+    }
+
+    #[test]
+    fn unrelated_virtual_audio_cable_and_missing_metadata_remain_physical() {
+        let mut device = endpoint(
+            "rig",
+            "Line 1 (Virtual Audio Cable)",
+            "Virtual Audio Cable",
+            "Eugene Muzychenko",
+        );
+        assert!(!is_virtual_endpoint(&device));
+        device.interface_name = None;
+        device.description = None;
+        assert!(!is_virtual_endpoint(&device));
     }
 
     #[test]

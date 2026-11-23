@@ -8,7 +8,7 @@ use std::thread::{self, JoinHandle};
 use voxveil_types::{AudioPlaybackSnapshot, AudioPlaybackStatus, ClassicSuppressionProfile};
 
 use crate::device::EndpointDescriptor;
-use crate::virtual_endpoint::classify_virtual_endpoint;
+use crate::virtual_endpoint::is_virtual_endpoint;
 
 const PLAYBACK_DECODE_FRAMES: usize = 2_048;
 const MAX_QUEUE_FRAMES: usize = 8_192;
@@ -66,7 +66,7 @@ impl OwnedPlayback {
         ai: Option<voxveil_ai::player::AiPlaybackConfig>,
     ) -> Result<OwnedPlaybackSnapshot, String> {
         self.stop()?;
-        if classify_virtual_endpoint(&endpoint).is_some() {
+        if is_virtual_endpoint(&endpoint) {
             return Err("a virtual audio endpoint cannot be used for local file playback".into());
         }
         if path.file_name().is_none() {
@@ -251,19 +251,29 @@ mod tests {
     }
 
     #[test]
+    fn rejects_vendor_virtual_output_before_opening_a_file() {
+        let mut playback = OwnedPlayback::default();
+        let result = playback.open(
+            PathBuf::from("not-opened.wav"),
+            endpoint("vendor", "CABLE Input", "VB-Audio Virtual Cable", "CABLE Input"),
+            100,
+            ClassicSuppressionProfile::MusicPreservation,
+        );
+        assert!(result.unwrap_err().contains("virtual audio endpoint"));
+    }
+
+    #[test]
     fn only_a_physical_endpoint_can_own_file_playback() {
         assert!(
-            classify_virtual_endpoint(&endpoint("speakers", "Speakers", "USB Audio", "Speakers"))
-                .is_none()
+            !is_virtual_endpoint(&endpoint("speakers", "Speakers", "USB Audio", "Speakers"))
         );
         assert!(
-            classify_virtual_endpoint(&endpoint(
+            is_virtual_endpoint(&endpoint(
                 "voxveil",
                 "Voxveil Input",
                 "Voxveil Virtual Audio",
                 "Voxveil Input",
             ))
-            .is_some()
         );
     }
 }

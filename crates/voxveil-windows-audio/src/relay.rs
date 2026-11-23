@@ -7,7 +7,7 @@ use crate::discovery::{SystemAudioEndpoint, SystemAudioEndpointStatus, enrich_en
 use crate::relay_engine::{RelayHandle, RelayRuntimeState, RelaySpec};
 use crate::route::{select_physical_output, select_relay_output, select_relay_source};
 use crate::virtual_endpoint::{
-    VirtualEndpointKind, classify_virtual_endpoint,
+    VirtualEndpointKind, is_virtual_endpoint,
 };
 
 #[path = "relay_control.rs"]
@@ -201,7 +201,7 @@ impl WindowsAudioBackend {
                 .ok_or_else(|| {
                     "The selected physical playback endpoint is no longer available".to_string()
                 })?;
-            if classify_virtual_endpoint(endpoint).is_some() {
+            if is_virtual_endpoint(endpoint) {
                 return Err(
                     "A virtual interception endpoint cannot be used as physical output".into(),
                 );
@@ -240,7 +240,7 @@ impl WindowsAudioBackend {
     pub fn physical_outputs(&self) -> Result<Vec<EndpointDescriptor>, String> {
         Ok(enumerate_render_blocking()?
             .into_iter()
-            .filter(|item| classify_virtual_endpoint(item).is_none())
+            .filter(|item| !is_virtual_endpoint(item))
             .collect())
     }
 

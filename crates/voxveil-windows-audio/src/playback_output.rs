@@ -6,7 +6,7 @@ use wasapi::{
 };
 
 use crate::device::EndpointDescriptor;
-use crate::virtual_endpoint::classify_virtual_endpoint;
+use crate::virtual_endpoint::is_virtual_endpoint;
 
 const MAX_RENDER_FRAMES: usize = 8_192;
 const WASAPI_BUFFER_HNS: i64 = 200_000;
@@ -106,7 +106,7 @@ fn physical_render_device(
     enumerator: &DeviceEnumerator,
     endpoint: &EndpointDescriptor,
 ) -> Result<Device, String> {
-    if classify_virtual_endpoint(endpoint).is_some() {
+    if is_virtual_endpoint(endpoint) {
         return Err("a virtual audio endpoint cannot be used for local file playback".into());
     }
     let collection = enumerator
@@ -127,7 +127,7 @@ fn physical_render_device(
             description: device.get_description().ok(),
             is_default: endpoint.is_default,
         };
-        if classify_virtual_endpoint(&actual).is_some() {
+        if is_virtual_endpoint(&actual) {
             return Err("a virtual audio endpoint cannot be used for local file playback".into());
         }
         return Ok(device);
