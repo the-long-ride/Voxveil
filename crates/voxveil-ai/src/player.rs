@@ -13,7 +13,7 @@ use std::{
 use voxveil_media::MediaDecoder;
 use voxveil_model_api::{SeparationEngine, SeparationError, StemOutput};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AiPlaybackConfig {
     pub model: Model,
     pub directory: PathBuf,

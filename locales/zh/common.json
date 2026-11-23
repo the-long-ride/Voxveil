@@ -1,15 +1,25 @@
 {
+  "aiRelay": {
+    "buffering": "AI缓冲中（约12秒）",
+    "running": "AI中继运行中（约12秒延迟）",
+    "dsp-selected": "已选择Classic DSP，因此系统音频AI已关闭。",
+    "model-unsupported": "系统音频AI需要Spleeter；正在使用DSP。",
+    "unavailable": "AI模型或运行库不可用；正在使用DSP。",
+    "fell-behind": "AI处理未能跟上；正在使用DSP。请重新开启处理以重试。",
+    "failed": "AI处理失败；正在使用DSP。请检查模型及运行库并重新开启处理。",
+    "apo-active": "物理APO正在使用DSP。AI仅用于音频中继。"
+  },
   "aiPlayer": {
     "models": "AI音源分离模型",
     "choose": "使用{{name}}",
     "systemWide": "将AI用于系统音频",
-    "delay": "仅限Spleeter。约有12秒延迟，视频和游戏将音画不同步。此设置为第3步保存，本版本尚未启用。",
+    "delay": "仅限Spleeter。约有12秒延迟，视频和游戏将音画不同步。切换此选项会重启音频中继。",
     "mdxOffline": "部分CPU无法实时运行MDX。播放器会等待更多音频准备完成；系统音频AI需要Spleeter。",
     "notReady": "AI不可用。请安装并验证所选模型及应用自带的ONNX Runtime。",
     "preparing": "正在准备AI…",
     "runtimeMissing": "模型已安装，但无法加载应用自带的推理运行库。",
     "changesStop": "更换引擎或模型会停止播放。请重新打开文件以应用选择。",
-    "playerOnly": "AI目前仅用于应用内播放器。自动模式在就绪时使用AI，否则使用DSP。"
+    "playerOnly": "自动模式在就绪时为文件使用AI，否则使用DSP。系统音频AI需单独启用；物理APO仍使用DSP。"
   },
   "app": {
     "name": "Voxveil"

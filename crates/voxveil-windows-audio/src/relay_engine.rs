@@ -20,13 +20,14 @@ pub(crate) enum RelayRuntimeState {
     Stopped,
     Starting,
     Running,
+    Ai(voxveil_types::SystemAiStatus),
     Faulted(String),
 }
 
 impl RelayRuntimeState {
     #[cfg(test)]
     pub(crate) fn is_running(&self) -> bool {
-        matches!(self, Self::Running)
+        matches!(self, Self::Running | Self::Ai(_))
     }
 }
 
@@ -101,7 +102,7 @@ impl RelayHandle {
             };
             if outcome.is_err() {
                 *state = RelayRuntimeState::Faulted("Windows audio relay worker panicked".into());
-            } else if matches!(*state, RelayRuntimeState::Starting | RelayRuntimeState::Running) {
+            } else if matches!(*state, RelayRuntimeState::Starting | RelayRuntimeState::Running | RelayRuntimeState::Ai(_)) {
                 *state = RelayRuntimeState::Stopped;
             }
         });
@@ -118,14 +119,15 @@ impl RelayHandle {
         spec: RelaySpec,
         vocal_level: u8,
         profile: ClassicSuppressionProfile,
+        ai: crate::RelayAiOptions,
     ) -> Result<Self, String> {
         Self::spawn_with_worker_profile(
             spec,
             vocal_level,
             profile,
-            |spec, level, profile, commands, state| {
+            move |spec, level, profile, commands, state| {
                 let _ = crate::wasapi_relay::run_relay_worker_with_profile(
-                    spec, level, profile, commands, state,
+                    spec, level, profile, ai, commands, state,
                 );
             },
         )

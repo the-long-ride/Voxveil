@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSystemAiStatus } from './useSystemAiStatus';
 import { PREVIEW_STATE, SAFE_NATIVE_STATE } from '../lib/demo-state';
 import { errorMessage } from '../lib/errors';
 import { createVoxveilClient } from '../lib/tauri';
@@ -43,6 +44,7 @@ export function useVoxveilState() {
   const [processingOperationError, setProcessingOperationError] = useState<string | null>(null);
   const [playbackOperationError, setPlaybackOperationError] = useState<string | null>(null);
   const client = useMemo(() => createVoxveilClient(), []);
+  useSystemAiStatus(native, state.masterEnabled || Boolean(state.ai?.systemWide), client, setState);
   const canStartProcessing = canRequestProcessingStart(state);
 
   const refreshSystemAudioEndpoints = useCallback(async () => {

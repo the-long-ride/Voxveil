@@ -5,6 +5,7 @@ import { SegmentedControl } from '../../components/SegmentedControl';
 import type { VoxveilModel } from '../../app/useVoxveilState';
 import type { ProcessingBackendStatus, ProcessingLoad } from '../../lib/types';
 import { SystemAudioEndpoints } from './SystemAudioEndpoints';
+import { SystemAiNotice } from './SystemAiNotice';
 
 const LOAD_KEYS: Record<ProcessingLoad, string> = {
   idle: 'status.idleLoad',
@@ -32,6 +33,7 @@ export function HomeScreen({ model, aiModelReady }: { model: VoxveilModel; aiMod
   const { t } = useTranslation();
   const { state } = model;
   const fileRouteSelected = state.audioRouteChoice === 'owned-file-playback';
+  const aiRelayActive = state.systemAiStatus === 'running' || state.systemAiStatus === 'buffering';
   const showSystemAudio = !fileRouteSelected && (state.backendStatus === 'component-required'
     || state.backendStatus === 'routing-required'
     || state.backendKind !== null
@@ -78,6 +80,7 @@ export function HomeScreen({ model, aiModelReady }: { model: VoxveilModel; aiMod
         <RangeControl id="vocals" label={t('processing.vocals')} value={state.vocalLevel} valueLabel={`${state.vocalLevel}%`} onChange={model.setVocalLevel} />
         <RangeControl id="quality" label={t('processing.quality')} value={state.quality} startLabel={t('processing.lowLatency')} endLabel={t('processing.highQuality')} onChange={model.setQuality} />
       </div>
+      {!fileRouteSelected && state.ai?.systemWide && <SystemAiNotice status={state.systemAiStatus ?? 'off'} />}
 
       <div className="control-grid">
         <SegmentedControl label={t('processing.mode')} value={state.processingMode} onChange={model.setProcessingMode} options={[
@@ -94,7 +97,7 @@ export function HomeScreen({ model, aiModelReady }: { model: VoxveilModel; aiMod
       {!aiModelReady && <p className="privacy-note">{t('aiPlayer.notReady')}</p>}
       <p className="privacy-note">{t('aiPlayer.playerOnly')}</p>
       <div className="status-strip" aria-label={t('status.current')}>
-        <div><span>{t('status.latency')}</span><strong className="mono">~{fileRouteSelected && state.engine !== 'dsp' && aiModelReady ? (state.ai?.model === 'mdx-inst-hq3' ? 5921 : 11958) : state.estimatedLatencyMs} ms</strong></div>
+        <div><span>{t('status.latency')}</span><strong className="mono">~{aiRelayActive && !fileRouteSelected ? 12458 : fileRouteSelected && state.engine !== 'dsp' && aiModelReady ? (state.ai?.model === 'mdx-inst-hq3' ? 5921 : 11958) : state.estimatedLatencyMs} ms</strong></div>
         <div><span>{t('status.load')}</span><strong>{t(loadLabelKey(state.load))}</strong></div>
         <div><span>{t('status.output')}</span><strong>{state.physicalOutput}</strong></div>
       </div>

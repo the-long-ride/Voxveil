@@ -19,6 +19,24 @@ This source tree contains:
 - a render-only first-party Windows virtual-driver source/package boundary derived from a pinned and cryptographically identified Microsoft SysVAD subtree;
 - local/manual-only Windows application + native component staging via `npm run build:windows`.
 
+### AI separation
+
+Spleeter 2-stems FP16 (default, about 40 MB) and UVR MDX Inst HQ3 (optional,
+about 67 MB) are downloaded only with consent; no weights are bundled. Both use
+MIT-licensed weights; retain Deezer/Spleeter and Ultimate Vocal Remover (UVR)
+credits. ONNX Runtime is MIT; full licenses and attribution are in
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+
+Auto uses ready AI for 44.1/48 kHz files, otherwise Classic DSP. System-wide AI
+requires the separate **Use AI for system-wide audio** opt-in and Spleeter, and
+applies to the WASAPI relay, not physical APOs. It adds a fixed model latency plus
+500 ms compute headroom (about 12.5 seconds, plus device/reserve buffering):
+**video and games will be out of sync**. Stems stay separate for live slider
+changes. A missed inference deadline or capture discontinuity is logged and
+crossfades to DSP; toggle processing to retry. Fallbacks go to stderr and a bounded
+`relay-ai.log` in the application log directory. Engine/opt-in changes restart the
+relay. MDX remains a file-playback option because it may not sustain real time.
+
 ### Windows without drivers
 
 - **Local files:** select local file playback and open an audio file in Voxveil. Audio goes directly through Voxveil to your output; no driver or system-wide routing is needed.

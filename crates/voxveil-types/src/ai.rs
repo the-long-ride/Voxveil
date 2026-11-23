@@ -1,4 +1,19 @@
 use crate::ProcessingEngineKind;
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum SystemAiStatus {
+    #[default]
+    Off, Buffering, Running, DspSelected, ModelUnsupported, Unavailable, FellBehind, Failed, ApoActive,
+}
+
+pub fn relay_ai_status(prefs: &AiPreferences, engine: ProcessingEngineKind, ready: bool) -> SystemAiStatus {
+    if !prefs.system_wide { SystemAiStatus::Off }
+    else if engine == ProcessingEngineKind::Dsp { SystemAiStatus::DspSelected }
+    else if prefs.model != AiModel::Spleeter { SystemAiStatus::ModelUnsupported }
+    else if !ready { SystemAiStatus::Unavailable }
+    else { SystemAiStatus::Buffering }
+}
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -50,6 +65,17 @@ pub fn player_uses_ai(engine: ProcessingEngineKind, ready: bool) -> Result<bool,
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn relay_fallback_reasons_are_specific_and_do_not_override_opt_in() {
+        let mut prefs = AiPreferences::default();
+        assert_eq!(relay_ai_status(&prefs, ProcessingEngineKind::Ai, true), SystemAiStatus::Off);
+        prefs.system_wide = true;
+        assert_eq!(relay_ai_status(&prefs, ProcessingEngineKind::Dsp, true), SystemAiStatus::DspSelected);
+        assert_eq!(relay_ai_status(&prefs, ProcessingEngineKind::Auto, false), SystemAiStatus::Unavailable);
+        assert_eq!(relay_ai_status(&prefs, ProcessingEngineKind::Auto, true), SystemAiStatus::Buffering);
+        prefs.model = AiModel::MdxInstHq3;
+        assert_eq!(relay_ai_status(&prefs, ProcessingEngineKind::Ai, true), SystemAiStatus::ModelUnsupported);
+    }
     #[test]
     fn engine_selection_never_silently_falls_back_from_explicit_ai() {
         for ready in [false, true] {

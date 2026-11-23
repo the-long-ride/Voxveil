@@ -97,7 +97,7 @@ pub(crate) fn decide_backend(
     }
 
     match relay_state {
-        Some(RelayRuntimeState::Running) => BackendProbe {
+        Some(RelayRuntimeState::Running | RelayRuntimeState::Ai(_)) => BackendProbe {
             readiness: RelayReadiness::Ready,
             route,
             detail: None,

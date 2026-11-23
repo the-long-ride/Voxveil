@@ -92,6 +92,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             app::commands::get_app_state,
+            app::relay_ai::get_system_ai_status,
             app::audio_routes::set_audio_route,
             app::playback::open_audio_file,
             app::playback::get_playback_state,

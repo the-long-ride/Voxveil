@@ -1,15 +1,25 @@
 {
+  "aiRelay": {
+    "buffering": "Mise en mémoire IA (~12 s)",
+    "running": "Relais IA actif (~12 s de retard)",
+    "dsp-selected": "L’IA système est désactivée car Classic DSP est sélectionné.",
+    "model-unsupported": "L’IA système nécessite Spleeter ; utilisation du DSP.",
+    "unavailable": "Le modèle ou moteur IA est indisponible ; utilisation du DSP.",
+    "fell-behind": "L’IA a pris du retard ; utilisation du DSP. Relancez le traitement pour réessayer.",
+    "failed": "Échec du traitement IA ; utilisation du DSP. Vérifiez le modèle et le moteur, puis relancez le traitement.",
+    "apo-active": "L’APO physique est actif et utilise le DSP. L’IA concerne uniquement le relais."
+  },
   "aiPlayer": {
     "models": "Modèles de séparation IA",
     "choose": "Utiliser {{name}}",
     "systemWide": "Utiliser l’IA pour l’audio du système",
-    "delay": "Spleeter uniquement. Ajoute environ 12 secondes de retard : vidéos et jeux sont désynchronisés. Enregistré pour l’étape 3, pas encore actif.",
+    "delay": "Spleeter uniquement. Ajoute environ 12 secondes de retard : vidéos et jeux sont désynchronisés. Modifier cette option redémarre le relais.",
     "mdxOffline": "MDX peut être plus lent que le temps réel. Le lecteur attend la préparation de la suite ; l’IA système nécessite Spleeter.",
     "notReady": "IA indisponible. Installez et vérifiez le modèle sélectionné et ONNX Runtime fourni avec l’application.",
     "preparing": "Préparation de l’IA…",
     "runtimeMissing": "Le modèle est installé, mais le moteur d’inférence de l’application n’a pas pu être chargé.",
     "changesStop": "Changer de moteur ou de modèle actif arrête la lecture. Rouvrez le fichier pour appliquer ce choix.",
-    "playerOnly": "L’IA s’applique uniquement au lecteur intégré. Auto utilise l’IA si disponible, sinon le DSP."
+    "playerOnly": "Auto utilise l’IA pour les fichiers si disponible, sinon le DSP. L’IA système nécessite une activation distincte ; les APO physiques restent en DSP."
   },
   "app": {
     "name": "Voxveil"

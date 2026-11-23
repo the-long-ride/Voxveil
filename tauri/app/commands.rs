@@ -45,11 +45,13 @@ pub async fn get_app_state(
     let mut current = state.lock()?;
     current.apply_backend(&snapshot);
     current.playback = controller.playback_snapshot();
+    current.system_ai_status = controller.system_ai_status();
     Ok(current.clone())
 }
 
 #[tauri::command]
 pub async fn set_master_enabled(
+    app: AppHandle,
     state: State<'_, AppState>,
     controller: State<'_, ProcessingController>,
     enabled: bool,
@@ -60,11 +62,16 @@ pub async fn set_master_enabled(
     };
     let preflight_snapshot = controller.snapshot();
     validate_master_enable_before_start(route, &preflight_snapshot, enabled)?;
+    if enabled {
+        let current = state.lock()?.clone();
+        super::relay_ai::configure(&app, &controller, &current.ai, current.engine)?;
+    }
     let snapshot = controller.set_enabled(enabled, vocal_level)?;
     validate_master_enable(route, snapshot.status, enabled)?;
     let mut current = state.lock()?;
     current.apply_backend(&snapshot);
     current.master_enabled = enabled;
+    current.system_ai_status = controller.system_ai_status();
     Ok(())
 }
 
@@ -99,8 +106,13 @@ pub async fn set_engine(
                 .to_string(),
         );
     }
-    if state.lock()?.engine != engine {
+    let previous = state.lock()?.clone();
+    if previous.engine != engine {
         controller.stop_owned_playback()?;
+        if let Err(error) = super::relay_ai::configure(&app, &controller, &previous.ai, engine) {
+            let _ = super::relay_ai::configure(&app, &controller, &previous.ai, previous.engine);
+            return Err(error);
+        }
     }
     state.lock()?.engine = engine;
     Ok(())

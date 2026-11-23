@@ -36,6 +36,7 @@ pub struct WindowsAudioBackend {
     relay: Option<RelayHandle>,
     preferred_physical_output_id: Option<String>,
     interception_policy: WindowsInterceptionPolicy,
+    ai_options: crate::RelayAiOptions,
 }
 
 impl WindowsAudioBackend {
@@ -47,6 +48,7 @@ impl WindowsAudioBackend {
             relay: None,
             preferred_physical_output_id: None,
             interception_policy: WindowsInterceptionPolicy::Automatic,
+            ai_options: crate::RelayAiOptions::default(),
         }
     }
 
@@ -123,6 +125,7 @@ impl WindowsAudioBackend {
             spec,
             self.vocal_level,
             self.classic_suppression_profile,
+            self.ai_options.clone(),
         )?;
         self.relay = Some(relay);
 
@@ -134,7 +137,7 @@ impl WindowsAudioBackend {
                 .map(RelayHandle::state)
                 .unwrap_or(RelayRuntimeState::Stopped);
             match state {
-                RelayRuntimeState::Running => {
+                RelayRuntimeState::Running | RelayRuntimeState::Ai(_) => {
                     self.enabled = true;
                     return Ok(self.probe());
                 }
@@ -216,6 +219,23 @@ impl WindowsAudioBackend {
     pub fn set_interception_policy(&mut self, policy: WindowsInterceptionPolicy) -> BackendProbe {
         self.interception_policy = policy;
         self.probe()
+    }
+
+    pub fn configure_ai(&mut self, options: crate::RelayAiOptions) -> Result<BackendProbe, String> {
+        if self.ai_options.update(options, self.enabled && self.relay.is_some()) {
+            self.set_enabled(true, self.vocal_level)
+        } else { Ok(self.probe()) }
+    }
+
+    pub fn system_ai_status(&self) -> voxveil_types::SystemAiStatus {
+        use voxveil_types::SystemAiStatus;
+        match self.relay.as_ref().map(RelayHandle::state) {
+            Some(RelayRuntimeState::Ai(status)) => status,
+            Some(_) => self.ai_options.status,
+            None if self.enabled && self.ai_options.config.is_some() => SystemAiStatus::ApoActive,
+            None if self.ai_options.status == SystemAiStatus::Buffering => SystemAiStatus::Off,
+            None => self.ai_options.status,
+        }
     }
 
     pub fn physical_outputs(&self) -> Result<Vec<EndpointDescriptor>, String> {

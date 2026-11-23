@@ -1,4 +1,4 @@
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, State, Manager};
 
 use super::{catalog, download, dto::AiModelStatusDto, manager::ModelManager, storage};
 
@@ -7,6 +7,13 @@ fn status(app: &AppHandle, model_id: &str) -> Result<AiModelStatusDto, String> {
     let installed =
         super::storage_files::verified(&storage::paths(app, &descriptor)?, &descriptor)?;
     Ok(AiModelStatusDto::from_descriptor(&descriptor, installed))
+}
+
+fn refresh_relay(app: &AppHandle) -> Result<(), String> {
+    let state = app.state::<crate::app::state::AppState>();
+    let current = state.lock()?.clone();
+    crate::app::relay_ai::configure(app, &app.state::<crate::platform::ProcessingController>(), &current.ai, current.engine)?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -39,6 +46,7 @@ pub async fn install_ai_model(
     })
     .await
     .map_err(|_| "AI model download task failed".to_string())??;
+    refresh_relay(&app)?;
     status(&app, &model_id)
 }
 
@@ -62,5 +70,6 @@ pub async fn remove_ai_model(
     })
     .await
     .map_err(|_| "AI model removal task failed".to_string())??;
+    refresh_relay(&app)?;
     status(&app, &model_id)
 }

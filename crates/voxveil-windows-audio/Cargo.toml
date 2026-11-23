@@ -26,3 +26,6 @@ windows = { version = "=0.62.2", features = [
   "Win32_System_SystemInformation",
   "Win32_System_Variant",
 ] }
+
+[dev-dependencies]
+voxveil-model-api = { path = "../voxveil-model-api" }

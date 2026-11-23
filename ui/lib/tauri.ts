@@ -3,6 +3,7 @@ import type {
   AiModelStatus,
   AiModelId,
   AiPreferences,
+  SystemAiStatus,
   AudioRouteChoice,
   AudioPlaybackSnapshot,
   AudioOutput,
@@ -20,6 +21,7 @@ type InvokeFn = <T>(command: string, args?: Record<string, unknown>) => Promise<
 export function createVoxveilClient(call: InvokeFn = invoke) {
   return {
     getState: () => call<VoxveilState>('get_app_state'),
+    getSystemAiStatus: () => call<SystemAiStatus>('get_system_ai_status'),
     setAudioRoute: (route: AudioRouteChoice) => call<VoxveilState>('set_audio_route', { route }),
     openAudioFile: () => call<AudioPlaybackSnapshot>('open_audio_file'),
     getPlaybackState: () => call<AudioPlaybackSnapshot>('get_playback_state'),

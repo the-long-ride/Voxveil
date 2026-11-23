@@ -1,15 +1,25 @@
 {
+  "aiRelay": {
+    "buffering": "AI 버퍼링 중 (약 12초)",
+    "running": "AI 릴레이 작동 중 (약 12초 지연)",
+    "dsp-selected": "Classic DSP가 선택되어 시스템 전체 AI가 꺼져 있습니다.",
+    "model-unsupported": "시스템 전체 AI에는 Spleeter가 필요합니다. DSP를 사용합니다.",
+    "unavailable": "AI 모델 또는 런타임을 사용할 수 없어 DSP를 사용합니다.",
+    "fell-behind": "AI 처리가 늦어져 DSP를 사용합니다. 재시도하려면 처리를 다시 시작하세요.",
+    "failed": "AI 처리에 실패하여 DSP를 사용합니다. 모델과 런타임을 확인하고 처리를 다시 시작하세요.",
+    "apo-active": "물리 APO가 DSP로 작동 중입니다. AI는 릴레이에만 적용됩니다."
+  },
   "aiPlayer": {
     "models": "AI 음원 분리 모델",
     "choose": "{{name}} 사용",
     "systemWide": "시스템 전체 오디오에 AI 사용",
-    "delay": "Spleeter만 지원합니다. 약 12초 지연되어 영상과 게임의 소리가 맞지 않습니다. 3단계용으로 저장되며 이 빌드에서는 아직 작동하지 않습니다.",
+    "delay": "Spleeter만 지원합니다. 약 12초 지연되어 영상과 게임의 소리가 맞지 않습니다. 전환하면 릴레이가 다시 시작됩니다.",
     "mdxOffline": "일부 CPU에서 MDX는 실시간 처리를 따라가지 못합니다. 플레이어가 준비될 때까지 기다립니다. 시스템 전체 AI에는 Spleeter가 필요합니다.",
     "notReady": "AI를 사용할 수 없습니다. 선택한 모델과 앱의 ONNX Runtime을 설치하고 검증하세요.",
     "preparing": "AI 준비 중…",
     "runtimeMissing": "모델은 설치되었지만 앱의 추론 런타임을 불러오지 못했습니다.",
     "changesStop": "엔진이나 활성 모델을 변경하면 재생이 중지됩니다. 적용하려면 파일을 다시 여세요.",
-    "playerOnly": "현재 AI는 앱 내 플레이어에만 적용됩니다. 자동은 준비되면 AI를, 아니면 DSP를 사용합니다."
+    "playerOnly": "자동은 준비되면 파일에 AI를, 아니면 DSP를 사용합니다. 시스템 전체 AI는 별도로 켜야 합니다. 물리 APO는 DSP를 사용합니다."
   },
   "app": {
     "name": "Voxveil"

@@ -1,15 +1,25 @@
 {
+  "aiRelay": {
+    "buffering": "Preparando IA (~12 s)",
+    "running": "Retransmisión IA activa (~12 s de retraso)",
+    "dsp-selected": "La IA del sistema está desactivada porque está seleccionado Classic DSP.",
+    "model-unsupported": "La IA del sistema requiere Spleeter; se usa DSP.",
+    "unavailable": "El modelo o motor de IA no está disponible; se usa DSP.",
+    "fell-behind": "La IA no llegó a tiempo; se usa DSP. Reinicia el procesamiento para reintentar.",
+    "failed": "Falló la IA; se usa DSP. Comprueba el modelo y el motor y reinicia el procesamiento.",
+    "apo-active": "El APO físico está activo y usa DSP. La IA solo se aplica a la retransmisión."
+  },
   "aiPlayer": {
     "models": "Modelos de separación con IA",
     "choose": "Usar {{name}}",
     "systemWide": "Usar IA para el audio del sistema",
-    "delay": "Solo Spleeter. Añade unos 12 segundos de retraso: los vídeos y juegos se desincronizan. Se guarda para el paso 3; aún no está activo.",
+    "delay": "Solo Spleeter. Añade unos 12 segundos de retraso: los vídeos y juegos se desincronizan. Cambiar esta opción reinicia la retransmisión.",
     "mdxOffline": "MDX puede ser más lento que el tiempo real. El reproductor espera a que prepare más audio; la IA del sistema requiere Spleeter.",
     "notReady": "IA no disponible. Instala y verifica el modelo seleccionado y ONNX Runtime incluido con la aplicación.",
     "preparing": "Preparando IA…",
     "runtimeMissing": "El modelo está instalado, pero no se pudo cargar el motor de inferencia de la aplicación.",
     "changesStop": "Cambiar el motor o modelo activo detiene la reproducción. Vuelve a abrir el archivo para aplicar la selección.",
-    "playerOnly": "La IA solo se aplica al reproductor integrado. Auto usa IA si está disponible; de lo contrario, DSP."
+    "playerOnly": "Auto usa IA para archivos si está disponible; si no, DSP. La IA del sistema requiere activación aparte; los APO físicos siguen usando DSP."
   },
   "app": {
     "name": "Voxveil"

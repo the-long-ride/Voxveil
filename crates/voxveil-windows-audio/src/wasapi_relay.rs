@@ -4,15 +4,14 @@ use std::sync::{
 };
 use std::time::Duration;
 
-use voxveil_dsp::SpectralCenterSuppressor;
-use voxveil_types::{ClassicSuppressionProfile, VocalLevel};
+use voxveil_types::{ClassicSuppressionProfile, SystemAiStatus};
 use wasapi::{Device, DeviceEnumerator, Direction, SampleType, StreamMode};
 
 use crate::relay_buffer::{
     CaptureTimeline, DEVICE_BUFFER_MS, FRAME_BYTES, MAX_CAPTURE_FRAMES, RelayBuffer, RenderClock,
 };
 use crate::relay_engine::{RelayCommand, RelayRuntimeState, RelaySpec};
-use crate::sample::process_capture_f32le_stereo;
+use crate::relay_processing::RelayProcessor;
 
 const MAX_PACKETS_PER_TICK: usize = 16;
 
@@ -61,6 +60,7 @@ pub(crate) fn run_relay_worker_with_profile(
     spec: RelaySpec,
     initial_vocal_level: u8,
     initial_profile: ClassicSuppressionProfile,
+    ai: crate::RelayAiOptions,
     control_rx: Receiver<RelayCommand>,
     state: Arc<Mutex<RelayRuntimeState>>,
 ) -> Result<(), String> {
@@ -68,6 +68,7 @@ pub(crate) fn run_relay_worker_with_profile(
         spec,
         initial_vocal_level,
         initial_profile,
+        ai,
         control_rx,
         &state,
     );
@@ -82,6 +83,7 @@ fn run_relay_worker_inner(
     spec: RelaySpec,
     initial_vocal_level: u8,
     initial_profile: ClassicSuppressionProfile,
+    ai: crate::RelayAiOptions,
     control_rx: Receiver<RelayCommand>,
     state: &Arc<Mutex<RelayRuntimeState>>,
 ) -> Result<(), String> {
@@ -148,9 +150,7 @@ fn run_relay_worker_inner(
     let mut timeline = CaptureTimeline::default();
     let mut capture_buffer = vec![0_u8; MAX_CAPTURE_FRAMES * FRAME_BYTES];
     let mut gap_buffer = vec![0_u8; MAX_CAPTURE_FRAMES * FRAME_BYTES];
-    let initial_level =
-        VocalLevel::new(initial_vocal_level.min(100) as f32 / 100.0).map_err(str::to_string)?;
-    let mut processor = SpectralCenterSuppressor::new(sample_rate, initial_level, initial_profile);
+    let mut processor = RelayProcessor::new(sample_rate, initial_vocal_level, initial_profile, ai);
 
     render
         .write_to_device(
@@ -167,15 +167,13 @@ fn run_relay_worker_inner(
         return Err(error.to_string());
     }
 
-    set_state(state, RelayRuntimeState::Running);
+    set_state(state, processor.runtime_state());
 
     let loop_result: Result<(), String> = 'relay: loop {
         loop {
             match control_rx.try_recv() {
                 Ok(RelayCommand::SetVocalLevel(value)) => {
-                    let level =
-                        VocalLevel::new(value.min(100) as f32 / 100.0).map_err(str::to_string)?;
-                    processor.set_vocal_level(level);
+                    processor.set_level(value);
                 }
                 Ok(RelayCommand::SetSuppressionProfile(profile)) => {
                     processor.set_profile(profile);
@@ -225,6 +223,9 @@ fn run_relay_worker_inner(
             );
             if gap != 0 || info.flags.data_discontinuity || info.flags.timestamp_error {
                 queue.reset_drift();
+                if info.flags.timestamp_error || (info.flags.data_discontinuity && gap == 0) {
+                    processor.discontinuity();
+                }
             } else {
                 queue.observe_clocks(info.index, info.timestamp, || render_clock.position());
             }
@@ -235,12 +236,16 @@ fn run_relay_worker_inner(
                     info.flags.silent,
                 ),
             ] {
-                if let Err(error) = process_capture_f32le_stereo(buffer, silent, &mut processor) {
+                if let Err(error) = processor.process(buffer, silent) {
                     break 'relay Err(error.to_string());
                 }
                 queue.push_capture(buffer);
             }
             captured_frames += read_frames;
+        }
+
+        if processor.status != SystemAiStatus::Off {
+            set_state(state, RelayRuntimeState::Ai(processor.status));
         }
 
         let writable = match render_client.get_available_space_in_frames() {

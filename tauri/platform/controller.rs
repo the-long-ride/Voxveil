@@ -2,6 +2,8 @@ use std::sync::Mutex;
 
 #[path = "controller_playback.rs"]
 mod playback;
+#[path = "controller_ai.rs"]
+mod ai;
 
 use voxveil_types::{
     AudioPlaybackSnapshot, AudioPlaybackStatus, ClassicSuppressionProfile, ProcessingBackendStatus,

@@ -4,6 +4,7 @@
 
 mod chunks;
 pub mod player;
+pub mod live;
 mod resample;
 mod runtime;
 mod spectral;
@@ -28,7 +29,7 @@ pub fn runtime_available(library: &Path) -> bool {
         && ort::session::Session::builder().is_ok()
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Model {
     Spleeter,
     MdxInstHq3,

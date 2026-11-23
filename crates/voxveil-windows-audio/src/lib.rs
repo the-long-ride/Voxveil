@@ -8,6 +8,12 @@ mod discovery;
 #[cfg(any(windows, test))]
 mod relay_buffer;
 mod relay_engine;
+mod relay_ai;
+#[cfg(any(windows, test))]
+mod relay_ai_log;
+pub use relay_ai::RelayAiOptions;
+#[cfg(windows)]
+mod relay_processing;
 mod route;
 #[cfg(any(windows, test))]
 mod relay_decision;
