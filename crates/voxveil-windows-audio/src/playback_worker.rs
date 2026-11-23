@@ -11,55 +11,14 @@ use voxveil_audio_core::AudioProcessor;
 use voxveil_dsp::SpectralCenterSuppressor;
 use voxveil_media::{MAX_READ_FRAMES, MediaDecoder};
 use voxveil_types::{ClassicSuppressionProfile, VocalLevel};
-use wasapi::{Device, DeviceEnumerator, Direction, SampleType, StreamMode, WaveFormat};
 
 use crate::device::EndpointDescriptor;
-use crate::virtual_endpoint::classify_virtual_endpoint;
 
+use super::playback_output::{PlaybackOutput, WasapiOutput};
 use super::{
-    MAX_QUEUE_FRAMES, MAX_RENDER_FRAMES, OwnedPlaybackSnapshot, PLAYBACK_DECODE_FRAMES,
-    PlaybackCommand, PlaybackStatus, WASAPI_BUFFER_HNS, set_playback_state,
+    MAX_QUEUE_FRAMES, OwnedPlaybackSnapshot, PLAYBACK_DECODE_FRAMES, PlaybackCommand,
+    PlaybackStatus, set_playback_state,
 };
-fn physical_render_device(
-    enumerator: &DeviceEnumerator,
-    endpoint: &EndpointDescriptor,
-) -> Result<Device, String> {
-    if classify_virtual_endpoint(endpoint).is_some() {
-        return Err("a virtual audio endpoint cannot be used for local file playback".into());
-    }
-    let collection = enumerator
-        .get_device_collection(&Direction::Render)
-        .map_err(|error| error.to_string())?;
-    for device in &collection {
-        let device = device.map_err(|error| error.to_string())?;
-        let id = device.get_id().map_err(|error| error.to_string())?;
-        if id != endpoint.id {
-            continue;
-        }
-        let actual = EndpointDescriptor {
-            id,
-            name: device
-                .get_friendlyname()
-                .map_err(|error| error.to_string())?,
-            interface_name: device.get_interface_friendlyname().ok(),
-            description: device.get_description().ok(),
-            is_default: endpoint.is_default,
-        };
-        if classify_virtual_endpoint(&actual).is_some() {
-            return Err("a virtual audio endpoint cannot be used for local file playback".into());
-        }
-        return Ok(device);
-    }
-    Err("the selected physical playback endpoint is no longer available".into())
-}
-
-struct ComGuard;
-
-impl Drop for ComGuard {
-    fn drop(&mut self) {
-        wasapi::deinitialize();
-    }
-}
 
 pub(super) fn run_playback_worker(
     path: PathBuf,
@@ -69,47 +28,37 @@ pub(super) fn run_playback_worker(
     commands: Receiver<PlaybackCommand>,
     state: Arc<Mutex<OwnedPlaybackSnapshot>>,
 ) -> Result<(), String> {
-    wasapi::initialize_mta()
-        .ok()
-        .map_err(|error| error.to_string())?;
-    let _com = ComGuard;
+    let decoder = MediaDecoder::open(&path).map_err(|error| error.to_string())?;
+    let output = WasapiOutput::open(&endpoint, decoder.info().sample_rate)?;
+    run_playback(
+        decoder,
+        output,
+        initial_vocal_level,
+        initial_profile,
+        commands,
+        state,
+    )
+}
 
-    let mut decoder = MediaDecoder::open(&path).map_err(|error| error.to_string())?;
+fn run_playback(
+    mut decoder: MediaDecoder,
+    mut output: impl PlaybackOutput,
+    initial_vocal_level: u8,
+    initial_profile: ClassicSuppressionProfile,
+    commands: Receiver<PlaybackCommand>,
+    state: Arc<Mutex<OwnedPlaybackSnapshot>>,
+) -> Result<(), String> {
     let info = decoder.info();
-    let enumerator = DeviceEnumerator::new().map_err(|error| error.to_string())?;
-    let device = physical_render_device(&enumerator, &endpoint)?;
-    let format = WaveFormat::new(
-        32,
-        32,
-        &SampleType::Float,
-        info.sample_rate as usize,
-        2,
-        None,
-    );
-    let mut client = device
-        .get_iaudioclient()
-        .map_err(|error| error.to_string())?;
-    let mode = StreamMode::PollingShared {
-        autoconvert: true,
-        buffer_duration_hns: WASAPI_BUFFER_HNS,
-    };
-    client
-        .initialize_client(&format, &Direction::Render, &mode)
-        .map_err(|error| error.to_string())?;
-    let render = client
-        .get_audiorenderclient()
-        .map_err(|error| error.to_string())?;
     let mut processor = new_processor(info.sample_rate, initial_vocal_level, initial_profile)?;
     let mut current_vocal_level = initial_vocal_level;
     let mut current_profile = initial_profile;
     let mut queue = VecDeque::<u8>::with_capacity(MAX_QUEUE_FRAMES * 8);
     let mut pcm = Vec::<f32>::with_capacity(PLAYBACK_DECODE_FRAMES * 2);
-    let mut silence = Vec::<u8>::with_capacity(MAX_RENDER_FRAMES * 8);
-    let mut paused = false;
+    let mut status = PlaybackStatus::Playing;
     let mut source_eof = false;
     let mut tail_flushed = false;
 
-    client.start_stream().map_err(|error| error.to_string())?;
+    output.start()?;
     set_playback_state(&state, |snapshot| {
         snapshot.status = PlaybackStatus::Playing;
         snapshot.sample_rate = Some(info.sample_rate);
@@ -121,43 +70,45 @@ pub(super) fn run_playback_worker(
     let result = (|| -> Result<(), String> {
         'playback: loop {
             loop {
-                match commands.try_recv() {
+                let command = if status == PlaybackStatus::Playing {
+                    commands.try_recv()
+                } else {
+                    commands.recv().map_err(|_| TryRecvError::Disconnected)
+                };
+                match command {
                     Ok(PlaybackCommand::Stop) => break 'playback Ok(()),
-                    Ok(PlaybackCommand::Pause) if !paused => {
-                        client.stop_stream().map_err(|error| error.to_string())?;
-                        paused = true;
-                        set_playback_state(&state, |snapshot| {
-                            snapshot.status = PlaybackStatus::Paused
-                        });
+                    Ok(PlaybackCommand::Pause) if status == PlaybackStatus::Playing => {
+                        output.stop()?;
+                        status = PlaybackStatus::Paused;
+                        set_playback_state(&state, |snapshot| snapshot.status = status);
                     }
-                    Ok(PlaybackCommand::Resume) if paused => {
-                        client.start_stream().map_err(|error| error.to_string())?;
-                        paused = false;
-                        set_playback_state(&state, |snapshot| {
-                            snapshot.status = PlaybackStatus::Playing
-                        });
+                    Ok(PlaybackCommand::Resume) if status == PlaybackStatus::Paused => {
+                        output.start()?;
+                        status = PlaybackStatus::Playing;
+                        set_playback_state(&state, |snapshot| snapshot.status = status);
                     }
                     Ok(PlaybackCommand::Seek(frame)) => {
                         let total = info.total_frames.unwrap_or(frame);
                         let target = frame.min(total);
-                        client.stop_stream().map_err(|error| error.to_string())?;
-                        client.reset_stream().map_err(|error| error.to_string())?;
+                        let resume_after_seek = status != PlaybackStatus::Paused;
+                        if status == PlaybackStatus::Playing {
+                            output.stop()?;
+                            status = PlaybackStatus::Paused;
+                        }
+                        output.reset()?;
                         queue.clear();
                         processor =
                             new_processor(info.sample_rate, current_vocal_level, current_profile)?;
                         let actual = decoder.seek(target).map_err(|error| error.to_string())?;
                         source_eof = false;
                         tail_flushed = false;
-                        if !paused {
-                            client.start_stream().map_err(|error| error.to_string())?;
+                        if resume_after_seek {
+                            output.start()?;
+                            status = PlaybackStatus::Playing;
                         }
                         set_playback_state(&state, |snapshot| {
                             snapshot.position_frames = actual;
-                            snapshot.status = if paused {
-                                PlaybackStatus::Paused
-                            } else {
-                                PlaybackStatus::Playing
-                            };
+                            snapshot.status = status;
                             snapshot.error = None;
                         });
                     }
@@ -171,14 +122,10 @@ pub(super) fn run_playback_worker(
                         current_profile = profile;
                         processor.set_profile(profile);
                     }
-                    Ok(_) | Err(TryRecvError::Empty) => break,
+                    Ok(_) => {}
+                    Err(TryRecvError::Empty) => break,
                     Err(TryRecvError::Disconnected) => break 'playback Ok(()),
                 }
-            }
-
-            if paused {
-                thread::sleep(Duration::from_millis(10));
-                continue;
             }
 
             let queued_frames = queue.len() / 8;
@@ -202,30 +149,7 @@ pub(super) fn run_playback_worker(
                 }
             }
 
-            let available = client
-                .get_available_space_in_frames()
-                .map_err(|error| error.to_string())? as usize;
-            if available > MAX_RENDER_FRAMES {
-                break Err(format!(
-                    "WASAPI requested an unbounded render buffer: {available} frames"
-                ));
-            }
-            let frames_to_write = available.min(queue.len() / 8);
-            if frames_to_write > 0 {
-                render
-                    .write_to_device_from_deque(frames_to_write, &mut queue, None)
-                    .map_err(|error| error.to_string())?;
-            } else if available > 0 && !source_eof {
-                silence.clear();
-                silence.resize(available * 8, 0);
-                render
-                    .write_to_device(available, &silence, None)
-                    .map_err(|error| error.to_string())?;
-            }
-
-            let device_pending = client
-                .get_current_padding()
-                .map_err(|error| error.to_string())? as u64;
+            let device_pending = output.render(&mut queue, source_eof)?;
             let queued_after_write = (queue.len() / 8) as u64;
             let audible_position = decoder
                 .position_frames()
@@ -239,18 +163,24 @@ pub(super) fn run_playback_worker(
             });
 
             if source_eof && queue.is_empty() && device_pending == 0 {
+                output.stop()?;
+                status = PlaybackStatus::Ended;
                 set_playback_state(&state, |snapshot| {
-                    snapshot.status = PlaybackStatus::Ended;
+                    snapshot.status = status;
                     snapshot.position_frames =
                         info.total_frames.unwrap_or(decoder.position_frames());
                 });
-                break 'playback Ok(());
+            } else {
+                thread::sleep(Duration::from_millis(2));
             }
-            thread::sleep(Duration::from_millis(2));
         }
     })();
 
-    let stop_result = client.stop_stream().map_err(|error| error.to_string());
+    let stop_result = if status == PlaybackStatus::Playing {
+        output.stop()
+    } else {
+        Ok(())
+    };
     match (result, stop_result) {
         (Err(error), _) => Err(error),
         (Ok(()), Err(error)) => Err(error),
@@ -288,3 +218,7 @@ pub(super) fn enqueue_processed(queue: &mut VecDeque<u8>, pcm: &[f32]) -> Result
     }
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "playback_worker_tests.rs"]
+mod tests;

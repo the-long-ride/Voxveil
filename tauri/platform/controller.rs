@@ -99,7 +99,7 @@ impl ProcessingController {
             .map_err(|_| "local playback lock is poisoned".to_string())?;
         if matches!(
             playback.snapshot().status,
-            AudioPlaybackStatus::Playing | AudioPlaybackStatus::Paused
+            AudioPlaybackStatus::Playing | AudioPlaybackStatus::Paused | AudioPlaybackStatus::Ended
         ) {
             playback.set_vocal_level(value)?;
         }
@@ -128,7 +128,7 @@ impl ProcessingController {
             .map_err(|_| "local playback lock is poisoned".to_string())?;
         if matches!(
             playback.snapshot().status,
-            AudioPlaybackStatus::Playing | AudioPlaybackStatus::Paused
+            AudioPlaybackStatus::Playing | AudioPlaybackStatus::Paused | AudioPlaybackStatus::Ended
         ) {
             playback.set_profile(profile)?;
         }
@@ -175,6 +175,7 @@ impl ProcessingController {
                 AudioPlaybackStatus::Loading
                     | AudioPlaybackStatus::Playing
                     | AudioPlaybackStatus::Paused
+                    | AudioPlaybackStatus::Ended
             )
         {
             self.stop_owned_playback()?;
