@@ -37,6 +37,12 @@ timestamp-only errors do not disable AI. A missed inference deadline is logged
 and crossfades to DSP; toggle processing to retry. Events go to stderr and a bounded
 `relay-ai.log` in the application log directory. Engine/opt-in changes restart the
 relay. MDX remains a file-playback option because it may not sustain real time.
+MDX measures initial separation throughput and, above roughly RTF 0.9, waits
+upfront for a play-through reserve (10% rate margin plus a chunk/250 ms guard),
+showing an estimated remaining wait. Seeking re-estimates for the remaining
+track. Its unmixed stems use an automatically deleted private temporary disk
+cache, keeping RAM bounded; ensure free disk space for decoded stems (about
+0.77 MB per audio second at 48 kHz). Spleeter keeps its streaming prefetch path.
 
 ### Windows without drivers
 

@@ -3,7 +3,7 @@ use crate::{AiEngine, Model};
 use std::{
     path::PathBuf,
     sync::{
-        Arc,
+        Arc, Mutex,
         atomic::{AtomicBool, Ordering},
         mpsc::{self, Receiver, SyncSender, TrySendError},
     },
@@ -11,7 +11,19 @@ use std::{
     time::Duration,
 };
 use voxveil_media::MediaDecoder;
-use voxveil_model_api::{SeparationEngine, SeparationError, StemOutput};
+use voxveil_model_api::{SeparationEngine, SeparationError};
+
+#[path = "player_cache.rs"]
+mod cache;
+#[path = "player_prefetch.rs"]
+mod prefetch;
+#[path = "player_prepare.rs"]
+mod preparation;
+#[path = "player_temp.rs"]
+mod temporary;
+use preparation::produce;
+#[cfg(test)]
+use voxveil_model_api::StemOutput;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AiPlaybackConfig {
@@ -43,15 +55,19 @@ pub fn mix_sample(vocal: f32, accompaniment: f32, level: u8) -> f32 {
 }
 
 pub struct StemProducer {
-    pub receiver: Receiver<Result<Prepared, String>>,
+    receiver: Receiver<Result<Prepared, String>>,
     cancel: Arc<AtomicBool>,
     paused: Arc<AtomicBool>,
     worker: Option<JoinHandle<()>>,
+    cache: Option<Arc<Mutex<cache::Cache>>>,
 }
 
 impl StemProducer {
     pub fn spawn(path: PathBuf, position: u64, config: AiPlaybackConfig) -> Self {
-        Self::start(move |sender, cancel, paused| {
+        let cache =
+            (config.model == Model::MdxInstHq3).then(|| Arc::new(Mutex::new(cache::Cache::new())));
+        let writer = cache.clone();
+        let mut producer = Self::start(move |sender, cancel, paused| {
             let mut decoder = MediaDecoder::open(&path).map_err(|e| e.to_string())?;
             let actual = decoder.seek(position).map_err(|e| e.to_string())?;
             let mut engine = AiEngine::load(
@@ -62,14 +78,37 @@ impl StemProducer {
             )
             .map_err(|e| format!("AI model could not be loaded: {e:?}"))?;
             send(sender, Ok(Prepared::Position(actual)), cancel, paused)?;
-            produce(
-                &mut engine,
-                |pcm| decoder.read_frames(8192, pcm).map_err(|e| e.to_string()),
-                sender,
-                cancel,
-                paused,
-            )
-        })
+            if let Some(cache) = writer {
+                cache
+                    .lock()
+                    .map_err(|_| "AI cache lock is poisoned")?
+                    .configure(
+                        decoder.info().sample_rate,
+                        decoder
+                            .info()
+                            .total_frames
+                            .map(|total| total.saturating_sub(actual)),
+                        engine.latency_frames(),
+                    );
+                preparation::produce_into(
+                    &mut engine,
+                    |pcm| decoder.read_frames(8192, pcm).map_err(|e| e.to_string()),
+                    &mut cache::Writer(cache),
+                    cancel,
+                    paused,
+                )
+            } else {
+                produce(
+                    &mut engine,
+                    |pcm| decoder.read_frames(8192, pcm).map_err(|e| e.to_string()),
+                    sender,
+                    cancel,
+                    paused,
+                )
+            }
+        });
+        producer.cache = cache;
+        producer
     }
 
     fn start(
@@ -87,7 +126,9 @@ impl StemProducer {
         let c = Arc::clone(&cancel);
         let p = Arc::clone(&paused);
         let worker = thread::spawn(move || {
-            if c.load(Ordering::Acquire) { return; }
+            if c.load(Ordering::Acquire) {
+                return;
+            }
             let result =
                 std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| work(&sender, &c, &p)));
             let error = match result {
@@ -104,6 +145,7 @@ impl StemProducer {
             cancel,
             paused,
             worker: Some(worker),
+            cache: None,
         }
     }
 
@@ -111,11 +153,32 @@ impl StemProducer {
         self.paused.store(paused, Ordering::Release);
     }
 
+    pub fn poll(&mut self) -> Result<Option<Prepared>, String> {
+        match self.receiver.try_recv() {
+            Ok(result) => result.map(Some),
+            Err(_) if self.cache.is_some() => self
+                .cache
+                .as_ref()
+                .unwrap()
+                .lock()
+                .map_err(|_| "AI cache lock is poisoned")?
+                .poll(),
+            Err(mpsc::TryRecvError::Empty) => Ok(None),
+            Err(mpsc::TryRecvError::Disconnected) => {
+                Err("AI preparation ended without a complete tail".into())
+            }
+        }
+    }
+    pub fn preparing_wait_ms(&self) -> Option<u64> {
+        self.cache.as_ref()?.lock().ok()?.wait_ms()
+    }
+
     pub fn stop(&mut self) {
         self.cancel.store(true, Ordering::Release);
         drop(self.worker.take());
         let (_, empty) = mpsc::channel();
         self.receiver = empty;
+        self.cache.take();
     }
 }
 impl Drop for StemProducer {
@@ -152,64 +215,6 @@ fn send(
             Err(TrySendError::Disconnected(_)) => return Err("AI consumer disconnected".into()),
         }
     }
-}
-
-fn produce(
-    engine: &mut dyn FileEngine,
-    mut read: impl FnMut(&mut Vec<f32>) -> Result<usize, String>,
-    sender: &SyncSender<Result<Prepared, String>>,
-    cancel: &AtomicBool,
-    paused: &AtomicBool,
-) -> Result<(), String> {
-    let mut skip = engine.latency_frames() * 2;
-    let mut pcm = Vec::new();
-    loop {
-        wait(cancel, paused)?;
-        let frames = read(&mut pcm)?;
-        let (vocals, accompaniment) = if frames == 0 {
-            engine
-                .drain()
-                .map_err(|e| format!("AI tail failed: {e:?}"))?
-        } else {
-            let mut vocals = vec![0.0; pcm.len()];
-            let mut accompaniment = vocals.clone();
-            let report = engine
-                .process(
-                    &pcm,
-                    &mut StemOutput {
-                        vocals: &mut vocals,
-                        accompaniment: &mut accompaniment,
-                    },
-                )
-                .map_err(|e| format!("AI separation failed: {e:?}"))?;
-            if report.consumed_frames != frames || report.produced_frames != frames {
-                return Err("AI returned an incomplete file block".into());
-            }
-            (vocals, accompaniment)
-        };
-        let drop = skip.min(vocals.len());
-        skip -= drop;
-        if drop < vocals.len() {
-            for (v, a) in vocals[drop..]
-                .chunks(16384)
-                .zip(accompaniment[drop..].chunks(16384))
-            {
-                send(
-                    sender,
-                    Ok(Prepared::Stems {
-                        vocals: v.to_vec(),
-                        accompaniment: a.to_vec(),
-                    }),
-                    cancel,
-                    paused,
-                )?;
-            }
-        }
-        if frames == 0 {
-            break;
-        }
-    }
-    send(sender, Ok(Prepared::End), cancel, paused)
 }
 
 #[cfg(test)]

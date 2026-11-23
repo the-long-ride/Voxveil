@@ -17,6 +17,7 @@
     "mdxOffline": "部分CPU无法实时运行MDX。播放器会等待更多音频准备完成；系统音频AI需要Spleeter。",
     "notReady": "AI不可用。请安装并验证所选模型及应用自带的ONNX Runtime。",
     "preparing": "正在准备AI…",
+    "preparingWait": "正在准备AI…预计还需{{seconds}}秒",
     "runtimeMissing": "模型已安装，但无法加载应用自带的推理运行库。",
     "changesStop": "更换引擎或模型会停止播放。请重新打开文件以应用选择。",
     "playerOnly": "自动模式在就绪时为文件使用AI，否则使用DSP。系统音频AI需单独启用；物理APO仍使用DSP。"

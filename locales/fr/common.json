@@ -17,6 +17,7 @@
     "mdxOffline": "MDX peut être plus lent que le temps réel. Le lecteur attend la préparation de la suite ; l’IA système nécessite Spleeter.",
     "notReady": "IA indisponible. Installez et vérifiez le modèle sélectionné et ONNX Runtime fourni avec l’application.",
     "preparing": "Préparation de l’IA…",
+    "preparingWait": "Préparation de l’IA… environ {{seconds}} s restantes",
     "runtimeMissing": "Le modèle est installé, mais le moteur d’inférence de l’application n’a pas pu être chargé.",
     "changesStop": "Changer de moteur ou de modèle actif arrête la lecture. Rouvrez le fichier pour appliquer ce choix.",
     "playerOnly": "Auto utilise l’IA pour les fichiers si disponible, sinon le DSP. L’IA système nécessite une activation distincte ; les APO physiques restent en DSP."

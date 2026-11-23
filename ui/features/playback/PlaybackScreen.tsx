@@ -67,7 +67,9 @@ export function PlaybackScreen({
       />
 
       <div className="player-track" aria-live="polite">
-        <span className="meta">{t(status === 'buffering' ? 'aiPlayer.preparing' : `playback.status.${status}`)}</span>
+        <span className="meta">{status === 'buffering' && playback.preparingWaitMs != null
+          ? t('aiPlayer.preparingWait', { seconds: Math.max(1, Math.ceil(playback.preparingWaitMs / 1000)) })
+          : t(status === 'buffering' ? 'aiPlayer.preparing' : `playback.status.${status}`)}</span>
         <strong>{playback.fileName ?? t('playback.noFile')}</strong>
         <span>{outputName ?? t('playback.noOutput')}</span>
       </div>

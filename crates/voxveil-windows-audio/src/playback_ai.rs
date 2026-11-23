@@ -36,6 +36,7 @@ pub(super) fn run(
         s.sample_rate = Some(info.sample_rate);
         s.total_frames = info.total_frames;
         s.error = None;
+        s.preparing_wait_ms = None;
     });
     let result = (|| -> Result<(), String> {
         loop {
@@ -71,6 +72,7 @@ pub(super) fn run(
                         }
                         output.reset()?;
                         set_playback_state(&state, |s| {
+                            s.preparing_wait_ms = None;
                             s.status = if paused {
                                 PlaybackStatus::Paused
                             } else {
@@ -93,28 +95,24 @@ pub(super) fn run(
             }
             if !paused {
                 while stems.len() < 16384 {
-                    let Some(p) = producer.as_ref() else {
+                    let Some(p) = producer.as_mut() else {
                         break;
                     };
-                    match p.receiver.try_recv() {
-                        Ok(Ok(Prepared::Position(actual))) => position = actual,
-                        Ok(Ok(Prepared::Stems {
+                    match p.poll()? {
+                        Some(Prepared::Position(actual)) => position = actual,
+                        Some(Prepared::Stems {
                             vocals,
                             accompaniment,
-                        })) => {
+                        }) => {
                             stems
                                 .extend(vocals.into_iter().zip(accompaniment).map(|(v, a)| [v, a]));
                         }
-                        Ok(Ok(Prepared::End)) => {
+                        Some(Prepared::End) => {
                             eof = true;
                             producer.take();
                             break;
                         }
-                        Ok(Err(error)) => return Err(error),
-                        Err(TryRecvError::Empty) => break,
-                        Err(TryRecvError::Disconnected) => {
-                            return Err("AI preparation ended without a complete tail".into());
-                        }
+                        None => break,
                     }
                 }
                 if !stems.is_empty() {
@@ -134,6 +132,7 @@ pub(super) fn run(
                     }
                     set_playback_state(&state, |s| {
                         s.status = PlaybackStatus::Playing;
+                        s.preparing_wait_ms = None;
                         s.position_frames = position + submitted.saturating_sub(pending);
                     });
                 } else if eof {
@@ -148,7 +147,10 @@ pub(super) fn run(
                             s.position_frames = info.total_frames.unwrap_or(position + submitted);
                         });
                     } else {
-                        if !running { output.start()?; running = true; }
+                        if !running {
+                            output.start()?;
+                            running = true;
+                        }
                         set_playback_state(&state, |s| {
                             s.status = PlaybackStatus::Playing;
                             s.position_frames = position + submitted.saturating_sub(pending);
@@ -159,7 +161,11 @@ pub(super) fn run(
                         output.stop()?;
                         running = false;
                     }
-                    set_playback_state(&state, |s| s.status = PlaybackStatus::Buffering);
+                    let wait_ms = producer.as_ref().and_then(StemProducer::preparing_wait_ms);
+                    set_playback_state(&state, |s| {
+                        s.status = PlaybackStatus::Buffering;
+                        s.preparing_wait_ms = wait_ms;
+                    });
                 }
             }
             thread::sleep(Duration::from_millis(2));

@@ -44,6 +44,10 @@ function renderPlayer(status: AudioPlaybackSnapshot['status'], overrides: Partia
 }
 
 describe('PlaybackScreen', () => {
+  it('shows the estimated upfront wait for slow AI preparation', () => {
+    renderPlayer('buffering', { playback: { ...playback('buffering'), preparingWaitMs: 10450 } });
+    expect(screen.getByText('Preparing AI… about 11 s remaining')).toBeInTheDocument();
+  });
   it('shows AI buffering while keeping pause, stop and seek available', () => {
     renderPlayer('buffering');
     expect(screen.getByText('Preparing AI…')).toBeInTheDocument();

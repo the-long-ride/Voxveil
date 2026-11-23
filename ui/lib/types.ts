@@ -36,6 +36,7 @@ export interface AudioPlaybackSnapshot {
   positionFrames: number;
   totalFrames: number | null;
   error: string | null;
+  preparingWaitMs?: number | null;
 }
 
 export interface SystemAudioEndpoint {

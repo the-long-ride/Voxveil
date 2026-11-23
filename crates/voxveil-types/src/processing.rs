@@ -24,6 +24,8 @@ pub struct AudioPlaybackSnapshot {
     pub position_frames: u64,
     pub total_frames: Option<u64>,
     pub error: Option<String>,
+    #[serde(default)]
+    pub preparing_wait_ms: Option<u64>,
 }
 
 impl Default for AudioPlaybackSnapshot {
@@ -37,6 +39,7 @@ impl Default for AudioPlaybackSnapshot {
             position_frames: 0,
             total_frames: None,
             error: None,
+            preparing_wait_ms: None,
         }
     }
 }

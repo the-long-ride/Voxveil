@@ -17,6 +17,7 @@
     "mdxOffline": "MDX có thể không xử lý kịp thời gian thực. Trình phát sẽ chờ chuẩn bị thêm âm thanh; AI toàn hệ thống cần Spleeter.",
     "notReady": "AI chưa sẵn sàng. Hãy cài và xác minh mô hình đã chọn cùng ONNX Runtime đi kèm ứng dụng.",
     "preparing": "Đang chuẩn bị AI…",
+    "preparingWait": "Đang chuẩn bị AI… còn khoảng {{seconds}} giây",
     "runtimeMissing": "Đã cài mô hình nhưng không tải được bộ suy luận đi kèm ứng dụng.",
     "changesStop": "Đổi bộ xử lý hoặc mô hình sẽ dừng phát. Mở lại tệp để áp dụng lựa chọn mới.",
     "playerOnly": "Tự động dùng AI cho tệp khi sẵn sàng, nếu không dùng DSP. AI toàn hệ thống cần bật riêng; APO vật lý vẫn dùng DSP."
