@@ -29,14 +29,53 @@ fn render_reserve_covers_a_late_capture_poll_and_batched_catchup() {
     padding -= 576;
     submit(&mut buffer, &mut padding, 0);
     assert_eq!(padding, buffer.render_capacity);
-    assert_eq!(buffer.queued_frames(), 192);
+    assert_eq!(buffer.queued_frames(), buffer.reserve - 576);
 
     padding -= 480;
     buffer.push_capture(&packet);
     buffer.push_capture(&packet);
     submit(&mut buffer, &mut padding, 960);
     assert_eq!(padding, buffer.render_capacity);
-    assert_eq!(buffer.queued_frames(), 672);
+    assert_eq!(buffer.queued_frames(), buffer.reserve - 96);
+}
+
+#[test]
+fn render_stays_fed_through_logged_worker_stall_and_capture_hole() {
+    let rate = 48_000;
+    let period = 480;
+    let render_capacity = rate * DEVICE_BUFFER_MS / 1_000;
+    let mut buffer = RelayBuffer::new(render_capacity, rate as u32);
+    let mut padding = render_capacity;
+    buffer.bytes.iter_mut().for_each(|byte| *byte = 1);
+
+    // Relay-02: no write for 86.56 ms. Only device padding can play while the worker is stalled.
+    let stalled_frames = (86_560 * rate).div_ceil(1_000_000);
+    let consumed = stalled_frames.div_ceil(period) * period;
+    assert!(padding > consumed, "device ran dry during the stall");
+    padding -= consumed;
+
+    // Relay-09: the next source packet exposed a 2,304-frame hole. Stress the reserve by
+    // combining the two extremes and giving capture a whole packet period to resume.
+    let mut timeline = CaptureTimeline::default();
+    assert_eq!(timeline.missing_frames(149_760, 96, true, false), 0);
+    let missing = 2_304_usize;
+    for _ in 0..missing.div_ceil(period) {
+        submit(&mut buffer, &mut padding, 0);
+        assert!(padding > period, "render ran dry before the hole was known");
+        padding -= period;
+    }
+    let gap = timeline.missing_frames(152_160, period, true, false);
+    assert_eq!(gap, missing);
+    let total = padding + buffer.queued_frames();
+    buffer.push_capture(&vec![0; gap * FRAME_BYTES]);
+    buffer.push_capture(&[2; 480 * FRAME_BYTES]);
+    assert!(
+        buffer.bytes.iter().copied().eq((0..gap * FRAME_BYTES)
+            .map(|_| 0)
+            .chain([2; 480 * FRAME_BYTES]))
+    );
+    submit(&mut buffer, &mut padding, period);
+    assert_eq!(padding + buffer.queued_frames(), total + gap + period);
 }
 
 #[test]
@@ -48,9 +87,11 @@ fn complete_underrun_rebuilds_the_reserve_without_discarding_audio() {
 
     buffer.balance(0, 3);
 
-    assert_eq!(buffer.queued_frames(), 12);
-    assert!(buffer.bytes.range(..9 * FRAME_BYTES).all(|byte| *byte == 0));
-    assert!(buffer.bytes.range(9 * FRAME_BYTES..).copied().eq(packet));
+    let target = buffer.render_capacity + buffer.reserve;
+    let silence_bytes = (target - 3) * FRAME_BYTES;
+    assert_eq!(buffer.queued_frames(), target);
+    assert!(buffer.bytes.range(..silence_bytes).all(|byte| *byte == 0));
+    assert!(buffer.bytes.range(silence_bytes..).copied().eq(packet));
 }
 
 #[test]
@@ -74,6 +115,7 @@ fn clock_drift_keeps_the_fifo_in_a_bounded_band_in_both_directions() {
     for drift_frames in [-1, 1] {
         let mut buffer = RelayBuffer::new(1_440, 48_000);
         let mut padding = buffer.render_capacity;
+        let target = padding + buffer.reserve;
         let mut correction = 0;
         for tick in 1..=8_000 {
             let render_per_tick =
@@ -85,7 +127,7 @@ fn clock_drift_keeps_the_fifo_in_a_bounded_band_in_both_directions() {
             submit(&mut buffer, &mut padding, 480);
             let total = padding + buffer.queued_frames();
             correction += total as isize - before_balance as isize;
-            assert!((1_440..=2_880).contains(&total), "tick {tick}: {total}");
+            assert!(total.abs_diff(target) <= 720, "tick {tick}: {total}");
         }
         assert_eq!(correction.signum(), drift_frames);
     }
@@ -186,7 +228,7 @@ fn sustained_overrun_drops_old_whole_frames_before_capacity_growth() {
     let newer = [2; MAX_CAPTURE_FRAMES * FRAME_BYTES];
     buffer.push_capture(&older);
     buffer.push_capture(&newer);
-    assert_eq!(buffer.queued_frames(), MAX_QUEUE_FRAMES);
+    assert_eq!(buffer.queued_frames(), MIN_QUEUE_LIMIT_FRAMES);
     assert_eq!(buffer.bytes.capacity(), capacity);
     assert!(
         buffer

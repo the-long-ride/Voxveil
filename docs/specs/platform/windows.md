@@ -52,9 +52,9 @@ The physical destination is selected by stable endpoint ID. Known virtual endpoi
 
 ### Relay buffering
 
-- The worker requests a 30 ms WASAPI render buffer and primes the actual buffer with silence before starting it. A bounded software FIFO adds a reserve of about half the render capacity, capped at 2,048 frames. The worker drains capture packets in batches and rebuilds the reserve if rendering fully underruns and resumes with too little audio.
+- The worker requests 100 ms WASAPI capture and render buffers and primes the actual render buffer with silence before starting it. A bounded software FIFO adds a 64 ms reserve to bridge capture holes while waiting for the next packet. The worker drains capture packets in batches and rebuilds the reserve if rendering fully underruns and resumes with too little audio.
 - Reliable capture positions determine the length of a hole, whether or not WASAPI flags a discontinuity. Holes up to 4,096 frames are fed through DSP as silence; a flag alone does not supply a length, and unreliable positions or larger jumps rebase tracking without guessing.
-- The worker detects sustained changes in averaged render padding plus queued audio across two-second capture windows. It uses a deadband and hysteresis before inserting or removing interpolated stereo frames. At the 8,192-frame FIFO limit it drops the oldest whole frames to make room, rather than growing the queue or stopping playback.
+- The worker detects sustained changes in averaged render padding plus queued audio across two-second capture windows. It uses a deadband and hysteresis before inserting or removing interpolated stereo frames. The FIFO limit is the render capacity plus the reserve and one maximum-sized capture packet, or 8,192 frames if larger. At the limit the worker drops the oldest whole frames to make room.
 
 ## Readiness contract
 

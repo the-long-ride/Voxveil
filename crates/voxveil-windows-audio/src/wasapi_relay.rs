@@ -8,7 +8,9 @@ use voxveil_dsp::SpectralCenterSuppressor;
 use voxveil_types::{ClassicSuppressionProfile, VocalLevel};
 use wasapi::{Device, DeviceEnumerator, Direction, SampleType, StreamMode};
 
-use crate::relay_buffer::{CaptureTimeline, FRAME_BYTES, MAX_CAPTURE_FRAMES, RelayBuffer};
+use crate::relay_buffer::{
+    CaptureTimeline, DEVICE_BUFFER_MS, FRAME_BYTES, MAX_CAPTURE_FRAMES, RelayBuffer,
+};
 use crate::relay_engine::{RelayCommand, RelayRuntimeState, RelaySpec};
 use crate::sample::process_capture_f32le_stereo;
 
@@ -115,7 +117,7 @@ fn run_relay_worker_inner(
 
     let capture_mode = StreamMode::PollingShared {
         autoconvert: false,
-        buffer_duration_hns: 200_000,
+        buffer_duration_hns: DEVICE_BUFFER_MS as i64 * 10_000,
     };
     capture_client
         .initialize_client(&source_format, &Direction::Capture, &capture_mode)
@@ -129,7 +131,7 @@ fn run_relay_worker_inner(
         .map_err(|error| error.to_string())?;
     let render_mode = StreamMode::PollingShared {
         autoconvert: true,
-        buffer_duration_hns: 300_000,
+        buffer_duration_hns: DEVICE_BUFFER_MS as i64 * 10_000,
     };
     render_client
         .initialize_client(&source_format, &Direction::Render, &render_mode)
