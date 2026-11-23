@@ -42,8 +42,8 @@ export function PlaybackScreen({
   const duration = totalFrames ?? 0;
   const seekPercent = duration > 0 ? Math.min(100, (positionFrames / duration) * 100) : 0;
   const sliderValue = seekDraft ?? seekPercent;
-  const isActive = status === 'playing' || status === 'paused';
-  const canSeek = duration > 0 && sampleRate !== null && (isActive || status === 'ended');
+  const canStop = status === 'playing' || status === 'paused' || status === 'ended';
+  const canSeek = duration > 0 && sampleRate !== null && canStop;
   const error = operationError ?? playback.error;
   const outputName = playback.outputName ?? (selectedOutputId
     ? outputs.find((output) => output.endpointId === selectedOutputId)?.displayName ?? selectedOutputName
@@ -81,7 +81,7 @@ export function PlaybackScreen({
             {t('playback.resume')}
           </button>
         )}
-        <button className="action-button is-subtle" type="button" onClick={() => void onStop()} disabled={!isActive}>
+        <button className="action-button is-subtle" type="button" onClick={() => void onStop()} disabled={!canStop}>
           {t('playback.stop')}
         </button>
       </div>
