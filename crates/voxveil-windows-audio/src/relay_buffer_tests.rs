@@ -16,7 +16,7 @@ fn stereo_frame(left: f32, right: f32) -> [u8; FRAME_BYTES] {
 
 #[test]
 fn render_reserve_covers_a_late_capture_poll_and_batched_catchup() {
-    let mut buffer = RelayBuffer::new(1_536);
+    let mut buffer = RelayBuffer::new(1_536, 48_000);
     let mut padding = buffer.render_capacity;
     let packet = [1; 480 * FRAME_BYTES];
 
@@ -36,12 +36,12 @@ fn render_reserve_covers_a_late_capture_poll_and_batched_catchup() {
     buffer.push_capture(&packet);
     submit(&mut buffer, &mut padding, 960);
     assert_eq!(padding, buffer.render_capacity);
-    assert_eq!(buffer.queued_frames(), 673);
+    assert_eq!(buffer.queued_frames(), 672);
 }
 
 #[test]
 fn complete_underrun_rebuilds_the_reserve_without_discarding_audio() {
-    let mut buffer = RelayBuffer::new(8);
+    let mut buffer = RelayBuffer::new(8, 48_000);
     buffer.render_queue().clear();
     let packet = [1; 3 * FRAME_BYTES];
     buffer.push_capture(&packet);
@@ -70,25 +70,30 @@ fn capture_positions_recover_only_known_missing_frames() {
 
 #[test]
 fn clock_drift_keeps_the_fifo_in_a_bounded_band_in_both_directions() {
-    let packet = [0; 48 * FRAME_BYTES];
-    for render_per_tick in [47, 49] {
-        let mut buffer = RelayBuffer::new(154);
+    let packet = [0; 480 * FRAME_BYTES];
+    for drift_frames in [-1, 1] {
+        let mut buffer = RelayBuffer::new(1_440, 48_000);
         let mut padding = buffer.render_capacity;
-        for tick in 0..1_000 {
+        let mut correction = 0;
+        for tick in 1..=8_000 {
+            let render_per_tick =
+                480_usize.saturating_add_signed(if tick % 10 == 0 { drift_frames } else { 0 });
             assert!(padding >= render_per_tick, "underrun at tick {tick}");
             padding -= render_per_tick;
             buffer.push_capture(&packet);
-            submit(&mut buffer, &mut padding, 48);
+            let before_balance = padding + buffer.queued_frames();
+            submit(&mut buffer, &mut padding, 480);
             let total = padding + buffer.queued_frames();
-            // The low watermark corrects one frame after crossing the band.
-            assert!((153..=308).contains(&total), "tick {tick}: {total}");
+            correction += total as isize - before_balance as isize;
+            assert!((1_440..=2_880).contains(&total), "tick {tick}: {total}");
         }
+        assert_eq!(correction.signum(), drift_frames);
     }
 }
 
 #[test]
 fn faster_render_clock_preserves_reserve_for_late_capture() {
-    let mut buffer = RelayBuffer::new(1_536);
+    let mut buffer = RelayBuffer::new(1_536, 48_000);
     let mut padding = buffer.render_capacity;
     let packet = [0; 480 * FRAME_BYTES];
 
@@ -110,22 +115,59 @@ fn faster_render_clock_preserves_reserve_for_late_capture() {
         padding -= 480;
         submit(&mut buffer, &mut padding, 0);
     }
-    assert_eq!(reserve_after_drift, buffer.reserve);
+    assert!(reserve_after_drift >= buffer.reserve - 480);
+}
+
+#[test]
+fn rate_matched_vac_bursts_and_packet_phase_shift_never_splice() {
+    let mut buffer = RelayBuffer::new(1_440, 48_000);
+    let mut padding = buffer.render_capacity;
+    let packet = [0; 480 * FRAME_BYTES];
+
+    // Relay-07 had 1,680 frames at capture polls before falling to a 1,200-frame plateau.
+    buffer.render_queue().truncate(240 * FRAME_BYTES);
+    let mut process = |render_frames: usize, capture_packets: usize| {
+        padding -= render_frames;
+        for _ in 0..capture_packets {
+            buffer.push_capture(&packet);
+        }
+        let total = padding + buffer.queued_frames();
+        submit(&mut buffer, &mut padding, capture_packets * 480);
+        assert_eq!(
+            padding + buffer.queued_frames(),
+            total,
+            "spliced at fill {total}"
+        );
+    };
+    for tick in 0..2_000 {
+        if tick == 1_334 {
+            process(480, 0);
+        }
+        if tick % 97 == 0 {
+            // The relay-06/08 traces also had occasional one-packet positive excursions.
+            process(0, 1);
+            process(960, 1);
+        } else {
+            process(480, 1);
+        }
+    }
+    process(0, 1);
+    assert_eq!(padding + buffer.queued_frames(), 1_680);
 }
 
 #[test]
 fn drift_adjustment_interpolates_complete_stereo_frames() {
-    let mut buffer = RelayBuffer::new(8);
+    let mut buffer = RelayBuffer::new(8, 48_000);
     buffer.render_queue().clear();
     let a = stereo_frame(0.25, -0.75);
     let midpoint = stereo_frame(0.5, -0.5);
     let b = stereo_frame(0.75, -0.25);
     buffer.push_capture(&[a, b].concat());
-    buffer.balance(1, 2);
+    buffer.splice_tail(true);
     assert!(buffer.bytes.iter().copied().eq([a, midpoint, b].concat()));
 
     buffer.push_capture(&[a, b].repeat(3).concat());
-    buffer.balance(8, 6);
+    buffer.splice_tail(false);
     let start = buffer.bytes.len() - 2 * FRAME_BYTES;
     assert!(
         buffer
@@ -138,7 +180,7 @@ fn drift_adjustment_interpolates_complete_stereo_frames() {
 
 #[test]
 fn sustained_overrun_drops_old_whole_frames_before_capacity_growth() {
-    let mut buffer = RelayBuffer::new(16);
+    let mut buffer = RelayBuffer::new(16, 48_000);
     let capacity = buffer.bytes.capacity();
     let older = [1; MAX_CAPTURE_FRAMES * FRAME_BYTES];
     let newer = [2; MAX_CAPTURE_FRAMES * FRAME_BYTES];

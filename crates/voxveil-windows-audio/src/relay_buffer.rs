@@ -43,10 +43,12 @@ pub(crate) struct RelayBuffer {
     bytes: VecDeque<u8>,
     render_capacity: usize,
     reserve: usize,
+    sample_rate: usize,
+    drift: DriftTracker,
 }
 
 impl RelayBuffer {
-    pub(crate) fn new(render_capacity: usize) -> Self {
+    pub(crate) fn new(render_capacity: usize, sample_rate: u32) -> Self {
         let reserve = (render_capacity / 2).clamp(1, MAX_QUEUE_FRAMES / 4);
         let mut bytes = VecDeque::with_capacity(MAX_QUEUE_FRAMES * FRAME_BYTES);
         bytes.resize(reserve * FRAME_BYTES, 0);
@@ -54,6 +56,8 @@ impl RelayBuffer {
             bytes,
             render_capacity,
             reserve,
+            sample_rate: sample_rate as usize,
+            drift: DriftTracker::default(),
         }
     }
 
@@ -70,11 +74,21 @@ impl RelayBuffer {
         debug_assert!(packet.len() <= MAX_CAPTURE_FRAMES * FRAME_BYTES);
         let overflow =
             (self.bytes.len() + packet.len()).saturating_sub(MAX_QUEUE_FRAMES * FRAME_BYTES);
+        if overflow != 0 {
+            self.reset_drift();
+        }
         self.bytes.drain(..overflow);
         self.bytes.extend(packet);
     }
 
+    pub(crate) fn reset_drift(&mut self) {
+        self.drift = DriftTracker::default();
+    }
+
     pub(crate) fn balance(&mut self, padding: usize, captured_frames: usize) {
+        if padding == 0 {
+            self.reset_drift();
+        }
         if captured_frames == 0 {
             return;
         }
@@ -93,10 +107,16 @@ impl RelayBuffer {
             return;
         }
         let total = queued + padding;
-        if total < self.render_capacity + self.reserve && queued < MAX_QUEUE_FRAMES {
-            self.splice_tail(true);
-        } else if total > self.render_capacity + self.reserve * 2 {
-            self.splice_tail(false);
+        let deadband = (self.sample_rate * 12 / 1_000)
+            .min(self.reserve * 3 / 4)
+            .max(1);
+        match self
+            .drift
+            .observe(total, captured_frames, self.sample_rate, deadband)
+        {
+            1 if queued < MAX_QUEUE_FRAMES => self.splice_tail(true),
+            -1 => self.splice_tail(false),
+            _ => {}
         }
     }
 
@@ -122,6 +142,71 @@ impl RelayBuffer {
         self.bytes.extend(midpoint);
         if insert {
             self.bytes.extend(b);
+        }
+    }
+}
+
+#[derive(Default)]
+struct DriftTracker {
+    weighted_total: u64,
+    frames: usize,
+    baseline: Option<f64>,
+    previous_average: f64,
+    trend: i8,
+    adjustment: i8,
+}
+
+impl DriftTracker {
+    fn observe(&mut self, total: usize, frames: usize, sample_rate: usize, deadband: usize) -> i8 {
+        self.weighted_total += total as u64 * frames as u64;
+        self.frames += frames;
+        if self.frames >= sample_rate * 2 {
+            let average = self.weighted_total as f64 / self.frames as f64;
+            self.frames = 0;
+            self.weighted_total = 0;
+
+            if self.adjustment == 0
+                && (average - self.previous_average).abs() > sample_rate as f64 / 200.0
+            {
+                // A step of more than 5 ms in a window is a new occupancy baseline, not drift.
+                self.baseline = Some(average);
+                self.trend = 0;
+            } else if let Some(baseline) = self.baseline {
+                let step = match average.total_cmp(&self.previous_average) {
+                    std::cmp::Ordering::Less => -1,
+                    std::cmp::Ordering::Equal => 0,
+                    std::cmp::Ordering::Greater => 1,
+                };
+                self.trend = if step == self.trend.signum() {
+                    self.trend.saturating_add(step)
+                } else {
+                    step
+                };
+                let error = average - baseline;
+                if self.adjustment != 0 {
+                    if error * f64::from(self.adjustment) >= -(deadband as f64 / 4.0) {
+                        self.adjustment = 0;
+                        self.trend = 0;
+                    }
+                } else if error.abs() > deadband as f64
+                    && error * f64::from(self.trend) > 0.0
+                    && self.trend.unsigned_abs() >= 2
+                {
+                    self.adjustment = -self.trend.signum();
+                }
+            } else {
+                self.baseline = Some(average);
+            }
+            self.previous_average = average;
+        }
+
+        let Some(baseline) = self.baseline else {
+            return 0;
+        };
+        if (total as f64 - baseline) * f64::from(self.adjustment) < 0.0 {
+            self.adjustment
+        } else {
+            0
         }
     }
 }
