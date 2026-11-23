@@ -2,6 +2,8 @@ use crate::{Model, spectral::Spectral};
 use ort::{session::Session, value::Tensor};
 use std::path::Path;
 use voxveil_model_api::SeparationError;
+#[path = "model_files.rs"]
+mod model_files;
 
 pub(crate) struct OnnxModel {
     model: Model,
@@ -14,26 +16,21 @@ impl OnnxModel {
         if !library.is_absolute() || !library.is_file() {
             return Err(SeparationError::ModelUnavailable);
         }
+        let verified = model_files::read_verified(model, directory)?;
         ort::init_from(library)
             .map_err(|_| SeparationError::ModelUnavailable)?
             .commit();
-        let (files, spectral) = match model {
-            Model::Spleeter => (
-                vec!["vocals.fp16.onnx", "accompaniment.fp16.onnx"],
-                Spectral::new(4096, 512, 1024, false),
-            ),
-            Model::MdxInstHq3 => (
-                vec!["mdx-inst-hq3.onnx"],
-                Spectral::new(6144, 256, 3072, true),
-            ),
+        let spectral = match model {
+            Model::Spleeter => Spectral::new(4096, 512, 1024, false),
+            Model::MdxInstHq3 => Spectral::new(6144, 256, 3072, true),
         };
         let mut sessions = Vec::new();
-        for file in files {
+        for bytes in verified {
             sessions.push(
                 Session::builder()
                     .and_then(|builder| builder.with_intra_threads(4))
                     .and_then(|builder| builder.with_inter_threads(1))
-                    .and_then(|builder| builder.commit_from_file(directory.join(file)))
+                    .and_then(|builder| builder.commit_from_memory(&bytes))
                     .map_err(|_| SeparationError::ModelUnavailable)?,
             );
         }
