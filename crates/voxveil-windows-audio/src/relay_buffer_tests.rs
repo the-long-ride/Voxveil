@@ -96,6 +96,42 @@ fn complete_underrun_rebuilds_the_reserve_without_discarding_audio() {
 }
 
 #[test]
+fn recovery_restores_reserve_when_capture_batch_already_fills_device() {
+    let period = 480;
+    let mut buffer = RelayBuffer::new(4_800, 48_000);
+    let mut padding = 0;
+    let packet = [1; 480 * FRAME_BYTES];
+    buffer.render_queue().clear();
+    for _ in 0..buffer.render_capacity / period {
+        buffer.push_capture(&packet);
+    }
+    let captured = buffer.queued_frames();
+    submit(&mut buffer, &mut padding, captured);
+    assert_eq!(padding, buffer.render_capacity);
+
+    for tick in 1..=3_000 {
+        padding -= period;
+        buffer.push_capture(&packet);
+        observe_frames(&mut buffer, tick * 480, tick * 480);
+        submit(&mut buffer, &mut padding, period);
+    }
+
+    padding -= 8 * period;
+    for poll in 1..=5 {
+        assert!(
+            padding >= period,
+            "render ran dry during the next capture gap at poll {poll}"
+        );
+        padding -= period;
+        submit(&mut buffer, &mut padding, 0);
+    }
+    assert_eq!(
+        buffer.queued_frames() + padding,
+        buffer.render_capacity + buffer.reserve - 13 * period
+    );
+}
+
+#[test]
 fn capture_positions_recover_only_known_missing_frames() {
     let mut timeline = CaptureTimeline::default();
     assert_eq!(timeline.missing_frames(866_304, 96, true, false), 0);

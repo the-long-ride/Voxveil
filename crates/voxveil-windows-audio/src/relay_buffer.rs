@@ -112,20 +112,19 @@ impl RelayBuffer {
     }
 
     pub(crate) fn balance(&mut self, padding: usize, captured_frames: usize) {
+        let queued = self.queued_frames();
+        let target = self.render_capacity + self.reserve;
         if padding == 0 {
             self.reset_drift();
-        }
-        if captured_frames == 0 {
-            return;
-        }
+            if queued == 0 {
+                return;
+            }
 
-        let queued = self.queued_frames();
-        if padding == 0 && queued < self.render_capacity {
             // After a complete underrun, rebuild the reserve without dropping queued audio.
-            let target = self.render_capacity + self.reserve;
-            self.bytes
-                .extend(std::iter::repeat_n(0, (target - queued) * FRAME_BYTES));
-            self.bytes.rotate_right((target - queued) * FRAME_BYTES);
+            let missing_bytes = target.saturating_sub(queued) * FRAME_BYTES;
+            self.bytes.extend(std::iter::repeat_n(0, missing_bytes));
+            self.bytes.rotate_right(missing_bytes);
+            self.reserve_correction.baseline = Some(target);
             return;
         }
 
@@ -136,7 +135,6 @@ impl RelayBuffer {
             self.reserve_correction.clear_pending();
             correction
         } else {
-            let target = self.render_capacity + self.reserve;
             self.reserve_correction.correct(
                 queued + padding,
                 target,
