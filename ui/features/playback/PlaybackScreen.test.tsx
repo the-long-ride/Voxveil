@@ -84,6 +84,44 @@ describe('PlaybackScreen', () => {
     expect(callbacks.onSeek).toHaveBeenCalledWith(69_120);
   });
 
+  it('does not seek on key or pointer release without a slider change', () => {
+    const { onSeek } = renderPlayer('paused');
+    const slider = screen.getByRole('slider', { name: 'Seek' });
+    slider.focus();
+
+    for (const key of ['Control', 'Shift', 'Alt', 'Meta', 'Tab', 'ArrowRight']) {
+      fireEvent.keyUp(slider, { key });
+    }
+    fireEvent.pointerUp(slider);
+    expect(onSeek).not.toHaveBeenCalled();
+  });
+
+  it('commits a keyboard change only on release of a slider key', () => {
+    const { onSeek } = renderPlayer('paused');
+    const slider = screen.getByRole('slider', { name: 'Seek' });
+    slider.focus();
+
+    fireEvent.change(slider, { target: { value: '0' } });
+    fireEvent.keyUp(slider, { key: 'Control' });
+    expect(onSeek).not.toHaveBeenCalled();
+    expect(slider).toHaveValue('0');
+
+    fireEvent.keyUp(slider, { key: 'Home' });
+    expect(onSeek).toHaveBeenCalledExactlyOnceWith(0);
+  });
+
+  it('commits a changed pointer value once on release', () => {
+    const { onSeek } = renderPlayer('paused');
+    const slider = screen.getByRole('slider', { name: 'Seek' });
+
+    fireEvent.pointerDown(slider);
+    fireEvent.change(slider, { target: { value: '50' } });
+    expect(onSeek).not.toHaveBeenCalled();
+    fireEvent.pointerUp(slider);
+    fireEvent.pointerUp(slider);
+    expect(onSeek).toHaveBeenCalledExactlyOnceWith(48_000);
+  });
+
   it('resumes paused playback and reports player errors', () => {
     const callbacks = renderPlayer('paused');
     fireEvent.click(screen.getByRole('button', { name: 'Resume' }));
