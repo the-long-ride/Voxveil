@@ -91,7 +91,7 @@ describe('PlaybackScreen', () => {
     expect(screen.getByRole('button', { name: 'Stop' })).toBeEnabled();
   });
 
-  it('lets users seek after natural completion but not after stopping', () => {
+  it('lets users seek and stop after natural completion', () => {
     const callbacks = renderPlayer('ended', {
       playback: { ...playback('ended'), positionFrames: 96_000 },
     });
@@ -100,6 +100,10 @@ describe('PlaybackScreen', () => {
     fireEvent.change(slider, { target: { value: '25' } });
     fireEvent.keyUp(slider, { key: 'ArrowLeft' });
     expect(callbacks.onSeek).toHaveBeenCalledWith(24_000);
+    const stop = screen.getByRole('button', { name: 'Stop' });
+    expect(stop).toBeEnabled();
+    fireEvent.click(stop);
+    expect(callbacks.onStop).toHaveBeenCalledOnce();
   });
 
   it('disables the seek control when a stopped file still has metadata', () => {
