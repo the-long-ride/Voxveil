@@ -13,6 +13,24 @@ pub(crate) struct RelayProcessor {
     log_path: Option<std::path::PathBuf>,
 }
 impl RelayProcessor {
+    pub fn fill_idle(
+        &mut self,
+        idle: &mut crate::relay_idle::IdleCapture,
+        now: std::time::Instant,
+        queue: &mut crate::relay_buffer::RelayBuffer,
+        padding: usize,
+        drained: bool,
+        buffer: &mut [u8],
+    ) -> Result<usize, String> {
+        let frames = idle.frames_due(now, drained, queue.idle_fill_frames(padding));
+        if frames != 0 {
+            let buffer = &mut buffer[..frames * crate::relay_buffer::FRAME_BYTES];
+            self.process(buffer, true)?;
+            queue.push_capture(buffer);
+            queue.reset_drift();
+        }
+        Ok(frames)
+    }
     pub fn runtime_state(&self) -> crate::relay_engine::RelayRuntimeState {
         if self.status == SystemAiStatus::Off {
             crate::relay_engine::RelayRuntimeState::Running
@@ -125,3 +143,7 @@ impl RelayProcessor {
         Ok(())
     }
 }
+
+#[cfg(test)]
+#[path = "relay_idle_processing_tests.rs"]
+mod tests;

@@ -12,6 +12,7 @@ use crate::relay_buffer::{
 };
 use crate::relay_engine::{RelayCommand, RelayRuntimeState, RelaySpec};
 use crate::relay_processing::RelayProcessor;
+use crate::relay_idle::IdleCapture;
 
 const MAX_PACKETS_PER_TICK: usize = 16;
 
@@ -148,6 +149,7 @@ fn run_relay_worker_inner(
     let sample_rate = source_format.get_samplespersec();
     let mut queue = RelayBuffer::new(render_capacity, sample_rate);
     let mut timeline = CaptureTimeline::default();
+    let mut idle = IdleCapture::new(std::time::Instant::now());
     let mut capture_buffer = vec![0_u8; MAX_CAPTURE_FRAMES * FRAME_BYTES];
     let mut gap_buffer = vec![0_u8; MAX_CAPTURE_FRAMES * FRAME_BYTES];
     let mut processor = RelayProcessor::new(sample_rate, initial_vocal_level, initial_profile, ai);
@@ -215,6 +217,8 @@ fn run_relay_worker_inner(
                 capture_drained = true;
                 break;
             }
+            let resumed = idle.captured(std::time::Instant::now());
+            if resumed { timeline = CaptureTimeline::default(); queue.reset_drift(); }
             let gap = timeline.missing_frames(
                 info.index,
                 read_frames,
@@ -223,7 +227,7 @@ fn run_relay_worker_inner(
             );
             if gap != 0 || info.flags.data_discontinuity || info.flags.timestamp_error {
                 queue.reset_drift();
-                if info.flags.timestamp_error || (info.flags.data_discontinuity && gap == 0) {
+                if info.flags.timestamp_error || (info.flags.data_discontinuity && gap == 0 && !resumed) {
                     processor.discontinuity();
                 }
             } else {
@@ -252,6 +256,9 @@ fn run_relay_worker_inner(
             Ok(frames) => frames as usize,
             Err(error) => break Err(error.to_string()),
         };
+        if let Err(error) = processor.fill_idle(&mut idle, std::time::Instant::now(), &mut queue, render_capacity - writable, capture_drained, &mut gap_buffer) {
+            break Err(error);
+        }
         queue.balance(render_capacity - writable, captured_frames);
         let frames_to_write = writable.min(queue.queued_frames());
         if frames_to_write > 0 {
@@ -281,20 +288,5 @@ fn run_relay_worker_inner(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn relay_dsp_requires_stereo_f32() {
-        assert!(relay_format_supported(2, 32, true));
-        assert!(!relay_format_supported(1, 32, true));
-        assert!(!relay_format_supported(2, 16, false));
-        assert!(!relay_format_supported(2, 64, true));
-    }
-
-    #[test]
-    fn relay_capture_packet_has_a_fixed_memory_bound() {
-        assert!(capture_packet_within_bound(MAX_CAPTURE_FRAMES));
-        assert!(!capture_packet_within_bound(MAX_CAPTURE_FRAMES + 1));
-    }
-}
+#[path = "wasapi_relay_tests.rs"]
+mod tests;

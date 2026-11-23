@@ -12,8 +12,10 @@ mod relay_ai;
 #[cfg(any(windows, test))]
 mod relay_ai_log;
 pub use relay_ai::RelayAiOptions;
-#[cfg(windows)]
+#[cfg(any(windows, test))]
 mod relay_processing;
+#[cfg(any(windows, test))]
+mod relay_idle;
 mod route;
 #[cfg(any(windows, test))]
 mod relay_decision;

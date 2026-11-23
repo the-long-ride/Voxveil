@@ -80,6 +80,12 @@ impl RelayBuffer {
         self.bytes.len() / FRAME_BYTES
     }
 
+    pub(crate) fn idle_fill_frames(&self, padding: usize) -> usize {
+        (self.render_capacity + self.reserve)
+            .saturating_sub(padding + self.queued_frames())
+            .min(MAX_CAPTURE_FRAMES)
+    }
+
     pub(crate) fn render_queue(&mut self) -> &mut VecDeque<u8> {
         &mut self.bytes
     }
