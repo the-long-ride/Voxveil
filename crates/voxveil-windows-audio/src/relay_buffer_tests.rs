@@ -36,7 +36,7 @@ fn render_reserve_covers_a_late_capture_poll_and_batched_catchup() {
     buffer.push_capture(&packet);
     submit(&mut buffer, &mut padding, 960);
     assert_eq!(padding, buffer.render_capacity);
-    assert_eq!(buffer.queued_frames(), 672);
+    assert_eq!(buffer.queued_frames(), 673);
 }
 
 #[test]
@@ -84,6 +84,33 @@ fn clock_drift_keeps_the_fifo_in_a_bounded_band_in_both_directions() {
             assert!((153..=308).contains(&total), "tick {tick}: {total}");
         }
     }
+}
+
+#[test]
+fn faster_render_clock_preserves_reserve_for_late_capture() {
+    let mut buffer = RelayBuffer::new(1_536);
+    let mut padding = buffer.render_capacity;
+    let packet = [0; 480 * FRAME_BYTES];
+
+    // One extra render frame per ten capture packets is about 208 ppm at 48 kHz.
+    for tick in 1..=8_000 {
+        let render_frames = 480 + usize::from(tick % 10 == 0);
+        padding -= render_frames;
+        buffer.push_capture(&packet);
+        submit(&mut buffer, &mut padding, 480);
+    }
+
+    let reserve_after_drift = buffer.queued_frames();
+    for period in 1..=4 {
+        assert!(
+            padding >= 480,
+            "underrun in period {period} without capture: {padding} frames of padding, \
+             {reserve_after_drift} frames of reserve after drift"
+        );
+        padding -= 480;
+        submit(&mut buffer, &mut padding, 0);
+    }
+    assert_eq!(reserve_after_drift, buffer.reserve);
 }
 
 #[test]
