@@ -21,7 +21,7 @@ test('manual Windows build runs the full repository verification gate', async ()
 });
 
 test('manual Windows build defaults to driverless and gates the full build on explicit opt-in', async () => {
-  const workflow = await readFile('.github/workflows/manual-build.yml', 'utf8');
+  const workflow = (await readFile('.github/workflows/manual-build.yml', 'utf8')).replace(/\r\n/g, '\n');
   assert.match(workflow, /name: Build Windows package\n\s+if: \$\{\{ !inputs\.windows_drivers \}\}\n\s+shell: pwsh\n\s+run: npm run build:windows:driverless\n/);
   assert.match(workflow, /name: Build Windows package with drivers\n\s+if: \$\{\{ inputs\.windows_drivers \}\}\n\s+shell: pwsh\n\s+run: npm run build:windows\n/);
   assert.equal((workflow.match(/run: npm run build:windows(?:\s|:)/g) ?? []).length, 2);
@@ -31,7 +31,7 @@ test('manual Windows build defaults to driverless and gates the full build on ex
 });
 
 test('opt-in Windows driver build preserves the validated unsigned driver submission separately', async () => {
-  const workflow = await readFile('.github/workflows/manual-build.yml', 'utf8');
+  const workflow = (await readFile('.github/workflows/manual-build.yml', 'utf8')).replace(/\r\n/g, '\n');
   assert.match(workflow, /name:\s*Voxveil-windows-driver-submission-\$\{\{\s*github\.sha\s*\}\}/);
   assert.match(workflow, /path:\s*native\/windows\/driver\/out\/x64\/submission\/?/);
   assert.match(workflow, /uses:\s*actions\/upload-artifact@v6/);
