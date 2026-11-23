@@ -25,19 +25,20 @@ The runtime chooses Windows interception in this order:
 
 1. a Voxveil APO that has at least one real non-discovery AudioDG instance **and** whose persisted installed endpoint matches the current default render endpoint;
 2. a verified Voxveil virtual render endpoint using the user-mode WASAPI relay;
-3. a standard VB-CABLE `CABLE Input` render endpoint using the same relay.
+3. a standard VB-CABLE `CABLE Input` render endpoint using the same relay;
+4. a driver-free relay from the ordinary Windows default render endpoint to a distinct, explicitly selected output.
 
 A process-wide `loaded>0` count alone does not give the APO priority. If an APO remains loaded on another/stale physical endpoint after Windows changes the default output, Voxveil disables its app-processing gate before allowing a virtual relay to process the current route. This prevents stale APO presence from suppressing relay fallback or causing double Voxveil processing.
 
 When both supported virtual endpoints exist, the first-party Voxveil endpoint wins over VB-CABLE.
 
-## Virtual-endpoint relay
+## Endpoint relay
 
 The shared relay path is:
 
 ```text
 Windows applications
-  -> controlled virtual render endpoint
+  -> controlled source render endpoint
   -> WASAPI loopback capture
   -> Voxveil Rust DSP / optional AI
   -> selected physical output
@@ -48,6 +49,12 @@ For VB-CABLE, the controlled render endpoint is standard `CABLE Input`. Voxveil 
 For the first-party path, the controlled endpoint is `Voxveil Input` from the render-only Voxveil virtual driver. The same relay implementation is reused rather than duplicating audio capture/DSP/render code.
 
 The physical destination is selected by stable endpoint ID. Known virtual endpoints are excluded, and the source and sink IDs must be distinct to prevent feedback recursion.
+
+### Relay buffering
+
+- The worker requests a 30 ms WASAPI render buffer and primes the actual buffer with silence before starting it. A bounded software FIFO adds a reserve of about half the render capacity, capped at 2,048 frames. The worker drains capture packets in batches and rebuilds the reserve if rendering fully underruns and resumes with too little audio.
+- Reliable capture positions determine the length of a hole, whether or not WASAPI flags a discontinuity. Holes up to 4,096 frames are fed through DSP as silence; a flag alone does not supply a length, and unreliable positions or larger jumps rebase tracking without guessing.
+- If render padding plus queued audio drifts outside its target band, the worker inserts or removes one interpolated stereo frame at a time. At the 8,192-frame FIFO limit it drops the oldest whole frames to make room, rather than growing the queue or stopping playback.
 
 ## Readiness contract
 

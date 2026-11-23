@@ -23,9 +23,9 @@ Earlier revisions used a compatible Microsoft SysVAD sample endpoint and test-si
 
 Test-signed SysVAD output is development-only and cannot be treated as a normal Secure Boot/end-user package.
 
-## Current near-term path
+## VB-CABLE route
 
-Until a Voxveil-owned driver reaches the required signing/release gate, the supported relay dependency is the standard VB-Audio VB-CABLE render endpoint:
+The standard VB-Audio VB-CABLE render endpoint can serve as the relay source:
 
 ```text
 Windows applications
@@ -36,6 +36,8 @@ Windows applications
 ```
 
 Voxveil does not redistribute VB-CABLE. The user installs it from VB-Audio and configures `CABLE Input` as the Windows default render endpoint manually through Windows Sound settings.
+
+This route and the driver-free endpoint route share the same [buffering policy](windows.md#relay-buffering): request a 30 ms render buffer and prime it with silence, keep a small software reserve, fill measured capture holes with silence, correct clock drift, and drop the oldest frames at the FIFO limit.
 
 Current readiness semantics are:
 
