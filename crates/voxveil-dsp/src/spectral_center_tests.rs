@@ -174,3 +174,39 @@ fn output_is_finite_and_latency_stays_below_twenty_five_ms() {
     assert!(output.iter().all(|sample| sample.is_finite()));
     assert!(latency <= (SAMPLE_RATE as usize * 25 / 1_000));
 }
+
+#[test]
+fn bass_startup_and_seek_reset_do_not_amplify_window_edges() {
+    for sample_rate in [44_100, 48_000] {
+        for frequency in [60.0, 90.0, 120.0] {
+            for phase in [0.0, TAU * 0.25] {
+                let input: Vec<f32> = (0..sample_rate / 10)
+                    .flat_map(|frame| {
+                        let time = frame as f32 / sample_rate as f32;
+                        let value = 0.45 * (TAU * frequency * time + phase).sin()
+                            + 0.2 * (TAU * 1_000.0 * time).sin();
+                        [value, value]
+                    })
+                    .collect();
+                let input_peak = input.iter().copied().map(f32::abs).fold(0.0, f32::max);
+                let mut processor = SpectralCenterSuppressor::new(
+                    sample_rate, VocalLevel::new(0.0).unwrap(),
+                    ClassicSuppressionProfile::MusicPreservation,
+                );
+                for _ in 0..2 {
+                    let latency = processor.latency_frames();
+                    let mut output = input.clone();
+                    processor.process_stereo_interleaved(&mut output);
+                    let peak = output[latency * 2..(latency + sample_rate as usize / 20) * 2]
+                        .iter().copied().map(f32::abs).fold(0.0, f32::max);
+                    assert!(peak <= input_peak + 0.02,
+                        "rate={sample_rate}, frequency={frequency}, phase={phase}, peak={peak}, input={input_peak}");
+                    processor = SpectralCenterSuppressor::new(
+                        sample_rate, VocalLevel::new(0.0).unwrap(),
+                        ClassicSuppressionProfile::MusicPreservation,
+                    );
+                }
+            }
+        }
+    }
+}
