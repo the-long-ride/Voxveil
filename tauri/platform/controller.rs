@@ -2,6 +2,8 @@ use std::sync::Mutex;
 
 #[path = "controller_playback.rs"]
 mod playback;
+#[path = "controller_ai.rs"]
+mod ai;
 
 use voxveil_types::{
     AudioPlaybackSnapshot, AudioPlaybackStatus, ClassicSuppressionProfile, ProcessingBackendStatus,
@@ -99,7 +101,8 @@ impl ProcessingController {
             .map_err(|_| "local playback lock is poisoned".to_string())?;
         if matches!(
             playback.snapshot().status,
-            AudioPlaybackStatus::Playing | AudioPlaybackStatus::Paused
+            AudioPlaybackStatus::Playing | AudioPlaybackStatus::Buffering
+                | AudioPlaybackStatus::Paused | AudioPlaybackStatus::Ended
         ) {
             playback.set_vocal_level(value)?;
         }
@@ -128,7 +131,8 @@ impl ProcessingController {
             .map_err(|_| "local playback lock is poisoned".to_string())?;
         if matches!(
             playback.snapshot().status,
-            AudioPlaybackStatus::Playing | AudioPlaybackStatus::Paused
+            AudioPlaybackStatus::Playing | AudioPlaybackStatus::Buffering
+                | AudioPlaybackStatus::Paused | AudioPlaybackStatus::Ended
         ) {
             playback.set_profile(profile)?;
         }
@@ -173,8 +177,10 @@ impl ProcessingController {
             && matches!(
                 self.playback_snapshot().status,
                 AudioPlaybackStatus::Loading
+                    | AudioPlaybackStatus::Buffering
                     | AudioPlaybackStatus::Playing
                     | AudioPlaybackStatus::Paused
+                    | AudioPlaybackStatus::Ended
             )
         {
             self.stop_owned_playback()?;
@@ -234,7 +240,6 @@ fn interception_name(kind: voxveil_windows_audio::WindowsInterceptionKind) -> &'
     match kind {
         WindowsInterceptionKind::EndpointRelay => "endpoint-relay",
         WindowsInterceptionKind::Apo => "apo",
-        WindowsInterceptionKind::VbCableRelay => "vb-cable-relay",
         WindowsInterceptionKind::VoxveilCableRelay => "voxveil-cable-relay",
     }
 }
@@ -282,10 +287,6 @@ mod tests {
     #[test]
     fn interception_names_are_stable_for_ui_contract() {
         assert_eq!(interception_name(WindowsInterceptionKind::Apo), "apo");
-        assert_eq!(
-            interception_name(WindowsInterceptionKind::VbCableRelay),
-            "vb-cable-relay"
-        );
         assert_eq!(
             interception_name(WindowsInterceptionKind::VoxveilCableRelay),
             "voxveil-cable-relay"

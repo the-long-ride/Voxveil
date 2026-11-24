@@ -1,6 +1,9 @@
 import { invoke } from '@tauri-apps/api/core';
 import type {
   AiModelStatus,
+  AiModelId,
+  AiPreferences,
+  SystemAiStatus,
   AudioRouteChoice,
   AudioPlaybackSnapshot,
   AudioOutput,
@@ -18,6 +21,7 @@ type InvokeFn = <T>(command: string, args?: Record<string, unknown>) => Promise<
 export function createVoxveilClient(call: InvokeFn = invoke) {
   return {
     getState: () => call<VoxveilState>('get_app_state'),
+    getSystemAiStatus: () => call<SystemAiStatus>('get_system_ai_status'),
     setAudioRoute: (route: AudioRouteChoice) => call<VoxveilState>('set_audio_route', { route }),
     openAudioFile: () => call<AudioPlaybackSnapshot>('open_audio_file'),
     getPlaybackState: () => call<AudioPlaybackSnapshot>('get_playback_state'),
@@ -32,7 +36,6 @@ export function createVoxveilClient(call: InvokeFn = invoke) {
     setPhysicalAudioOutput: (endpointId: string) =>
       call<VoxveilState>('set_physical_audio_output', { endpointId }),
     openWindowsSoundSettings: () => call<void>('open_windows_sound_settings'),
-    openVbCableDownload: () => call<void>('open_vb_cable_download'),
     setMasterEnabled: (enabled: boolean) => call<void>('set_master_enabled', { enabled }),
     setProcessingMode: (mode: ProcessingMode) => call<void>('set_processing_mode', { mode }),
     setEngine: (engine: EngineKind) => call<void>('set_engine', { engine }),
@@ -42,7 +45,8 @@ export function createVoxveilClient(call: InvokeFn = invoke) {
     setQuality: (value: number) => call<void>('set_quality_preference', { value }),
     setAppOverride: (id: string, enabled: boolean) => call<void>('set_app_override', { id, enabled }),
     setOutputRoute: (mode: OutputMode) => call<void>('set_output_route', { mode }),
-    getAiModelStatus: () => call<AiModelStatus>('get_ai_model_status'),
+    getAiModelStatus: (modelId?: AiModelId) => modelId ? call<AiModelStatus>('get_ai_model_status', { modelId }) : call<AiModelStatus>('get_ai_model_status'),
+    setAiPreferences: (preferences: AiPreferences) => call<void>('set_ai_preferences', { preferences }),
     installAiModel: (modelId: string, acceptedTerms: boolean) => call<AiModelStatus>('install_ai_model', { modelId, acceptedTerms }),
     removeAiModel: (modelId: string) => call<AiModelStatus>('remove_ai_model', { modelId }),
   };

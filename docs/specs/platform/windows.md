@@ -25,36 +25,40 @@ The runtime chooses Windows interception in this order:
 
 1. a Voxveil APO that has at least one real non-discovery AudioDG instance **and** whose persisted installed endpoint matches the current default render endpoint;
 2. a verified Voxveil virtual render endpoint using the user-mode WASAPI relay;
-3. a standard VB-CABLE `CABLE Input` render endpoint using the same relay.
+3. a driver-free relay from the ordinary Windows default render endpoint to a distinct, explicitly selected output.
 
 A process-wide `loaded>0` count alone does not give the APO priority. If an APO remains loaded on another/stale physical endpoint after Windows changes the default output, Voxveil disables its app-processing gate before allowing a virtual relay to process the current route. This prevents stale APO presence from suppressing relay fallback or causing double Voxveil processing.
 
-When both supported virtual endpoints exist, the first-party Voxveil endpoint wins over VB-CABLE.
-
-## Virtual-endpoint relay
+## Endpoint relay
 
 The shared relay path is:
 
 ```text
 Windows applications
-  -> controlled virtual render endpoint
+  -> controlled source render endpoint
   -> WASAPI loopback capture
   -> Voxveil Rust DSP / optional AI
   -> selected physical output
 ```
 
-For VB-CABLE, the controlled render endpoint is standard `CABLE Input`. Voxveil does not redistribute or silently install VB-CABLE. The application may open only the official VB-Audio download page and Windows Sound settings. The relay requires the selected virtual endpoint to be the ordinary Windows default render endpoint; it does not use undocumented `PolicyConfig` APIs to mutate defaults.
+The application may open Windows Sound settings for manual routing. The relay requires its source to be the ordinary Windows default render endpoint; it does not use undocumented `PolicyConfig` APIs to mutate defaults.
 
 For the first-party path, the controlled endpoint is `Voxveil Input` from the render-only Voxveil virtual driver. The same relay implementation is reused rather than duplicating audio capture/DSP/render code.
 
 The physical destination is selected by stable endpoint ID. Known virtual endpoints are excluded, and the source and sink IDs must be distinct to prevent feedback recursion.
 
+### Relay buffering
+
+- The worker requests 100 ms WASAPI capture and render buffers and primes the actual render buffer with silence before starting it. A bounded software FIFO adds a 64 ms reserve to bridge capture holes while waiting for the next packet. The worker drains capture packets in batches and rebuilds the reserve if rendering fully underruns and resumes with too little audio.
+- Reliable capture positions determine the length of a hole, whether or not WASAPI flags a discontinuity. Holes up to 4,096 frames are fed through DSP as silence; a flag alone does not supply a length, and unreliable positions or larger jumps rebase tracking without guessing.
+- The worker estimates capture and render rates from device positions and their timestamps. It inserts or removes interpolated stereo frames if the rates differ by at least 75 ppm in the same direction across two ten-second windows. Otherwise, it corrects slowly if queued audio plus render padding stays more than 32 ms from its starting level for two seconds of captured audio, and stops within 16 ms. Discontinuities reset both checks. The FIFO limit is the render capacity plus the reserve and one maximum-sized capture packet, or 8,192 frames if larger. At the limit the worker drops the oldest whole frames to make room.
+
 ## Readiness contract
 
-- `component-required`: no endpoint-scoped loaded APO and no supported interception component such as the Voxveil virtual endpoint or standard VB-CABLE is available for the current route.
-- `routing-required`: the supported virtual endpoint exists but is not the ordinary Windows default render endpoint, or no safe physical destination can be selected.
+- `component-required`: no endpoint-scoped loaded APO, Voxveil virtual endpoint, or default physical render endpoint is available for the current route.
+- `routing-required`: the supported virtual endpoint exists but is not the ordinary Windows default render endpoint, or no distinct safe physical destination has been selected for the endpoint relay.
 - `faulted`: interception was selected but enumeration, APO status/install-state validation, capture, DSP, render, or relay startup/runtime failed.
-- `ready`: either (a) the APO has a real non-discovery instance and its persisted installed endpoint is the current default render endpoint, or (b) the virtual relay worker has successfully started capture and physical rendering.
+- `ready`: either (a) the APO has a real non-discovery instance and its persisted installed endpoint is the current default render endpoint, or (b) the virtual or driver-free endpoint relay worker has successfully started capture and physical rendering.
 - `unsupported`: the platform/build cannot provide the requested interception strategy.
 
 The master Processing switch must not remain enabled after a backend becomes non-ready.
@@ -116,7 +120,7 @@ Real release verification additionally requires Windows hardware testing for:
 - supported virtual endpoint absent/present/default routing;
 - USB, HDMI/DisplayPort, Bluetooth, and onboard endpoints where supported;
 - device removal and stale endpoint IDs;
-- default-output transitions between an APO-installed physical endpoint and VB-CABLE/`Voxveil Input` while old AudioDG graphs are still alive;
+- default-output transitions between an APO-installed physical endpoint and `Voxveil Input` or a spare physical relay source while old AudioDG graphs are still alive;
 - different shared-mode sample rates;
 - clean enable/disable and process exit;
 - proof that no duplicate unprocessed stream reaches the physical sink;
@@ -130,6 +134,5 @@ Real release verification additionally requires Windows hardware testing for:
 
 See:
 
-- `docs/testing/windows-vb-cable-relay.md`
 - `docs/testing/windows-apo-capx-hlk.md`
 - `docs/release/windows-apo-production-gate.md`

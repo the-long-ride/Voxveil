@@ -10,7 +10,7 @@ const uninstaller = () => read('scripts/windows/uninstall-staged-virtual-driver.
 test('virtual driver installer requires the staged verification manifest and rehashes all signed files', () => {
   const text = installer();
   assert.match(text, /verification\.json/i);
-  assert.match(text, /Get-FileHash/i);
+  assert.match(text, /Get-Sha256Hex/i);
   assert.match(text, /VoxveilVirtualAudio\.inf/i);
   assert.match(text, /VoxveilVirtualAudio\.cat/i);
   assert.match(text, /VoxveilVirtualAudio\.sys/i);
@@ -29,7 +29,7 @@ test('signed virtual driver stager rehashes copied files before writing verifica
   assert.ok(copy >= 0, 'stager must copy verified package members');
   assert.ok(stagedHash > copy, 'stager must validate destination hashes after copying');
   assert.ok(manifest > stagedHash, 'verification manifest must be written only after destination hashes pass');
-  assert.match(text, /function\s+Assert-StagedHash[\s\S]*?Get-FileHash/i);
+  assert.match(text, /function\s+Assert-StagedHash[\s\S]*?Get-Sha256Hex/i);
   assert.match(text, /Assert-StagedHash -Path \$stagedCat -Expected \$verification\.catalogSha256/i);
   assert.match(text, /Assert-StagedHash -Path \$stagedSys -Expected \$verification\.driverSha256/i);
   assert.match(text, /staged.*hash/i);

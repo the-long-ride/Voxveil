@@ -31,7 +31,7 @@ pub(super) fn validate_master_enable_before_start(
         && snapshot.physical_output_endpoint_id.is_some()
         && matches!(
             snapshot.backend_kind.as_deref(),
-            Some("vb-cable-relay") | Some("voxveil-cable-relay") | Some("endpoint-relay")
+            Some("voxveil-cable-relay") | Some("endpoint-relay")
         );
     if enabled && route != AudioRouteChoice::OwnedFilePlayback && configured_relay {
         Ok(())
@@ -44,11 +44,8 @@ pub(super) fn validate_engine_for_route(
     route: AudioRouteChoice,
     engine: ProcessingEngineKind,
 ) -> Result<(), String> {
-    if route == AudioRouteChoice::OwnedFilePlayback && engine != ProcessingEngineKind::Dsp {
-        Err("local file playback requires the DSP engine".into())
-    } else {
-        Ok(())
-    }
+    let _ = (route, engine);
+    Ok(())
 }
 
 #[tauri::command]
@@ -144,9 +141,6 @@ pub async fn set_audio_route(
         current.audio_route_error = None;
         current.apply_backend(&snapshot);
         current.audio_route_choice = route;
-        if route == AudioRouteChoice::OwnedFilePlayback {
-            current.engine = ProcessingEngineKind::Dsp;
-        }
         return Ok(current.clone());
     }
 
@@ -217,7 +211,7 @@ mod route_validation_tests {
 
     #[test]
     fn configured_relay_can_start_from_routing_required_state() {
-        for backend_kind in ["vb-cable-relay", "voxveil-cable-relay", "endpoint-relay"] {
+        for backend_kind in ["voxveil-cable-relay", "endpoint-relay"] {
             let snapshot = BackendSnapshot {
                 status: ProcessingBackendStatus::RoutingRequired,
                 detail: Some("relay is configured and ready to start".into()),
@@ -239,7 +233,7 @@ mod route_validation_tests {
         let missing_output = BackendSnapshot {
             status: ProcessingBackendStatus::RoutingRequired,
             detail: Some("select a physical output".into()),
-            backend_kind: Some("vb-cable-relay".into()),
+            backend_kind: Some("endpoint-relay".into()),
             physical_output: None,
             physical_output_endpoint_id: None,
             per_app_available: false,
@@ -265,7 +259,7 @@ mod route_validation_tests {
     }
 
     #[test]
-    fn owned_file_route_requires_the_dsp_engine() {
+    fn owned_file_route_allows_auto_and_dsp_engines() {
         assert!(
             validate_engine_for_route(
                 AudioRouteChoice::OwnedFilePlayback,
@@ -278,7 +272,7 @@ mod route_validation_tests {
                 AudioRouteChoice::OwnedFilePlayback,
                 ProcessingEngineKind::Auto,
             )
-            .is_err()
+            .is_ok()
         );
         assert!(
             validate_engine_for_route(AudioRouteChoice::PhysicalApo, ProcessingEngineKind::Auto,)

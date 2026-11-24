@@ -60,6 +60,10 @@ pub struct AppViewState {
     pub processing_mode: ProcessingMode,
     pub per_app_processing_available: bool,
     pub engine: ProcessingEngineKind,
+    #[serde(default)]
+    pub ai: voxveil_types::AiPreferences,
+    #[serde(default)]
+    pub system_ai_status: voxveil_types::SystemAiStatus,
     pub classic_suppression_profile: ClassicSuppressionProfile,
     pub vocal_level: u8,
     pub quality: u8,
@@ -107,6 +111,8 @@ impl Default for AppViewState {
             processing_mode: ProcessingMode::All,
             per_app_processing_available: false,
             engine: ProcessingEngineKind::Auto,
+            ai: voxveil_types::AiPreferences::default(),
+            system_ai_status: voxveil_types::SystemAiStatus::Off,
             classic_suppression_profile: ClassicSuppressionProfile::default(),
             vocal_level: 100,
             quality: 50,
@@ -179,7 +185,7 @@ mod tests {
         state.apply_backend(&BackendSnapshot {
             status: ProcessingBackendStatus::RoutingRequired,
             detail: None,
-            backend_kind: Some("vb-cable-relay".into()),
+            backend_kind: Some("endpoint-relay".into()),
             physical_output: None,
             physical_output_endpoint_id: None,
             per_app_available: false,

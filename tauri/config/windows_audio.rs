@@ -11,7 +11,6 @@ const FILE_NAME: &str = "windows-audio.json";
 #[serde(rename_all = "kebab-case")]
 pub enum LegacyInterceptionPreference {
     Apo,
-    VbCableRelay,
     VoxveilCableRelay,
     EndpointRelay,
 }
@@ -19,6 +18,7 @@ pub enum LegacyInterceptionPreference {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WindowsAudioPreferences {
+    pub ai: voxveil_types::AiPreferences,
     pub physical_output_endpoint_id: Option<String>,
     pub preferred_interception: Option<LegacyInterceptionPreference>,
     pub route_choice: AudioRouteChoice,
@@ -28,6 +28,8 @@ pub struct WindowsAudioPreferences {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct PersistedWindowsAudioPreferences {
+    #[serde(default)]
+    ai: voxveil_types::AiPreferences,
     #[serde(default)]
     physical_output_endpoint_id: Option<String>,
     #[serde(default)]
@@ -56,9 +58,11 @@ impl<'de> Deserialize<'de> for WindowsAudioPreferences {
             .as_deref()
             .map(parse_legacy_interception)
             .transpose()
-            .map_err(serde::de::Error::custom)?;
+            .map_err(serde::de::Error::custom)?
+            .flatten();
 
         Ok(Self {
+            ai: persisted.ai,
             physical_output_endpoint_id: persisted.physical_output_endpoint_id,
             preferred_interception,
             route_choice,
@@ -69,19 +73,19 @@ impl<'de> Deserialize<'de> for WindowsAudioPreferences {
 
 fn parse_route_choice(value: &str) -> Result<AudioRouteChoice, String> {
     match value {
-        "legacy-automatic" => Ok(AudioRouteChoice::LegacyAutomatic),
+        "legacy-automatic" | "vb-cable-relay" => Ok(AudioRouteChoice::LegacyAutomatic),
         "physical-apo" => Ok(AudioRouteChoice::PhysicalApo),
         "owned-file-playback" => Ok(AudioRouteChoice::OwnedFilePlayback),
         _ => Err(format!("unknown Windows audio route choice `{value}`")),
     }
 }
 
-fn parse_legacy_interception(value: &str) -> Result<LegacyInterceptionPreference, String> {
+fn parse_legacy_interception(value: &str) -> Result<Option<LegacyInterceptionPreference>, String> {
     match value {
-        "endpoint-relay" => Ok(LegacyInterceptionPreference::EndpointRelay),
-        "apo" => Ok(LegacyInterceptionPreference::Apo),
-        "vb-cable-relay" => Ok(LegacyInterceptionPreference::VbCableRelay),
-        "voxveil-cable-relay" => Ok(LegacyInterceptionPreference::VoxveilCableRelay),
+        "endpoint-relay" => Ok(Some(LegacyInterceptionPreference::EndpointRelay)),
+        "apo" => Ok(Some(LegacyInterceptionPreference::Apo)),
+        "vb-cable-relay" => Ok(None),
+        "voxveil-cable-relay" => Ok(Some(LegacyInterceptionPreference::VoxveilCableRelay)),
         _ => Err(format!(
             "unknown legacy Windows audio preference `preferredInterception`: `{value}`"
         )),
@@ -104,8 +108,8 @@ pub fn load(app: &AppHandle) -> Result<WindowsAudioPreferences, String> {
     if !path.is_file() {
         return Ok(WindowsAudioPreferences::default());
     }
-    let bytes = fs::read(&path)
-        .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+    let bytes =
+        fs::read(&path).map_err(|error| format!("failed to read {}: {error}", path.display()))?;
 
     let persisted_json = serde_json::from_slice::<serde_json::Value>(&bytes).unwrap_or_default();
     if !persisted_json.is_object() {
@@ -143,6 +147,7 @@ mod tests {
     #[test]
     fn windows_audio_preferences_round_trip() {
         let prefs = WindowsAudioPreferences {
+            ai: voxveil_types::AiPreferences::default(),
             physical_output_endpoint_id: Some("speakers-id".into()),
             preferred_interception: None,
             route_choice: AudioRouteChoice::PhysicalApo,
@@ -168,10 +173,19 @@ mod tests {
     }
 
     #[test]
+    fn old_configs_default_to_mdx_with_system_wide_ai_off() {
+        let prefs = decode_preferences(br#"{"routeChoice":"owned-file-playback"}"#).unwrap();
+        assert_eq!(prefs.ai, voxveil_types::AiPreferences::default());
+        let prefs =
+            decode_preferences(br#"{"ai":{"model":"mdx-inst-hq3","systemWide":false}}"#).unwrap();
+        assert_eq!(prefs.ai.model, voxveil_types::AiModel::MdxInstHq3);
+    }
+
+    #[test]
     fn preferences_do_not_define_audio_payload_fields() {
         let json = serde_json::to_value(WindowsAudioPreferences::default()).unwrap();
         let object = json.as_object().unwrap();
-        assert_eq!(object.len(), 4);
+        assert_eq!(object.len(), 5);
         assert!(object.contains_key("physicalOutputEndpointId"));
         assert!(object.contains_key("preferredInterception"));
         assert_eq!(
@@ -179,7 +193,9 @@ mod tests {
             Some("legacy-automatic")
         );
         assert_eq!(
-            object.get("classicSuppressionProfile").and_then(|value| value.as_str()),
+            object
+                .get("classicSuppressionProfile")
+                .and_then(|value| value.as_str()),
             Some("music-preservation")
         );
     }
@@ -197,17 +213,53 @@ mod tests {
     }
 
     #[test]
-    fn old_preferences_without_route_migrate_to_legacy_automatic() {
+    fn retired_interception_preferences_migrate_to_automatic_and_round_trip() {
         let prefs = decode_preferences(
             br#"{"physicalOutputEndpointId":"speakers-id","preferredInterception":"vb-cable-relay"}"#,
         )
         .unwrap();
 
         assert_eq!(prefs.route_choice, AudioRouteChoice::LegacyAutomatic);
+        assert_eq!(prefs.preferred_interception, None);
         assert_eq!(
-            prefs.preferred_interception,
-            Some(LegacyInterceptionPreference::VbCableRelay)
+            prefs.physical_output_endpoint_id.as_deref(),
+            Some("speakers-id")
         );
+        let json = serde_json::to_value(&prefs).unwrap();
+        assert_eq!(json["routeChoice"], "legacy-automatic");
+        assert!(json["preferredInterception"].is_null());
+        assert_eq!(
+            serde_json::from_value::<WindowsAudioPreferences>(json).unwrap(),
+            prefs
+        );
+    }
+
+    #[test]
+    fn retired_explicit_route_migrates_to_automatic() {
+        let prefs = decode_preferences(br#"{"routeChoice":"vb-cable-relay"}"#).unwrap();
+        assert_eq!(prefs.route_choice, AudioRouteChoice::LegacyAutomatic);
+        assert_eq!(prefs.preferred_interception, None);
+    }
+
+    #[test]
+    fn supported_legacy_interception_preferences_still_round_trip() {
+        for (name, expected) in [
+            ("apo", LegacyInterceptionPreference::Apo),
+            (
+                "voxveil-cable-relay",
+                LegacyInterceptionPreference::VoxveilCableRelay,
+            ),
+            ("endpoint-relay", LegacyInterceptionPreference::EndpointRelay),
+        ] {
+            let prefs: WindowsAudioPreferences =
+                serde_json::from_value(serde_json::json!({
+                    "preferredInterception": name,
+                }))
+                .unwrap();
+            assert_eq!(prefs.preferred_interception, Some(expected));
+            let json = serde_json::to_vec(&prefs).unwrap();
+            assert_eq!(decode_preferences(&json).unwrap(), prefs);
+        }
     }
 
     #[test]
@@ -220,6 +272,10 @@ mod tests {
     #[test]
     fn unknown_explicit_route_is_rejected() {
         let result = decode_preferences(br#"{"routeChoice":"virtual-fallback"}"#);
-        assert!(result.unwrap_err().contains("unknown Windows audio route choice"));
+        assert!(
+            result
+                .unwrap_err()
+                .contains("unknown Windows audio route choice")
+        );
     }
 }

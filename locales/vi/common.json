@@ -1,4 +1,27 @@
 {
+  "aiRelay": {
+    "buffering": "Đang đệm AI (~12 giây)",
+    "running": "Chuyển tiếp AI đang chạy (trễ ~12 giây)",
+    "dsp-selected": "AI toàn hệ thống tắt vì đang chọn Classic DSP.",
+    "model-unsupported": "AI toàn hệ thống cần Spleeter; đang dùng DSP.",
+    "unavailable": "Spleeter hoặc bộ suy luận đi kèm chưa sẵn sàng; đang dùng DSP.",
+    "fell-behind": "AI không theo kịp; đang dùng DSP. Tắt rồi bật xử lý để thử lại.",
+    "failed": "Xử lý AI thất bại; đang dùng DSP. Kiểm tra mô hình và bộ suy luận rồi bật lại xử lý.",
+    "apo-active": "APO vật lý đang dùng DSP. AI chỉ áp dụng cho chuyển tiếp âm thanh."
+  },
+  "aiPlayer": {
+    "models": "Mô hình tách giọng AI",
+    "choose": "Dùng {{name}}",
+    "systemWide": "Dùng AI cho âm thanh toàn hệ thống",
+    "delay": "Luôn dùng Spleeter, độc lập với mô hình của trình phát. Trễ khoảng 12 giây khiến video và trò chơi lệch tiếng. Thay đổi tùy chọn này sẽ khởi động lại chuyển tiếp.",
+    "mdxOffline": "MDX có thể không xử lý kịp thời gian thực. Trình phát sẽ chờ chuẩn bị thêm âm thanh; AI toàn hệ thống cần Spleeter.",
+    "notReady": "AI chưa sẵn sàng. Hãy cài và xác minh mô hình đã chọn cùng ONNX Runtime đi kèm ứng dụng.",
+    "preparing": "Đang chuẩn bị AI…",
+    "preparingWait": "Đang chuẩn bị AI… còn khoảng {{seconds}} giây",
+    "runtimeMissing": "Đã cài mô hình nhưng không tải được bộ suy luận đi kèm ứng dụng.",
+    "changesStop": "Đổi bộ xử lý hoặc mô hình sẽ dừng phát. Mở lại tệp để áp dụng lựa chọn mới.",
+    "playerOnly": "Tự động dùng AI cho tệp khi sẵn sàng, nếu không dùng DSP. AI toàn hệ thống cần bật riêng; APO vật lý vẫn dùng DSP."
+  },
   "app": {
     "name": "Voxveil"
   },
@@ -20,7 +43,7 @@
   },
   "playback": {
     "title": "Phát tệp trong Voxveil",
-    "description": "Mở tệp MP3, WAV, FLAC hoặc Ogg Vorbis và chỉ xử lý âm thanh của tệp đó bằng DSP Cổ điển trước khi phát ra thiết bị vật lý.",
+    "description": "Mở tệp MP3, WAV, FLAC hoặc Ogg Vorbis và chỉ xử lý âm thanh của tệp đó trước khi phát ra thiết bị vật lý.",
     "controls": "Điều khiển phát",
     "open": "Mở tệp nhạc",
     "pause": "Tạm dừng",
@@ -65,12 +88,14 @@
     "dsp": "DSP cổ điển",
     "ai": "AI",
     "dspDescription": "Giảm giọng trung tâm và theo phổ, rất nhẹ.",
-    "aiDescription": "Tách hai stem cục bộ tùy chọn. Mô hình chỉ được tải xuống sau khi bạn đồng ý rõ ràng.",
+    "aiDescription": "Tách hai nguồn âm cục bộ với mô hình đi kèm gói Windows.",
     "builtIn": "Tích hợp",
     "noModel": "Chưa có mô hình",
-    "licenseRule": "Voxveil không đóng gói trọng số AI. Chỉ các mô hình đã được duyệt và ghim SHA-256 mới được cung cấp để tải sau khi người dùng đồng ý.",
+    "licenseRule": "Chỉ đóng gói mô hình đã duyệt và ghim mã băm. Tải xuống dự phòng cần được đồng ý rõ ràng.",
     "modelInstalled": "Đã cài",
-    "modelStorage": "Mô hình AI không được đóng gói cùng Voxveil. Mô hình chỉ được lưu trong dữ liệu ứng dụng Voxveil trên thiết bị này.",
+    "modelBundled": "Đi kèm · Đã cài",
+    "bundledStorage": "Được tích hợp trong ứng dụng; không thể gỡ bỏ. Không cần tải xuống.",
+    "modelStorage": "Nếu thiếu tệp đi kèm, bạn có thể tải mô hình vào dữ liệu ứng dụng Voxveil trên thiết bị này.",
     "modelSource": "Nguồn: {{source}}",
     "installModel": "Cài mô hình AI",
     "removeModel": "Xóa mô hình",

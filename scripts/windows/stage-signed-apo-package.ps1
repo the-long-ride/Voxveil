@@ -10,6 +10,21 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+function Get-Sha256Hex([string]$Path) {
+  $stream = [IO.File]::OpenRead($Path)
+  try {
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+      $hashBytes = $sha256.ComputeHash($stream)
+      return ([BitConverter]::ToString($hashBytes)).Replace('-', '').ToLowerInvariant()
+    } finally {
+      $sha256.Dispose()
+    }
+  } finally {
+    $stream.Dispose()
+  }
+}
 Set-StrictMode -Version Latest
 
 function Assert-StagedHash {
@@ -19,7 +34,7 @@ function Assert-StagedHash {
     [Parameter(Mandatory = $true)][string]$Label
   )
 
-  $actual = (Get-FileHash $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+  $actual = (Get-Sha256Hex $Path)
   if ($actual -ne $Expected.ToLowerInvariant()) {
     throw "Staged $Label hash changed after verification."
   }
@@ -122,7 +137,7 @@ $resolved = [Collections.Generic.List[IO.FileInfo]]::new()
 foreach ($name in $expectedFiles) {
   $matches = @($allFiles | Where-Object Name -ieq $name)
   if ($matches.Count -ne 1) {
-    throw "Verified signed APO package cardinality changed unexpectedly for $name: found $($matches.Count)."
+    throw "Verified signed APO package cardinality changed unexpectedly for ${name}: found $($matches.Count)."
   }
   $resolved.Add($matches[0])
 }

@@ -1,19 +1,20 @@
-use std::collections::VecDeque;
 use std::sync::{
     Arc, Mutex,
     mpsc::{Receiver, TryRecvError},
 };
 use std::time::Duration;
 
-use voxveil_dsp::SpectralCenterSuppressor;
-use voxveil_types::{ClassicSuppressionProfile, VocalLevel};
+use voxveil_types::{ClassicSuppressionProfile, SystemAiStatus};
 use wasapi::{Device, DeviceEnumerator, Direction, SampleType, StreamMode};
 
+use crate::relay_buffer::{
+    CaptureTimeline, DEVICE_BUFFER_MS, FRAME_BYTES, MAX_CAPTURE_FRAMES, RelayBuffer, RenderClock,
+};
 use crate::relay_engine::{RelayCommand, RelayRuntimeState, RelaySpec};
-use crate::sample::process_capture_f32le_stereo;
+use crate::relay_idle::IdleCapture;
+use crate::relay_processing::RelayProcessor;
 
-const MAX_CAPTURE_FRAMES: usize = 4096;
-const MAX_QUEUE_FRAMES: usize = 8192;
+const MAX_PACKETS_PER_TICK: usize = 16;
 
 struct ComGuard;
 
@@ -29,12 +30,6 @@ fn relay_format_supported(channels: u16, bits: u16, is_float: bool) -> bool {
 
 fn capture_packet_within_bound(frames: usize) -> bool {
     frames <= MAX_CAPTURE_FRAMES
-}
-
-fn queue_append_within_bound(current_bytes: usize, incoming_bytes: usize, max_bytes: usize) -> bool {
-    current_bytes
-        .checked_add(incoming_bytes)
-        .is_some_and(|total| total <= max_bytes)
 }
 
 fn set_state(state: &Arc<Mutex<RelayRuntimeState>>, next: RelayRuntimeState) {
@@ -66,6 +61,7 @@ pub(crate) fn run_relay_worker_with_profile(
     spec: RelaySpec,
     initial_vocal_level: u8,
     initial_profile: ClassicSuppressionProfile,
+    ai: crate::RelayAiOptions,
     control_rx: Receiver<RelayCommand>,
     state: Arc<Mutex<RelayRuntimeState>>,
 ) -> Result<(), String> {
@@ -73,6 +69,7 @@ pub(crate) fn run_relay_worker_with_profile(
         spec,
         initial_vocal_level,
         initial_profile,
+        ai,
         control_rx,
         &state,
     );
@@ -87,6 +84,7 @@ fn run_relay_worker_inner(
     spec: RelaySpec,
     initial_vocal_level: u8,
     initial_profile: ClassicSuppressionProfile,
+    ai: crate::RelayAiOptions,
     control_rx: Receiver<RelayCommand>,
     state: &Arc<Mutex<RelayRuntimeState>>,
 ) -> Result<(), String> {
@@ -113,7 +111,8 @@ fn run_relay_worker_inner(
         source_format.get_nchannels(),
         source_format.get_bitspersample(),
         sample_type == SampleType::Float,
-    ) {
+    ) || source_format.get_blockalign() as usize != FRAME_BYTES
+    {
         return Err(
             "The Windows source output shared format must be stereo 32-bit float. Select that format in Windows Sound device properties or choose another spare output".into(),
         );
@@ -121,7 +120,7 @@ fn run_relay_worker_inner(
 
     let capture_mode = StreamMode::PollingShared {
         autoconvert: false,
-        buffer_duration_hns: 200_000,
+        buffer_duration_hns: DEVICE_BUFFER_MS as i64 * 10_000,
     };
     capture_client
         .initialize_client(&source_format, &Direction::Capture, &capture_mode)
@@ -135,7 +134,7 @@ fn run_relay_worker_inner(
         .map_err(|error| error.to_string())?;
     let render_mode = StreamMode::PollingShared {
         autoconvert: true,
-        buffer_duration_hns: 200_000,
+        buffer_duration_hns: DEVICE_BUFFER_MS as i64 * 10_000,
     };
     render_client
         .initialize_client(&source_format, &Direction::Render, &render_mode)
@@ -143,7 +142,23 @@ fn run_relay_worker_inner(
     let render = render_client
         .get_audiorenderclient()
         .map_err(|error| error.to_string())?;
+    let render_clock = RenderClock::new(&render_client);
+    let render_capacity = render_client
+        .get_buffer_size()
+        .map_err(|error| error.to_string())? as usize;
+    let sample_rate = source_format.get_samplespersec();
+    let mut queue = RelayBuffer::new(render_capacity, sample_rate);
+    let mut capture_buffer = vec![0_u8; MAX_CAPTURE_FRAMES * FRAME_BYTES];
+    let mut gap_buffer = vec![0_u8; MAX_CAPTURE_FRAMES * FRAME_BYTES];
+    let mut processor = RelayProcessor::new(sample_rate, initial_vocal_level, initial_profile, ai);
 
+    render
+        .write_to_device(
+            render_capacity,
+            &vec![0; render_capacity * FRAME_BYTES],
+            None,
+        )
+        .map_err(|error| error.to_string())?;
     render_client
         .start_stream()
         .map_err(|error| error.to_string())?;
@@ -152,32 +167,15 @@ fn run_relay_worker_inner(
         return Err(error.to_string());
     }
 
-    set_state(state, RelayRuntimeState::Running);
-
-    let bytes_per_frame = source_format.get_blockalign() as usize;
-    let max_queue_bytes = bytes_per_frame
-        .checked_mul(MAX_QUEUE_FRAMES)
-        .ok_or_else(|| "relay queue size overflow".to_string())?;
-    let capture_buffer_bytes = bytes_per_frame
-        .checked_mul(MAX_CAPTURE_FRAMES)
-        .ok_or_else(|| "relay capture buffer size overflow".to_string())?;
-    let mut queue = VecDeque::<u8>::with_capacity(max_queue_bytes);
-    let mut capture_buffer = vec![0_u8; capture_buffer_bytes];
-    let initial_level = VocalLevel::new(initial_vocal_level.min(100) as f32 / 100.0)
-        .map_err(str::to_string)?;
-    let mut processor = SpectralCenterSuppressor::new(
-        source_format.get_samplespersec(),
-        initial_level,
-        initial_profile,
-    );
+    let mut timeline = CaptureTimeline::default();
+    let mut idle = IdleCapture::new(std::time::Instant::now());
+    set_state(state, processor.runtime_state());
 
     let loop_result: Result<(), String> = 'relay: loop {
         loop {
             match control_rx.try_recv() {
                 Ok(RelayCommand::SetVocalLevel(value)) => {
-                    let level = VocalLevel::new(value.min(100) as f32 / 100.0)
-                        .map_err(str::to_string)?;
-                    processor.set_vocal_level(level);
+                    processor.set_level(value);
                 }
                 Ok(RelayCommand::SetSuppressionProfile(profile)) => {
                     processor.set_profile(profile);
@@ -188,66 +186,105 @@ fn run_relay_worker_inner(
             }
         }
 
-        match capture
-            .get_next_packet_size()
-            .map_err(|error| error.to_string())
-        {
-            Ok(Some(frames)) if frames > 0 => {
-                let frame_count = frames as usize;
-                if !capture_packet_within_bound(frame_count) {
-                    break Err(format!(
-                        "relay capture packet exceeded bounded buffer: {frame_count} frames"
-                    ));
+        let mut capture_drained = false;
+        let mut captured_frames = 0;
+        for _ in 0..MAX_PACKETS_PER_TICK {
+            let frame_count = match capture.get_next_packet_size() {
+                Ok(Some(frames)) if frames > 0 => frames as usize,
+                Ok(_) => {
+                    capture_drained = true;
+                    break;
                 }
-                let bytes = match frame_count.checked_mul(bytes_per_frame) {
-                    Some(bytes) => bytes,
-                    None => break Err("relay capture packet size overflow".into()),
-                };
-                let (read_frames, info) = match capture.read_from_device(&mut capture_buffer[..bytes]) {
-                    Ok(value) => value,
-                    Err(error) => break Err(error.to_string()),
-                };
-                let read_bytes = match (read_frames as usize).checked_mul(bytes_per_frame) {
-                    Some(bytes) => bytes,
-                    None => break Err("relay captured byte count overflow".into()),
-                };
-                if read_bytes > bytes {
-                    break Err("WASAPI capture returned more frames than the announced packet".into());
-                }
-                if let Err(error) = process_capture_f32le_stereo(
-                    &mut capture_buffer[..read_bytes],
-                    info.flags.silent,
-                    &mut processor,
-                ) {
-                    break Err(error.to_string());
-                }
-                if !queue_append_within_bound(queue.len(), read_bytes, max_queue_bytes) {
-                    break Err("relay buffer exceeded the bounded latency limit".into());
-                }
-                queue.extend(&capture_buffer[..read_bytes]);
+                Err(error) => break 'relay Err(error.to_string()),
+            };
+            if !capture_packet_within_bound(frame_count) {
+                break 'relay Err(format!(
+                    "relay capture packet exceeded bounded buffer: {frame_count} frames"
+                ));
             }
-            Ok(_) => {}
-            Err(error) => break Err(error),
+            let bytes = frame_count * FRAME_BYTES;
+            let (read_frames, info) = match capture.read_from_device(&mut capture_buffer[..bytes]) {
+                Ok(value) => value,
+                Err(error) => break 'relay Err(error.to_string()),
+            };
+            let read_frames = read_frames as usize;
+            if read_frames > frame_count {
+                break 'relay Err(
+                    "WASAPI capture returned more frames than the announced packet".into(),
+                );
+            }
+            if read_frames == 0 {
+                capture_drained = true;
+                break;
+            }
+            let update = processor.capture_packet(
+                &mut timeline,
+                info.index,
+                read_frames,
+                info.flags.data_discontinuity,
+                info.flags.timestamp_error,
+                idle.captured(std::time::Instant::now()),
+            );
+            let gap = update.gap;
+            if update.reset_clock {
+                queue.reset_drift();
+            } else {
+                queue.observe_clocks(info.index, info.timestamp, || render_clock.position());
+            }
+            for (buffer, silent) in [
+                (&mut gap_buffer[..gap * FRAME_BYTES], true),
+                (
+                    &mut capture_buffer[..read_frames * FRAME_BYTES],
+                    info.flags.silent,
+                ),
+            ] {
+                if let Err(error) = processor.process(buffer, silent) {
+                    break 'relay Err(error.to_string());
+                }
+                queue.push_capture(buffer);
+            }
+            captured_frames += read_frames;
+        }
+
+        if processor.status != SystemAiStatus::Off {
+            set_state(state, RelayRuntimeState::Ai(processor.status));
         }
 
         let writable = match render_client.get_available_space_in_frames() {
             Ok(frames) => frames as usize,
             Err(error) => break Err(error.to_string()),
         };
-        let queued_frames = queue.len() / bytes_per_frame;
-        let frames_to_write = writable.min(queued_frames);
+        if let Err(error) = processor.fill_idle(
+            &mut idle,
+            std::time::Instant::now(),
+            &mut queue,
+            render_capacity - writable,
+            capture_drained,
+            &mut gap_buffer,
+        ) {
+            break Err(error);
+        }
+        queue.balance(render_capacity - writable, captured_frames);
+        let frames_to_write = writable.min(queue.queued_frames());
         if frames_to_write > 0 {
-            if let Err(error) = render.write_to_device_from_deque(frames_to_write, &mut queue, None)
+            if let Err(error) =
+                render.write_to_device_from_deque(frames_to_write, queue.render_queue(), None)
             {
                 break Err(error.to_string());
             }
         }
 
-        std::thread::sleep(Duration::from_millis(2));
+        if capture_drained {
+            std::thread::sleep(Duration::from_millis(1));
+        }
     };
 
-    let capture_stop = capture_client.stop_stream().map_err(|error| error.to_string());
-    let render_stop = render_client.stop_stream().map_err(|error| error.to_string());
+    let capture_stop = capture_client
+        .stop_stream()
+        .map_err(|error| error.to_string());
+    let render_stop = render_client
+        .stop_stream()
+        .map_err(|error| error.to_string());
 
     loop_result?;
     capture_stop?;
@@ -256,27 +293,5 @@ fn run_relay_worker_inner(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn relay_dsp_requires_stereo_f32() {
-        assert!(relay_format_supported(2, 32, true));
-        assert!(!relay_format_supported(1, 32, true));
-        assert!(!relay_format_supported(2, 16, false));
-        assert!(!relay_format_supported(2, 64, true));
-    }
-
-    #[test]
-    fn relay_capture_packet_has_a_fixed_memory_bound() {
-        assert!(capture_packet_within_bound(MAX_CAPTURE_FRAMES));
-        assert!(!capture_packet_within_bound(MAX_CAPTURE_FRAMES + 1));
-    }
-
-    #[test]
-    fn relay_queue_rejects_append_before_capacity_growth() {
-        assert!(queue_append_within_bound(64, 32, 96));
-        assert!(!queue_append_within_bound(65, 32, 96));
-        assert!(!queue_append_within_bound(usize::MAX, 1, usize::MAX));
-    }
-}
+#[path = "wasapi_relay_tests.rs"]
+mod tests;

@@ -26,9 +26,11 @@ tauri = { version = "=2.11.5", features = [] }
 voxveil-audio-core = { path = "../crates/voxveil-audio-core" }
 voxveil-dsp = { path = "../crates/voxveil-dsp" }
 voxveil-model-api = { path = "../crates/voxveil-model-api" }
+voxveil-media = { path = "../crates/voxveil-media" }
+voxveil-ai = { path = "../crates/voxveil-ai" }
+voxveil-windows-audio = { path = "../crates/voxveil-windows-audio" }
 voxveil-routing = { path = "../crates/voxveil-routing" }
 voxveil-types = { path = "../crates/voxveil-types" }
 
 [target.'cfg(windows)'.dependencies]
-voxveil-windows-audio = { path = "../crates/voxveil-windows-audio" }
 rfd = { version = "=0.15.4", default-features = false }

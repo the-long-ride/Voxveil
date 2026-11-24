@@ -46,7 +46,7 @@ test('signed APO stager copies only the verified production package', () => {
 
 test('signed APO stager rehashes destination copies before writing verification manifest', () => {
   const text = read('scripts/windows/stage-signed-apo-package.ps1');
-  assert.match(text, /function\s+Assert-StagedHash[\s\S]*?Get-FileHash/i);
+  assert.match(text, /function\s+Assert-StagedHash[\s\S]*?Get-Sha256Hex/i);
 
   const copy = text.search(/Copy-Item/i);
   const firstHash = text.indexOf('Assert-StagedHash -Path $stagedApoInf', copy);
@@ -92,7 +92,7 @@ test('production endpoint discovery requires the verified APO staging marker', (
 test('production installer rehashes every signed APO artifact before installation', () => {
   const text = read('scripts/windows/install-system-audio-component.ps1');
   assert.match(text, /apo-verification\.json/i);
-  assert.match(text, /Get-FileHash/i);
+  assert.match(text, /Get-Sha256Hex/i);
   for (const field of [
     'apoInfSha256',
     'apoDllSha256',

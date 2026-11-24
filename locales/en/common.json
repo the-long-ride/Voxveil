@@ -1,4 +1,27 @@
 {
+  "aiRelay": {
+    "buffering": "Buffering AI (~12 s)",
+    "running": "AI relay active (~12 s delay)",
+    "dsp-selected": "System-wide AI is off because Classic DSP is selected.",
+    "model-unsupported": "System-wide AI requires Spleeter; using DSP.",
+    "unavailable": "Spleeter or the app-owned runtime is unavailable; using DSP.",
+    "fell-behind": "AI fell behind; using DSP. Toggle processing to retry.",
+    "failed": "AI processing failed; using DSP. Check the model/runtime and toggle processing to retry.",
+    "apo-active": "The physical APO is active and uses DSP. AI applies to the relay only."
+  },
+  "aiPlayer": {
+    "models": "AI separation models",
+    "choose": "Use {{name}}",
+    "systemWide": "Use AI for system-wide audio",
+    "delay": "Always uses Spleeter, independently of the player model. Adds about 12 seconds of delay: video and games go out of sync. Toggling this restarts the relay.",
+    "mdxOffline": "MDX cannot keep up with real time on some CPUs. File playback waits while it prepares more audio; system-wide AI requires Spleeter.",
+    "notReady": "AI is unavailable. Install and verify the selected model and the app-owned ONNX Runtime to enable it.",
+    "preparing": "Preparing AI…",
+    "preparingWait": "Preparing AI… about {{seconds}} s remaining",
+    "runtimeMissing": "The model is installed, but the app-owned inference runtime could not be loaded.",
+    "changesStop": "Changing the engine or active model stops playback. Open the file again to use the new selection.",
+    "playerOnly": "Auto uses AI for files when ready, otherwise DSP. System-wide AI needs its own opt-in; physical APOs still use DSP."
+  },
   "app": {
     "name": "Voxveil"
   },
@@ -20,7 +43,7 @@
   },
   "playback": {
     "title": "Play files in Voxveil",
-    "description": "Open MP3, WAV, FLAC, or Ogg Vorbis files and process only their audio through Classic DSP before sending it to a physical output.",
+    "description": "Open MP3, WAV, FLAC, or Ogg Vorbis files and process only their audio before sending it to a physical output.",
     "controls": "Playback controls",
     "open": "Open music file",
     "pause": "Pause",
@@ -65,12 +88,14 @@
     "dsp": "Classic DSP",
     "ai": "AI",
     "dspDescription": "Ultra-light center and spectral vocal suppression.",
-    "aiDescription": "Optional local two-stem separation. The model is downloaded only after explicit consent.",
+    "aiDescription": "Local two-stem separation with models bundled in Windows packages.",
     "builtIn": "Built in",
     "noModel": "No model",
-    "licenseRule": "Voxveil does not bundle AI weights. Only approved, hash-pinned model downloads are offered after explicit user consent.",
+    "licenseRule": "Only approved, hash-pinned models are bundled. Fallback downloads require explicit consent.",
     "modelInstalled": "Installed",
-    "modelStorage": "The AI model is not bundled with Voxveil. It is stored only in Voxveil application data on this device.",
+    "modelBundled": "Bundled · installed",
+    "bundledStorage": "Included as part of this application; cannot be removed. No download is needed.",
+    "modelStorage": "If bundled files are missing, you can download this model to Voxveil application data on this device.",
     "modelSource": "Source: {{source}}",
     "installModel": "Install AI model",
     "removeModel": "Remove model",

@@ -25,6 +25,21 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+function Get-Sha256Hex([string]$Path) {
+  $stream = [IO.File]::OpenRead($Path)
+  try {
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+      $hashBytes = $sha256.ComputeHash($stream)
+      return ([BitConverter]::ToString($hashBytes)).Replace('-', '').ToLowerInvariant()
+    } finally {
+      $sha256.Dispose()
+    }
+  } finally {
+    $stream.Dispose()
+  }
+}
 Set-StrictMode -Version Latest
 
 function Assert-StagedHash {
@@ -34,7 +49,7 @@ function Assert-StagedHash {
     [Parameter(Mandatory = $true)][string]$Label
   )
 
-  $actual = (Get-FileHash $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+  $actual = (Get-Sha256Hex $Path)
   if ($actual -ne $Expected) {
     throw "Staged $Label hash changed after verification."
   }
@@ -69,7 +84,7 @@ $repoRoot = [IO.Path]::GetFullPath((Resolve-Path (Join-Path $PSScriptRoot '..\..
 if (-not (Test-Path -LiteralPath $submissionManifestPath -PathType Leaf)) {
   throw "Unsigned submission manifest was not found: $submissionManifestPath"
 }
-$submissionManifestSha256 = (Get-FileHash $submissionManifestPath -Algorithm SHA256).Hash.ToLowerInvariant()
+$submissionManifestSha256 = (Get-Sha256Hex $submissionManifestPath)
 $submission = Get-Content -LiteralPath $submissionManifestPath -Raw | ConvertFrom-Json
 $allowedSubmissionFields = @(
   'schemaVersion',
@@ -121,7 +136,7 @@ if ($deviceHelper -ine $expectedDeviceHelper) {
 if (-not (Test-Path $deviceHelper -PathType Leaf)) {
   throw "Packaged Voxveil virtual-device helper was not found: $deviceHelper"
 }
-$deviceHelperSha256 = (Get-FileHash $deviceHelper -Algorithm SHA256).Hash.ToLowerInvariant()
+$deviceHelperSha256 = (Get-Sha256Hex $deviceHelper)
 
 $distPrefix = if ($distRoot.EndsWith([IO.Path]::DirectorySeparatorChar.ToString())) {
   $distRoot
@@ -183,7 +198,7 @@ if ($ReleaseChannel -eq 'Retail') {
     throw 'Retail release evidence hashes do not match the verified driver package.'
   }
   $verifiedSigningPath = [string]$evidence.signingPath
-  $releaseEvidenceSha256 = (Get-FileHash $evidencePath -Algorithm SHA256).Hash.ToLowerInvariant()
+  $releaseEvidenceSha256 = (Get-Sha256Hex $evidencePath)
 }
 
 $infFiles = @(Get-ChildItem $package -File -Recurse -Filter '*.inf')

@@ -34,6 +34,22 @@ afterEach(() => {
 });
 
 describe('useAiModelManager', () => {
+  it('defaults preview/player model to MDX HQ3', () => {
+    const { result } = renderHook(() => useAiModelManager());
+    expect(result.current.status.id).toBe('mdx-inst-hq3');
+  });
+
+  it('never removes bundled resources or invokes the fallback callback', async () => {
+    (window as Window & { __TAURI_INTERNALS__?: object }).__TAURI_INTERNALS__ = {};
+    client.getAiModelStatus.mockResolvedValue({ ...installed, bundled: true });
+    const onRemoved = vi.fn();
+    const { result } = renderHook(() => useAiModelManager(onRemoved));
+    await waitFor(() => expect(result.current.status.bundled).toBe(true));
+    await act(async () => result.current.remove());
+    expect(client.removeAiModel).not.toHaveBeenCalled();
+    expect(onRemoved).not.toHaveBeenCalled();
+  });
+
   it('hydrates status and installs only after the caller supplies consent', async () => {
     (window as Window & { __TAURI_INTERNALS__?: object }).__TAURI_INTERNALS__ = {};
     client.getAiModelStatus.mockResolvedValue({ ...installed, installed: false });

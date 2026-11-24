@@ -5,13 +5,25 @@ mod binding;
 mod device;
 mod device_interfaces;
 mod discovery;
+#[cfg(any(windows, test))]
+mod relay_buffer;
 mod relay_engine;
+mod relay_ai;
+#[cfg(any(windows, test))]
+mod relay_ai_log;
+pub use relay_ai::RelayAiOptions;
+#[cfg(any(windows, test))]
+mod relay_processing;
+#[cfg(any(windows, test))]
+mod relay_idle;
 mod route;
 #[cfg(any(windows, test))]
 mod relay_decision;
 #[cfg(test)]
 mod endpoint_relay_tests;
 mod sample;
+#[cfg(any(windows, test))]
+mod playback_model;
 mod virtual_endpoint;
 
 #[cfg(windows)]
@@ -62,6 +74,10 @@ mod playback_stub {
             Err("owned file playback is unavailable on this platform".into())
         }
         pub fn snapshot(&self) -> OwnedPlaybackSnapshot { OwnedPlaybackSnapshot::default() }
+        pub fn uses_ai_model(&self, _model: &str) -> bool { false }
+        pub fn open_with_ai(&mut self, path: PathBuf, endpoint: super::EndpointDescriptor, level: u8, profile: ClassicSuppressionProfile, _ai: Option<voxveil_ai::player::AiPlaybackConfig>) -> Result<OwnedPlaybackSnapshot, String> {
+            self.open(path, endpoint, level, profile)
+        }
         pub fn pause(&self) -> Result<(), String> { Err("owned file playback is unavailable on this platform".into()) }
         pub fn resume(&self) -> Result<(), String> { Err("owned file playback is unavailable on this platform".into()) }
         pub fn seek(&self, _frame: u64) -> Result<(), String> { Err("owned file playback is unavailable on this platform".into()) }

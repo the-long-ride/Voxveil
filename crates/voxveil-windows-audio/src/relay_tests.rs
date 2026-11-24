@@ -17,16 +17,6 @@ fn physical(id: &str, is_default: bool) -> EndpointDescriptor {
     }
 }
 
-fn vb_cable(is_default: bool) -> EndpointDescriptor {
-    EndpointDescriptor {
-        id: "cable".into(),
-        name: "CABLE Input (VB-Audio Virtual Cable)".into(),
-        interface_name: Some("VB-Audio Virtual Cable".into()),
-        description: Some("CABLE Input".into()),
-        is_default,
-    }
-}
-
 fn voxveil_cable(is_default: bool) -> EndpointDescriptor {
     EndpointDescriptor {
         id: "voxveil".into(),
@@ -81,12 +71,12 @@ fn loaded_apo_has_priority_over_virtual_relay() {
 
 #[test]
 fn physical_apo_only_never_selects_a_running_virtual_relay() {
-    let cable = vb_cable(true);
+    let cable = voxveil_cable(true);
     let physical = physical("speakers", true);
     let decision = decide_backend_with_policy(
         WindowsInterceptionPolicy::PhysicalApoOnly,
         false,
-        Some((VirtualEndpointKind::VbCable, &cable)),
+        Some((VirtualEndpointKind::VoxveilCable, &cable)),
         Some(&physical),
         Some(&RelayRuntimeState::Running),
     );
@@ -98,7 +88,6 @@ fn physical_apo_only_never_selects_a_running_virtual_relay() {
     assert!(decision.detail.as_deref().unwrap().contains(
         "switch to the automatic route in Settings to use the driver-free relay"
     ));
-    assert!(!decision.detail.as_deref().unwrap().contains("VB-CABLE"));
 }
 
 #[test]
@@ -124,17 +113,17 @@ fn missing_virtual_endpoint_requires_component_when_apo_not_loaded() {
 }
 
 #[test]
-fn installed_vb_cable_must_be_default_for_all_output_capture() {
-    let cable = vb_cable(false);
+fn installed_virtual_cable_must_be_default_for_all_output_capture() {
+    let cable = voxveil_cable(false);
     let physical = physical("speakers", true);
     let decision = decide_backend(
         false,
-        Some((VirtualEndpointKind::VbCable, &cable)),
+        Some((VirtualEndpointKind::VoxveilCable, &cable)),
         Some(&physical),
         None,
     );
     assert_eq!(decision.readiness, RelayReadiness::RoutingRequired);
-    assert!(decision.detail.unwrap().contains("CABLE Input"));
+    assert!(decision.detail.unwrap().contains("Voxveil Input"));
 }
 
 #[test]
@@ -155,29 +144,12 @@ fn voxveil_route_reports_voxveil_interception_kind() {
 }
 
 #[test]
-fn vb_cable_route_is_ready_only_when_worker_is_running() {
-    let cable = vb_cable(true);
-    let physical = physical("speakers", false);
-    let decision = decide_backend(
-        false,
-        Some((VirtualEndpointKind::VbCable, &cable)),
-        Some(&physical),
-        Some(&RelayRuntimeState::Running),
-    );
-    assert_eq!(decision.readiness, RelayReadiness::Ready);
-    assert_eq!(
-        decision.route.interception,
-        Some(WindowsInterceptionKind::VbCableRelay)
-    );
-}
-
-#[test]
 fn relay_fault_is_reported() {
-    let cable = vb_cable(true);
+    let cable = voxveil_cable(true);
     let physical = physical("speakers", false);
     let decision = decide_backend(
         false,
-        Some((VirtualEndpointKind::VbCable, &cable)),
+        Some((VirtualEndpointKind::VoxveilCable, &cable)),
         Some(&physical),
         Some(&RelayRuntimeState::Faulted("device removed".into())),
     );

@@ -2,6 +2,21 @@
   "schemaVersion": 1,
   "policy": "Direct crates.io dependencies only. Path workspace crates are first-party. Git dependencies are forbidden.",
   "packages": {
+    "ort": {
+      "version": "2.0.0-rc.11",
+      "license": "MIT OR Apache-2.0",
+      "commercialUse": true
+    },
+    "rubato": {
+      "version": "0.16.2",
+      "license": "MIT",
+      "commercialUse": true
+    },
+    "rustfft": {
+      "version": "6.4.1",
+      "license": "MIT OR Apache-2.0",
+      "commercialUse": true
+    },
     "serde": {
       "version": "1.0.229",
       "license": "MIT OR Apache-2.0",

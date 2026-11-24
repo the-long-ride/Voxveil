@@ -1,4 +1,27 @@
 {
+  "aiRelay": {
+    "buffering": "AI缓冲中（约12秒）",
+    "running": "AI中继运行中（约12秒延迟）",
+    "dsp-selected": "已选择Classic DSP，因此系统音频AI已关闭。",
+    "model-unsupported": "系统音频AI需要Spleeter；正在使用DSP。",
+    "unavailable": "Spleeter 或应用自带的运行库不可用；正在使用DSP。",
+    "fell-behind": "AI处理未能跟上；正在使用DSP。请重新开启处理以重试。",
+    "failed": "AI处理失败；正在使用DSP。请检查模型及运行库并重新开启处理。",
+    "apo-active": "物理APO正在使用DSP。AI仅用于音频中继。"
+  },
+  "aiPlayer": {
+    "models": "AI音源分离模型",
+    "choose": "使用{{name}}",
+    "systemWide": "将AI用于系统音频",
+    "delay": "始终使用 Spleeter，与播放器模型无关。约有12秒延迟，视频和游戏将音画不同步。切换此选项会重启音频中继。",
+    "mdxOffline": "部分CPU无法实时运行MDX。播放器会等待更多音频准备完成；系统音频AI需要Spleeter。",
+    "notReady": "AI不可用。请安装并验证所选模型及应用自带的ONNX Runtime。",
+    "preparing": "正在准备AI…",
+    "preparingWait": "正在准备AI…预计还需{{seconds}}秒",
+    "runtimeMissing": "模型已安装，但无法加载应用自带的推理运行库。",
+    "changesStop": "更换引擎或模型会停止播放。请重新打开文件以应用选择。",
+    "playerOnly": "自动模式在就绪时为文件使用AI，否则使用DSP。系统音频AI需单独启用；物理APO仍使用DSP。"
+  },
   "app": {
     "name": "Voxveil"
   },
@@ -20,7 +43,7 @@
   },
   "playback": {
     "title": "在 Voxveil 中播放文件",
-    "description": "打开 MP3、WAV、FLAC 或 Ogg Vorbis 文件，仅通过经典 DSP 处理其音频，然后发送到物理输出设备。",
+    "description": "打开 MP3、WAV、FLAC 或 Ogg Vorbis 文件，仅处理其音频，然后发送到物理输出设备。",
     "controls": "播放控制",
     "open": "打开音乐文件",
     "pause": "暂停",
@@ -65,12 +88,14 @@
     "dsp": "经典 DSP",
     "ai": "AI",
     "dspDescription": "超轻量的中央声道与频谱人声抑制。",
-    "aiDescription": "可选的本地双轨分离。仅在用户明确同意后才下载模型。",
+    "aiDescription": "使用 Windows 包内置模型进行本地双音轨分离。",
     "builtIn": "内置",
     "noModel": "无模型",
-    "licenseRule": "Voxveil 不随安装包捆绑 AI 权重。只有经过审核并固定 SHA-256 的模型才会在用户明确同意后提供下载。",
+    "licenseRule": "仅内置已批准且固定哈希的模型。备用下载需明确同意。",
     "modelInstalled": "已安装",
-    "modelStorage": "AI 模型不会随 Voxveil 安装包提供，只会存储在本设备的 Voxveil 应用数据目录中。",
+    "modelBundled": "已内置 · 已安装",
+    "bundledStorage": "随应用提供，无法移除，无需下载。",
+    "modelStorage": "如果缺少内置文件，可将此模型下载到本设备的 Voxveil 应用数据目录。",
     "modelSource": "来源：{{source}}",
     "installModel": "安装 AI 模型",
     "removeModel": "删除模型",

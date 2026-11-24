@@ -11,6 +11,7 @@ voxveil-audio-core = { path = "../voxveil-audio-core" }
 voxveil-dsp = { path = "../voxveil-dsp" }
 voxveil-media = { path = "../voxveil-media" }
 voxveil-types = { path = "../voxveil-types" }
+voxveil-ai = { path = "../voxveil-ai" }
 
 [target.'cfg(windows)'.dependencies]
 serde = { version = "=1.0.229", features = ["derive"] }
@@ -25,3 +26,6 @@ windows = { version = "=0.62.2", features = [
   "Win32_System_SystemInformation",
   "Win32_System_Variant",
 ] }
+
+[dev-dependencies]
+voxveil-model-api = { path = "../voxveil-model-api" }

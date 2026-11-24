@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSystemAiStatus } from './useSystemAiStatus';
 import { PREVIEW_STATE, SAFE_NATIVE_STATE } from '../lib/demo-state';
 import { errorMessage } from '../lib/errors';
 import { createVoxveilClient } from '../lib/tauri';
@@ -28,7 +29,7 @@ function canRequestProcessingStart(state: VoxveilState): boolean {
   if (state.backendStatus !== 'routing-required' || state.physicalOutputEndpointId === null) {
     return false;
   }
-  return state.backendKind === 'endpoint-relay' || state.backendKind === 'vb-cable-relay' || state.backendKind === 'voxveil-cable-relay';
+  return state.backendKind === 'endpoint-relay' || state.backendKind === 'voxveil-cable-relay';
 }
 
 export function useVoxveilState() {
@@ -43,6 +44,7 @@ export function useVoxveilState() {
   const [processingOperationError, setProcessingOperationError] = useState<string | null>(null);
   const [playbackOperationError, setPlaybackOperationError] = useState<string | null>(null);
   const client = useMemo(() => createVoxveilClient(), []);
+  useSystemAiStatus(native, state.masterEnabled || Boolean(state.ai?.systemWide), client, setState);
   const canStartProcessing = canRequestProcessingStart(state);
 
   const refreshSystemAudioEndpoints = useCallback(async () => {
@@ -180,15 +182,6 @@ export function useVoxveilState() {
     }
   }, [client, native]);
 
-  const openVbCableDownload = useCallback(async () => {
-    if (!native) return;
-    try {
-      await client.openVbCableDownload();
-    } catch (error) {
-      setSystemAudioInstallError(errorMessage(error));
-    }
-  }, [client, native]);
-
   const setAudioRoute = useCallback(async (audioRouteChoice: AudioRouteChoice) => {
     setAudioRouteError(null);
     if (!native) {
@@ -233,7 +226,6 @@ export function useVoxveilState() {
   const setProcessingMode = (processingMode: ProcessingMode) =>
     commit({ processingMode }, () => client.setProcessingMode(processingMode));
   const setEngine = (engine: EngineKind) => {
-    if (state.audioRouteChoice === 'owned-file-playback' && engine !== 'dsp') return;
     commit(
       (current) => ({ ...current, engine, estimatedLatencyMs: estimatedLatency(engine, current.quality) }),
       () => client.setEngine(engine),
@@ -280,12 +272,12 @@ export function useVoxveilState() {
     installSystemAudioEndpoint: (endpointId: string) => { void installSystemAudioEndpoint(endpointId); },
     selectPhysicalOutput,
     openWindowsSoundSettings: () => { void openWindowsSoundSettings(); },
-    openVbCableDownload: () => { void openVbCableDownload(); },
     setAudioRoute,
     ...playbackControls,
     setMasterEnabled,
     setProcessingMode,
     setEngine,
+    setAiPreferences: (ai: import('../lib/types').AiPreferences) => commit({ ai }, () => client.setAiPreferences(ai)),
     setClassicSuppressionProfile,
     setVocalLevel,
     setQuality,

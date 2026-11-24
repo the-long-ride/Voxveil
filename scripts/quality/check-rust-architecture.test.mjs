@@ -70,14 +70,22 @@ test('AI model acquisition is consent-gated, app-local and integrity checked', a
   const commands = await readFile('tauri/models/commands.rs', 'utf8');
   const storage = await readFile('tauri/models/storage.rs', 'utf8');
   const download = await readFile('tauri/models/download.rs', 'utf8');
+  const transfer = await readFile('tauri/models/transfer.rs', 'utf8');
+  const files = await readFile('tauri/models/storage_files.rs', 'utf8');
   const appCommands = await readFile('tauri/app/commands.rs', 'utf8');
   assert.match(commands, /if !accepted_terms/);
   assert.match(storage, /app_local_data_dir\(\)/);
-  assert.match(download, /Sha256/);
-  assert.match(download, /\.download/);
+  assert.match(download, /transfer::copy_verified/);
+  assert.match(transfer, /Sha256/);
+  assert.match(transfer, /file\.sha256/);
+  assert.match(files, /\.download/);
   assert.match(appCommands, /ai_runtime_ready/);
   const modelModule = await readFile('tauri/models/mod.rs', 'utf8');
-  assert.match(modelModule, /AI_RUNTIME_AVAILABLE:\s*bool\s*=\s*false/);
+  assert.match(modelModule, /runtime_available\(\)/);
+  assert.match(modelModule, /storage::resolve/);
+  const location = await readFile('tauri/models/location.rs', 'utf8');
+  assert.match(location, /storage_files::verified_files/);
+  assert.match(location, /storage_files::verified\(/);
 });
 
 test('master processing cannot claim enabled without a ready audio backend', async () => {

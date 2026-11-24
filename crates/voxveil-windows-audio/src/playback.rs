@@ -8,13 +8,15 @@ use std::thread::{self, JoinHandle};
 use voxveil_types::{AudioPlaybackSnapshot, AudioPlaybackStatus, ClassicSuppressionProfile};
 
 use crate::device::EndpointDescriptor;
-use crate::virtual_endpoint::classify_virtual_endpoint;
+use crate::virtual_endpoint::is_virtual_endpoint;
 
 const PLAYBACK_DECODE_FRAMES: usize = 2_048;
 const MAX_QUEUE_FRAMES: usize = 8_192;
-const MAX_RENDER_FRAMES: usize = 8_192;
-const WASAPI_BUFFER_HNS: i64 = 200_000;
 
+#[path = "playback_ai.rs"]
+mod playback_ai;
+#[path = "playback_output.rs"]
+mod playback_output;
 #[path = "playback_worker.rs"]
 mod playback_worker;
 use playback_worker::run_playback_worker;
@@ -33,6 +35,7 @@ enum PlaybackCommand {
 }
 
 struct PlaybackHandle {
+    ai_model: Option<voxveil_types::AiModel>,
     command_tx: Sender<PlaybackCommand>,
     state: Arc<Mutex<OwnedPlaybackSnapshot>>,
     worker: Option<JoinHandle<()>>,
@@ -51,8 +54,19 @@ impl OwnedPlayback {
         vocal_level: u8,
         profile: ClassicSuppressionProfile,
     ) -> Result<OwnedPlaybackSnapshot, String> {
+        self.open_with_ai(path, endpoint, vocal_level, profile, None)
+    }
+
+    pub fn open_with_ai(
+        &mut self,
+        path: PathBuf,
+        endpoint: EndpointDescriptor,
+        vocal_level: u8,
+        profile: ClassicSuppressionProfile,
+        ai: Option<voxveil_ai::player::AiPlaybackConfig>,
+    ) -> Result<OwnedPlaybackSnapshot, String> {
         self.stop()?;
-        if classify_virtual_endpoint(&endpoint).is_some() {
+        if is_virtual_endpoint(&endpoint) {
             return Err("a virtual audio endpoint cannot be used for local file playback".into());
         }
         if path.file_name().is_none() {
@@ -71,16 +85,31 @@ impl OwnedPlayback {
         let worker_state = Arc::clone(&state);
         let exit_state = Arc::clone(&state);
         let (command_tx, command_rx) = mpsc::channel();
+        let ai_model = ai.as_ref().map(|config| match config.model {
+            voxveil_ai::Model::Spleeter => voxveil_types::AiModel::Spleeter,
+            voxveil_ai::Model::MdxInstHq3 => voxveil_types::AiModel::MdxInstHq3,
+        });
         let worker = thread::spawn(move || {
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                run_playback_worker(
-                    path,
-                    endpoint,
-                    vocal_level,
-                    profile,
-                    command_rx,
-                    worker_state,
-                )
+                if let Some(config) = ai {
+                    playback_ai::run(
+                        path,
+                        endpoint,
+                        vocal_level,
+                        config,
+                        command_rx,
+                        worker_state,
+                    )
+                } else {
+                    run_playback_worker(
+                        path,
+                        endpoint,
+                        vocal_level,
+                        profile,
+                        command_rx,
+                        worker_state,
+                    )
+                }
             }));
             match result {
                 Ok(Ok(())) => {}
@@ -96,6 +125,7 @@ impl OwnedPlayback {
             }
         });
         self.handle = Some(PlaybackHandle {
+            ai_model,
             command_tx,
             state: Arc::clone(&state),
             worker: Some(worker),
@@ -108,6 +138,10 @@ impl OwnedPlayback {
             .as_ref()
             .map(|handle| snapshot_from(&handle.state))
             .unwrap_or_default()
+    }
+
+    pub fn uses_ai_model(&self, model: &str) -> bool {
+        crate::playback_model::uses_model(self.handle.as_ref().and_then(|handle| handle.ai_model), model)
     }
 
     pub fn pause(&self) -> Result<(), String> {
@@ -143,7 +177,11 @@ impl OwnedPlayback {
         set_playback_state(&handle.state, |snapshot| {
             if matches!(
                 snapshot.status,
-                PlaybackStatus::Loading | PlaybackStatus::Playing | PlaybackStatus::Paused
+                PlaybackStatus::Loading
+                    | PlaybackStatus::Buffering
+                    | PlaybackStatus::Playing
+                    | PlaybackStatus::Paused
+                    | PlaybackStatus::Ended
             ) {
                 snapshot.status = PlaybackStatus::Stopped;
             }
@@ -213,28 +251,29 @@ mod tests {
     }
 
     #[test]
+    fn rejects_vendor_virtual_output_before_opening_a_file() {
+        let mut playback = OwnedPlayback::default();
+        let result = playback.open(
+            PathBuf::from("not-opened.wav"),
+            endpoint("vendor", "CABLE Input", "VB-Audio Virtual Cable", "CABLE Input"),
+            100,
+            ClassicSuppressionProfile::MusicPreservation,
+        );
+        assert!(result.unwrap_err().contains("virtual audio endpoint"));
+    }
+
+    #[test]
     fn only_a_physical_endpoint_can_own_file_playback() {
         assert!(
-            classify_virtual_endpoint(&endpoint("speakers", "Speakers", "USB Audio", "Speakers"))
-                .is_none()
+            !is_virtual_endpoint(&endpoint("speakers", "Speakers", "USB Audio", "Speakers"))
         );
         assert!(
-            classify_virtual_endpoint(&endpoint(
-                "cable",
-                "CABLE Input (VB-Audio Virtual Cable)",
-                "VB-Audio Virtual Cable",
-                "CABLE Input",
-            ))
-            .is_some()
-        );
-        assert!(
-            classify_virtual_endpoint(&endpoint(
+            is_virtual_endpoint(&endpoint(
                 "voxveil",
                 "Voxveil Input",
                 "Voxveil Virtual Audio",
                 "Voxveil Input",
             ))
-            .is_some()
         );
     }
 }

@@ -9,7 +9,23 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+function Get-Sha256Hex([string]$Path) {
+  $stream = [IO.File]::OpenRead($Path)
+  try {
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+      $hashBytes = $sha256.ComputeHash($stream)
+      return ([BitConverter]::ToString($hashBytes)).Replace('-', '').ToLowerInvariant()
+    } finally {
+      $sha256.Dispose()
+    }
+  } finally {
+    $stream.Dispose()
+  }
+}
 Set-StrictMode -Version Latest
+Import-Module ([IO.Path]::Combine($PSHOME, 'Modules', 'Microsoft.PowerShell.Security', 'Microsoft.PowerShell.Security.psd1')) -ErrorAction Stop
 
 $package = [IO.Path]::GetFullPath($PackageDir)
 $validator = Join-Path $PSScriptRoot 'validate-virtual-driver-package.ps1'
@@ -56,9 +72,9 @@ $result = [ordered]@{
   inf = $inf.Name
   catalog = $cat.Name
   driver = $sys.Name
-  infSha256 = (Get-FileHash $inf.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-  catalogSha256 = (Get-FileHash $cat.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-  driverSha256 = (Get-FileHash $sys.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+  infSha256 = (Get-Sha256Hex $inf.FullName)
+  catalogSha256 = (Get-Sha256Hex $cat.FullName)
+  driverSha256 = (Get-Sha256Hex $sys.FullName)
   catalogSigner = $signer.Subject
   catalogThumbprint = $signer.Thumbprint
 }

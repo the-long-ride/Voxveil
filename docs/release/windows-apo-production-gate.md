@@ -89,7 +89,7 @@ Build the unsigned APO submission input from the exact release checkout so `Voxv
 - missing endpoint identity means APO coverage is unproven and must not produce a readiness positive. Explicit manual `legacy-reference` development state may remain unscoped, but it is not a production readiness proof.
 - `capx` and `system-effect` are diagnostics/control state and cannot independently make the backend ready.
 
-When Windows changes the default output away from the APO-installed endpoint, a stale `loaded>0` count must not suppress VB-CABLE/Voxveil virtual-endpoint fallback. When the user changes back, the APO may regain precedence only after a real non-discovery processing instance exists for the installed/default endpoint.
+When Windows changes the default output away from the APO-installed endpoint, a stale `loaded>0` count must not suppress Voxveil virtual-endpoint or driver-free endpoint-relay fallback. When the user changes back, the APO may regain precedence only after a real non-discovery processing instance exists for the installed/default endpoint.
 
 The current native control telemetry exposes a process-wide `loaded` count rather than endpoint-specific instance identities. Therefore one install-state file manages exactly one APO endpoint at a time. The installer must reject a different endpoint while any endpoint-scoped install state remains, including partial/non-ready state after a failed or reboot-required install. Uninstall the managed APO state/packages first, then install the different endpoint. The UI must not offer a bulk “install all endpoints” action that could imply endpoint-scoped load verification which the current telemetry cannot prove.
 

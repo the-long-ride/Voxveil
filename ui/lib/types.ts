@@ -1,13 +1,16 @@
 export type ProcessingMode = 'all' | 'per-app';
 export type EngineKind = 'auto' | 'dsp' | 'ai';
 export type AudioRouteChoice = 'legacy-automatic' | 'physical-apo' | 'owned-file-playback';
-export type AudioPlaybackStatus = 'stopped' | 'loading' | 'playing' | 'paused' | 'ended' | 'faulted';
+export type AudioPlaybackStatus = 'stopped' | 'loading' | 'buffering' | 'playing' | 'paused' | 'ended' | 'faulted';
+export type AiModelId = 'spleeter-2stems-fp16' | 'mdx-inst-hq3';
+export interface AiPreferences { model: AiModelId; systemWide: boolean }
+export type SystemAiStatus = 'off' | 'buffering' | 'running' | 'dsp-selected' | 'model-unsupported' | 'unavailable' | 'fell-behind' | 'failed' | 'apo-active';
 export type ClassicSuppressionProfile = 'music-preservation' | 'balanced' | 'strong';
 export type OutputMode = 'physical' | 'virtual' | 'both';
 export type ThemeMode = 'system' | 'light' | 'dark';
 export type ProcessingLoad = 'idle' | 'low' | 'medium' | 'high';
 export type ProcessingBackendStatus = 'ready' | 'component-required' | 'routing-required' | 'unsupported' | 'faulted';
-export type WindowsInterceptionKind = 'apo' | 'vb-cable-relay' | 'voxveil-cable-relay' | 'endpoint-relay';
+export type WindowsInterceptionKind = 'apo' | 'voxveil-cable-relay' | 'endpoint-relay';
 export type SystemAudioEndpointStatus = 'ready' | 'installable' | 'component-required' | 'ambiguous' | 'unsupported';
 
 export interface AppSource {
@@ -33,6 +36,7 @@ export interface AudioPlaybackSnapshot {
   positionFrames: number;
   totalFrames: number | null;
   error: string | null;
+  preparingWaitMs?: number | null;
 }
 
 export interface SystemAudioEndpoint {
@@ -63,6 +67,8 @@ export interface VoxveilState {
   processingMode: ProcessingMode;
   perAppProcessingAvailable: boolean;
   engine: EngineKind;
+  ai?: AiPreferences;
+  systemAiStatus?: SystemAiStatus;
   classicSuppressionProfile: ClassicSuppressionProfile;
   vocalLevel: number;
   quality: number;
@@ -80,6 +86,7 @@ export interface AiModelStatus {
   displayName: string;
   approximateSizeMb: number;
   license: string;
+  attribution?: string;
   source: string;
   sourceRevision: string;
   installed: boolean;

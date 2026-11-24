@@ -23,7 +23,6 @@ export interface SystemAudioEndpointsProps {
   onInstall: (endpointId: string) => void;
   onSelectPhysicalOutput: (endpointId: string) => void | Promise<void>;
   onOpenSoundSettings: () => void;
-  onGetVbCable: () => void;
 }
 
 const STATUS_KEYS: Record<SystemAudioEndpointStatus, string> = {
@@ -37,17 +36,15 @@ const STATUS_KEYS: Record<SystemAudioEndpointStatus, string> = {
 function backendLabel(kind: WindowsInterceptionKind | null): string | null {
   switch (kind) {
     case 'apo': return 'Voxveil APO';
-    case 'vb-cable-relay': return 'VB-CABLE';
     case 'voxveil-cable-relay': return 'Voxveil Cable';
     default: return null;
   }
 }
 
 function routeInstructionKey(kind: WindowsInterceptionKind | null): string {
-  if (kind === 'endpoint-relay') return 'systemAudio.routeInstructionEndpointRelay';
   return kind === 'voxveil-cable-relay'
     ? 'systemAudio.routeInstructionVoxveilCable'
-    : 'systemAudio.routeInstructionVbCable';
+    : 'systemAudio.routeInstructionEndpointRelay';
 }
 
 export function SystemAudioEndpoints({
@@ -64,16 +61,15 @@ export function SystemAudioEndpoints({
   onInstall,
   onSelectPhysicalOutput,
   onOpenSoundSettings,
-  onGetVbCable,
 }: SystemAudioEndpointsProps) {
   const { t } = useTranslation();
   const [physicalOutputBusy, setPhysicalOutputBusy] = useState(false);
   const label = backendKind === 'endpoint-relay' ? t('systemAudio.endpointRelay') : backendLabel(backendKind);
-  const missingVbCable = audioRouteChoice === 'legacy-automatic'
+  const missingRelaySource = audioRouteChoice === 'legacy-automatic'
     && backendStatus === 'component-required'
     && backendKind !== 'apo';
   const physicalApoUnavailable = audioRouteChoice === 'physical-apo' && backendStatus === 'component-required';
-  const usingRelay = backendKind === 'endpoint-relay' || backendKind === 'vb-cable-relay' || backendKind === 'voxveil-cable-relay';
+  const usingRelay = backendKind === 'endpoint-relay' || backendKind === 'voxveil-cable-relay';
   const selectPhysicalOutput = async (endpointId: string) => {
     if (busy || physicalOutputBusy) return;
     setPhysicalOutputBusy(true);
@@ -105,17 +101,12 @@ export function SystemAudioEndpoints({
             {label && <span className="endpoint-badge">{label}</span>}
           </div>
           {physicalApoUnavailable && <small>{t('systemAudio.physicalApoUnavailable')}</small>}
-          {missingVbCable && <small>{t('systemAudio.vbCableMissing')}</small>}
+          {missingRelaySource && <small>{t('systemAudio.relaySourceMissing')}</small>}
           {usingRelay && backendStatus === 'routing-required' && <small>{t(routeInstructionKey(backendKind))}</small>}
           {usingRelay && backendStatus === 'ready' && <small>{t('systemAudio.routeActive')}</small>}
         </div>
         <div className="system-audio-state">
-          {missingVbCable && (
-            <button className="action-button" type="button" onClick={onGetVbCable}>
-              {t('systemAudio.getVbCable')}
-            </button>
-          )}
-          {usingRelay && backendStatus === 'routing-required' && (
+          {(missingRelaySource || (usingRelay && backendStatus === 'routing-required')) && (
             <button className="action-button" type="button" onClick={onOpenSoundSettings}>
               {t('systemAudio.openSoundSettings')}
             </button>
@@ -144,7 +135,7 @@ export function SystemAudioEndpoints({
         </label>
       )}
 
-      {endpoints.length === 0 && !missingVbCable && !usingRelay && (
+      {endpoints.length === 0 && !missingRelaySource && !usingRelay && (
         <span className="meta">{t(busy ? 'systemAudio.detecting' : 'systemAudio.none')}</span>
       )}
       <div className="system-audio-list">

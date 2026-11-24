@@ -20,6 +20,7 @@ pub struct SpectralCenterSuppressor {
     input_l: [f32; FFT_SIZE],
     input_r: [f32; FFT_SIZE],
     input_len: usize,
+    warmup_hops: usize,
     ola_l: [f32; FFT_SIZE],
     ola_r: [f32; FFT_SIZE],
     ola_norm: [f32; FFT_SIZE],
@@ -48,7 +49,8 @@ impl SpectralCenterSuppressor {
             profile,
             input_l: [0.0; FFT_SIZE],
             input_r: [0.0; FFT_SIZE],
-            input_len: 0,
+            input_len: FFT_SIZE - HOP_SIZE,
+            warmup_hops: FFT_SIZE / HOP_SIZE - 1,
             ola_l: [0.0; FFT_SIZE],
             ola_r: [0.0; FFT_SIZE],
             ola_norm: [0.0; FFT_SIZE],
@@ -171,7 +173,11 @@ impl SpectralCenterSuppressor {
             let frequency_hz = mirrored_bin as f32 * self.sample_rate / FFT_SIZE as f32;
             let frequency_weight = frequency_weight(frequency_hz, parameters);
             let transient_weight = 1.0 - transient * parameters.transient_protection;
-            let center_weight = center_likelihood * center_likelihood;
+            let center_weight = if self.profile == ClassicSuppressionProfile::MusicPreservation {
+                center_likelihood.sqrt()
+            } else {
+                center_likelihood * center_likelihood
+            };
             let attenuation = (1.0 - parameters.floor_gain)
                 * suppression
                 * center_weight
@@ -211,6 +217,11 @@ impl SpectralCenterSuppressor {
                 if left.is_finite() { left } else { 0.0 },
                 if right.is_finite() { right } else { 0.0 },
             ];
+        }
+
+        if self.warmup_hops > 0 {
+            self.warmup_hops -= 1;
+            self.output_queue_len = 0;
         }
 
         self.ola_l.copy_within(HOP_SIZE..FFT_SIZE, 0);

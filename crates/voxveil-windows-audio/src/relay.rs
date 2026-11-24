@@ -7,7 +7,7 @@ use crate::discovery::{SystemAudioEndpoint, SystemAudioEndpointStatus, enrich_en
 use crate::relay_engine::{RelayHandle, RelayRuntimeState, RelaySpec};
 use crate::route::{select_physical_output, select_relay_output, select_relay_source};
 use crate::virtual_endpoint::{
-    VirtualEndpointKind, classify_virtual_endpoint,
+    VirtualEndpointKind, is_virtual_endpoint,
 };
 
 #[path = "relay_control.rs"]
@@ -36,6 +36,7 @@ pub struct WindowsAudioBackend {
     relay: Option<RelayHandle>,
     preferred_physical_output_id: Option<String>,
     interception_policy: WindowsInterceptionPolicy,
+    ai_options: crate::RelayAiOptions,
 }
 
 impl WindowsAudioBackend {
@@ -47,6 +48,7 @@ impl WindowsAudioBackend {
             relay: None,
             preferred_physical_output_id: None,
             interception_policy: WindowsInterceptionPolicy::Automatic,
+            ai_options: crate::RelayAiOptions::default(),
         }
     }
 
@@ -99,12 +101,11 @@ impl WindowsAudioBackend {
 
         let selected = select_relay_source(&endpoints);
         let (virtual_kind, source) = selected.ok_or_else(|| {
-            "Connect a spare Windows output for driverless relay, or install VB-CABLE / a verified Voxveil virtual driver".to_string()
+            "Connect a spare Windows output for driverless relay, or install a verified Voxveil virtual driver".to_string()
         })?;
         if !source.is_default {
             return Err(match virtual_kind {
                 VirtualEndpointKind::VoxveilCable => "Set Voxveil Input as the Windows default output before enabling Voxveil".into(),
-                VirtualEndpointKind::VbCable => "Set CABLE Input as the Windows default output before enabling Voxveil".into(),
                 VirtualEndpointKind::EndpointRelay => crate::route::ENDPOINT_RELAY_INSTRUCTION.into(),
             });
         }
@@ -123,6 +124,7 @@ impl WindowsAudioBackend {
             spec,
             self.vocal_level,
             self.classic_suppression_profile,
+            self.ai_options.clone(),
         )?;
         self.relay = Some(relay);
 
@@ -134,7 +136,7 @@ impl WindowsAudioBackend {
                 .map(RelayHandle::state)
                 .unwrap_or(RelayRuntimeState::Stopped);
             match state {
-                RelayRuntimeState::Running => {
+                RelayRuntimeState::Running | RelayRuntimeState::Ai(_) => {
                     self.enabled = true;
                     return Ok(self.probe());
                 }
@@ -199,7 +201,7 @@ impl WindowsAudioBackend {
                 .ok_or_else(|| {
                     "The selected physical playback endpoint is no longer available".to_string()
                 })?;
-            if classify_virtual_endpoint(endpoint).is_some() {
+            if is_virtual_endpoint(endpoint) {
                 return Err(
                     "A virtual interception endpoint cannot be used as physical output".into(),
                 );
@@ -218,10 +220,27 @@ impl WindowsAudioBackend {
         self.probe()
     }
 
+    pub fn configure_ai(&mut self, options: crate::RelayAiOptions) -> Result<BackendProbe, String> {
+        if self.ai_options.update(options, self.enabled && self.relay.is_some()) {
+            self.set_enabled(true, self.vocal_level)
+        } else { Ok(self.probe()) }
+    }
+
+    pub fn system_ai_status(&self) -> voxveil_types::SystemAiStatus {
+        use voxveil_types::SystemAiStatus;
+        match self.relay.as_ref().map(RelayHandle::state) {
+            Some(RelayRuntimeState::Ai(status)) => status,
+            Some(_) => self.ai_options.status,
+            None if self.enabled && self.ai_options.config.is_some() => SystemAiStatus::ApoActive,
+            None if self.ai_options.status == SystemAiStatus::Buffering => SystemAiStatus::Off,
+            None => self.ai_options.status,
+        }
+    }
+
     pub fn physical_outputs(&self) -> Result<Vec<EndpointDescriptor>, String> {
         Ok(enumerate_render_blocking()?
             .into_iter()
-            .filter(|item| classify_virtual_endpoint(item).is_none())
+            .filter(|item| !is_virtual_endpoint(item))
             .collect())
     }
 

@@ -6,7 +6,6 @@ use crate::virtual_endpoint::VirtualEndpointKind;
 fn interception_kind(kind: VirtualEndpointKind) -> WindowsInterceptionKind {
     match kind {
         VirtualEndpointKind::VoxveilCable => WindowsInterceptionKind::VoxveilCableRelay,
-        VirtualEndpointKind::VbCable => WindowsInterceptionKind::VbCableRelay,
         VirtualEndpointKind::EndpointRelay => WindowsInterceptionKind::EndpointRelay,
     }
 }
@@ -14,7 +13,6 @@ fn interception_kind(kind: VirtualEndpointKind) -> WindowsInterceptionKind {
 fn route_label(kind: VirtualEndpointKind) -> &'static str {
     match kind {
         VirtualEndpointKind::VoxveilCable => "Voxveil virtual audio relay",
-        VirtualEndpointKind::VbCable => "VB-CABLE relay",
         VirtualEndpointKind::EndpointRelay => "Driverless endpoint relay",
     }
 }
@@ -24,9 +22,6 @@ fn default_route_instruction(kind: VirtualEndpointKind) -> &'static str {
         VirtualEndpointKind::EndpointRelay => crate::route::ENDPOINT_RELAY_INSTRUCTION,
         VirtualEndpointKind::VoxveilCable => {
             "Set Voxveil Input as the Windows default output, then return to Voxveil"
-        }
-        VirtualEndpointKind::VbCable => {
-            "Set CABLE Input as the Windows default output, then return to Voxveil"
         }
     }
 }
@@ -70,7 +65,7 @@ pub(crate) fn decide_backend(
             readiness: RelayReadiness::ComponentRequired,
             route: physical_route(None, None),
             detail: Some(
-                "Connect a spare Windows output for driverless endpoint relay, or install the standard VB-CABLE virtual audio device or a verified Voxveil virtual audio driver"
+                "Connect a spare Windows output for driverless endpoint relay, or install a verified Voxveil virtual audio driver"
                     .into(),
             ),
         };
@@ -97,7 +92,7 @@ pub(crate) fn decide_backend(
     }
 
     match relay_state {
-        Some(RelayRuntimeState::Running) => BackendProbe {
+        Some(RelayRuntimeState::Running | RelayRuntimeState::Ai(_)) => BackendProbe {
             readiness: RelayReadiness::Ready,
             route,
             detail: None,

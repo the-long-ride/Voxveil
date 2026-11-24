@@ -6,6 +6,7 @@ import { Toggle } from '../components/Toggle';
 import { AppsScreen } from '../features/apps/AppsScreen';
 import { EngineScreen } from '../features/engine/EngineScreen';
 import { useAiModelManager } from '../features/engine/useAiModelManager';
+import { resetRemovedAiEngine } from '../features/engine/modelRemoval';
 import { HomeScreen } from '../features/home/HomeScreen';
 import { PlaybackScreen } from '../features/playback/PlaybackScreen';
 import { RoutingScreen } from '../features/routing/RoutingScreen';
@@ -23,7 +24,8 @@ export function AppShell({ themeMode, onThemeModeChange }: AppShellProps) {
   const { t } = useTranslation();
   const [route, setRoute] = useState<RouteId>('home');
   const model = useVoxveilState();
-  const aiModel = useAiModelManager(() => model.setEngine('auto'));
+  const onAiModelRemoved = () => resetRemovedAiEngine(model.state.engine, model.setEngine);
+  const aiModel = useAiModelManager(onAiModelRemoved, model.state.ai?.model);
   useEffect(() => {
     setRoute((current) => routeAfterAudioRouteChoiceChanged(current, model.state.audioRouteChoice));
   }, [model.state.audioRouteChoice]);
@@ -46,6 +48,9 @@ export function AppShell({ themeMode, onThemeModeChange }: AppShellProps) {
       onSelectOutput={model.selectPhysicalOutput}
     />,
     settings: <SettingsScreen
+      ai={model.state.ai}
+      onAiChange={model.setAiPreferences}
+      onActiveModelRemoved={onAiModelRemoved}
       edition={model.state.edition}
       windowsAudioRoutesAvailable={model.state.windowsAudioRoutesAvailable}
       audioRouteChoice={model.state.audioRouteChoice}

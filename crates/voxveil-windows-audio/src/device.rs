@@ -19,7 +19,6 @@ pub enum RelayReadiness {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum WindowsInterceptionKind {
     Apo,
-    VbCableRelay,
     VoxveilCableRelay,
     EndpointRelay,
 }
@@ -101,9 +100,9 @@ mod tests {
         let probe = BackendProbe {
             readiness: RelayReadiness::Ready,
             route: WindowsAudioRoute {
-                interception: Some(WindowsInterceptionKind::VbCableRelay),
+                interception: Some(WindowsInterceptionKind::VoxveilCableRelay),
                 source_endpoint_id: Some("cable".into()),
-                source_display_name: Some("CABLE Input (VB-Audio Virtual Cable)".into()),
+                source_display_name: Some("Voxveil Input".into()),
                 physical_output_endpoint_id: Some("speakers".into()),
                 physical_output_display_name: Some("Speakers".into()),
             },
@@ -111,7 +110,7 @@ mod tests {
         };
         assert_eq!(
             probe.route.interception,
-            Some(WindowsInterceptionKind::VbCableRelay)
+            Some(WindowsInterceptionKind::VoxveilCableRelay)
         );
         assert_eq!(
             probe.route.physical_output_endpoint_id.as_deref(),

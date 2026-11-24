@@ -140,12 +140,12 @@ Verify:
 - [ ] no unprocessed duplicate stream reaches the physical endpoint;
 - [ ] selecting the Voxveil virtual endpoint as the physical sink is rejected.
 
-With both standard VB-CABLE and Voxveil Virtual Audio installed:
+Verify automatic precedence with Voxveil Virtual Audio installed and removed:
 
 - [ ] an endpoint-scoped loaded APO on the current default physical endpoint has highest precedence;
 - [ ] a stale loaded APO on another endpoint does not suppress the virtual relay;
-- [ ] when APO does not cover the current default route, the signed Voxveil virtual endpoint is preferred over VB-CABLE when it is the controlled/default route;
-- [ ] VB-CABLE remains usable as fallback when the Voxveil driver is absent/unavailable.
+- [ ] when APO does not cover the current default route, the signed Voxveil virtual endpoint is preferred over the driver-free endpoint relay and requires Windows default-output routing;
+- [ ] the driver-free endpoint relay remains usable with a distinct, explicitly selected physical output when the Voxveil driver is absent/unavailable.
 
 ## Uninstall and reinstall
 

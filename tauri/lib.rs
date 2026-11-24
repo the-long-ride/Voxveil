@@ -28,6 +28,12 @@ pub fn run() {
         .manage(controller)
         .manage(model_manager)
         .setup(|app| {
+            use tauri::Manager;
+            if let Ok(prefs) = config::windows_audio::load(app.handle()) {
+                if let Ok(mut current) = app.state::<app::state::AppState>().lock() {
+                    current.ai = prefs.ai;
+                }
+            }
             #[cfg(target_os = "windows")]
             {
                 use tauri::Manager;
@@ -35,26 +41,22 @@ pub fn run() {
                 // Audio endpoint IDs and Classic DSP priority are intentionally
                 // persistent, but stale/nonessential preferences must never stop
                 // the application from starting.
-                let (mut prefs, mut route_error) =
-                    match config::windows_audio::load(app.handle()) {
-                        Ok(prefs) => (prefs, None),
-                        Err(error) => (config::windows_audio::WindowsAudioPreferences::default(), Some(error)),
-                    };
+                let (mut prefs, mut route_error) = match config::windows_audio::load(app.handle()) {
+                    Ok(prefs) => (prefs, None),
+                    Err(error) => (
+                        config::windows_audio::WindowsAudioPreferences::default(),
+                        Some(error),
+                    ),
+                };
                 let controller = app.state::<platform::ProcessingController>();
                 let state = app.state::<app::state::AppState>();
 
-                match controller
-                    .set_interception_policy(prefs.route_choice.interception_policy())
-                {
+                match controller.set_interception_policy(prefs.route_choice.interception_policy()) {
                     Ok(snapshot) => {
                         if let Ok(mut current) = state.lock() {
                             current.audio_route_choice = prefs.route_choice;
                             current.apply_backend(&snapshot);
-                            if prefs.route_choice
-                                == voxveil_types::AudioRouteChoice::OwnedFilePlayback
-                            {
-                                current.engine = voxveil_types::ProcessingEngineKind::Dsp;
-                            }
+                            current.ai = prefs.ai.clone();
                         }
                     }
                     Err(error) => route_error = Some(error),
@@ -90,6 +92,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             app::commands::get_app_state,
+            app::relay_ai::get_system_ai_status,
             app::audio_routes::set_audio_route,
             app::playback::open_audio_file,
             app::playback::get_playback_state,
@@ -101,10 +104,10 @@ pub fn run() {
             app::system_audio::install_system_audio_component,
             app::system_audio_actions::set_physical_audio_output,
             app::system_audio_actions::open_windows_sound_settings,
-            app::system_audio_actions::open_vb_cable_download,
             app::commands::set_master_enabled,
             app::commands::set_processing_mode,
             app::commands::set_engine,
+            app::ai_settings::set_ai_preferences,
             app::commands::set_classic_suppression_profile,
             app::commands::set_vocal_level,
             app::commands::set_quality_preference,

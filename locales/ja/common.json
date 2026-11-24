@@ -1,4 +1,27 @@
 {
+  "aiRelay": {
+    "buffering": "AIバッファリング中（約12秒）",
+    "running": "AIリレー動作中（約12秒の遅延）",
+    "dsp-selected": "Classic DSPが選択されているため、システム全体のAIは無効です。",
+    "model-unsupported": "システム全体のAIにはSpleeterが必要です。DSPを使用します。",
+    "unavailable": "Spleeter またはアプリ付属のランタイムを利用できないためDSPを使用します。",
+    "fell-behind": "AI処理が追いつかないためDSPを使用します。再試行するには処理を再起動してください。",
+    "failed": "AI処理に失敗したためDSPを使用します。モデルとランタイムを確認し処理を再起動してください。",
+    "apo-active": "物理APOがDSPで動作中です。AIはリレーのみに適用されます。"
+  },
+  "aiPlayer": {
+    "models": "AI音源分離モデル",
+    "choose": "{{name}}を使用",
+    "systemWide": "システム全体の音声にAIを使用",
+    "delay": "プレーヤーのモデルとは独立して常に Spleeter を使用します。約12秒遅延するため、動画やゲームの音声がずれます。切り替えるとリレーが再起動します。",
+    "mdxOffline": "MDXはCPUによってリアルタイム処理に追いつきません。プレーヤーは準備完了まで待機します。システム全体のAIにはSpleeterが必要です。",
+    "notReady": "AIを使用できません。選択したモデルとアプリ付属のONNX Runtimeをインストールし検証してください。",
+    "preparing": "AIを準備中…",
+    "preparingWait": "AIを準備中…残り約{{seconds}}秒",
+    "runtimeMissing": "モデルはインストール済みですが、アプリの推論ランタイムを読み込めませんでした。",
+    "changesStop": "エンジンやモデルを変更すると再生が停止します。適用するにはファイルを開き直してください。",
+    "playerOnly": "自動は利用可能ならファイルにAIを、それ以外はDSPを使います。システム全体のAIは個別に有効化が必要です。物理APOはDSPを使います。"
+  },
   "app": {
     "name": "Voxveil"
   },
@@ -20,7 +43,7 @@
   },
   "playback": {
     "title": "Voxveilでファイルを再生",
-    "description": "MP3、WAV、FLAC、Ogg Vorbis ファイルを開き、その音声だけをクラシックDSPで処理して物理出力へ送ります。",
+    "description": "MP3、WAV、FLAC、Ogg Vorbis ファイルを開き、その音声だけを処理して物理出力へ送ります。",
     "controls": "再生コントロール",
     "open": "音楽ファイルを開く",
     "pause": "一時停止",
@@ -65,12 +88,14 @@
     "dsp": "Classic DSP",
     "ai": "AI",
     "dspDescription": "非常に軽量なセンター／スペクトル・ボーカル抑制。",
-    "aiDescription": "任意のローカル2ステム分離です。モデルはユーザーが明示的に同意した場合にのみダウンロードされます。",
+    "aiDescription": "Windows パッケージに同梱されたモデルでローカルの2ステム分離を行います。",
     "builtIn": "内蔵",
     "noModel": "モデルなし",
-    "licenseRule": "Voxveil は AI 重みをインストーラーに同梱しません。審査済みで SHA-256 が固定されたモデルのみ、明示的な同意後にダウンロードできます。",
+    "licenseRule": "承認済みでハッシュ固定のモデルのみ同梱します。代替ダウンロードには明示的な同意が必要です。",
     "modelInstalled": "インストール済み",
-    "modelStorage": "AI モデルは Voxveil のインストーラーには含まれず、この端末の Voxveil アプリデータにのみ保存されます。",
+    "modelBundled": "同梱 · インストール済み",
+    "bundledStorage": "アプリの一部として同梱されており、削除できません。ダウンロードは不要です。",
+    "modelStorage": "同梱ファイルがない場合、この端末の Voxveil アプリデータにモデルをダウンロードできます。",
     "modelSource": "提供元: {{source}}",
     "installModel": "AI モデルをインストール",
     "removeModel": "モデルを削除",

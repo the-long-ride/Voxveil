@@ -10,7 +10,7 @@ This source tree contains:
 - English, Vietnamese, Chinese, Korean, Japanese, Spanish, and French bundles;
 - local-only state and a narrow typed Tauri command bridge;
 - Classic DSP adaptive stereo-center suppression with user-selectable **Music preservation** and **Balanced** profiles and no AI dependency;
-- stem-agnostic optional AI interface with no model bundled;
+- local AI separation with both models bundled in Windows packages;
 - global/per-app routing policy and communication-audio bypass rules;
 - fixed-capacity audio buffering and runtime degradation primitives;
 - Standard/Pro System edition metadata and platform capability contracts;
@@ -18,6 +18,44 @@ This source tree contains:
 - a Windows x64 componentized Audio Processing Object implementation under `native/windows/apo`;
 - a render-only first-party Windows virtual-driver source/package boundary derived from a pinned and cryptographically identified Microsoft SysVAD subtree;
 - local/manual-only Windows application + native component staging via `npm run build:windows`.
+
+### AI separation
+
+Windows packages bundle UVR MDX Inst HQ3 (the default player model, about 67 MB)
+and Spleeter 2-stems FP16 (the system-wide model, about 40 MB), adding about
+**106 MB** of model weights. AI works on first launch without a model download.
+Existing saved player selections are preserved. Both use
+MIT-licensed weights; retain Deezer/Spleeter and Ultimate Vocal Remover (UVR)
+credits. ONNX Runtime is MIT; full licenses and attribution are in
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+
+Auto uses ready AI for 44.1/48 kHz files, otherwise Classic DSP. System-wide AI
+requires the separate **Use AI for system-wide audio** opt-in, always uses Spleeter
+independently of the player selection, and
+applies to the WASAPI relay, not physical APOs. It adds a fixed model latency plus
+500 ms compute headroom (about 12.5 seconds, plus device/reserve buffering):
+**video and games will be out of sync**. Stems stay separate for live slider
+changes. Real capture discontinuities restart AI buffering; startup flags and
+timestamp-only errors do not disable AI. A missed inference deadline is logged
+and crossfades to DSP; toggle processing to retry. Events go to stderr and a bounded
+`relay-ai.log` in the application log directory. Engine/opt-in changes restart the
+relay. MDX remains a file-playback option because it may not sustain real time.
+
+Builds fetch both models from the revision-pinned catalog URLs, check size limits
+and SHA-256, and stage them as Tauri resources; no model binaries are committed.
+`scripts/windows/build-windows.ps1` does this for both full and `-NoDrivers`
+packages. Manual builds cache the downloads in `target/ai-model-cache`, keyed by
+the catalog; restored files are always rehashed. Runtime prefers bundled files
+and verifies hashes again before inference. Settings marks them **Bundled ·
+installed** and hides Remove; the backend also rejects their removal. If bundled
+files are absent or invalid (for example in development), consent-based download
+to local application data remains available, as does removal of downloaded copies.
+MDX measures initial separation throughput and, above roughly RTF 0.9, waits
+upfront for a play-through reserve (10% rate margin plus a two-chunk tail/250 ms guard),
+showing an estimated remaining wait. Seeking re-estimates for the remaining
+track. Its unmixed stems use an automatically deleted private temporary disk
+cache, keeping RAM bounded; ensure free disk space for decoded stems (about
+0.77 MB per audio second at 48 kHz). Spleeter keeps its streaming prefetch path.
 
 ### Windows without drivers
 
@@ -44,8 +82,7 @@ Windows interception uses explicit backend precedence:
 
 1. **Endpoint-scoped loaded Voxveil APO** — `VoxveilApo.dll` must have a real non-discovery AudioDG instance and `install-state.json` must show that Voxveil installed/bound the APO on the current Windows default render endpoint. A stale loaded instance on another endpoint does not win backend selection.
 2. **Voxveil virtual endpoint relay** — otherwise, if a verified Voxveil virtual render endpoint is installed, it is preferred as the relay source.
-3. **Standard VB-CABLE relay** — otherwise, standard VB-Audio `CABLE Input` can provide the same relay path.
-4. **Driverless endpoint relay** — otherwise, loopback capture of the current default physical output relays to a different, explicitly selected physical output.
+3. **Driverless endpoint relay** — otherwise, loopback capture of the current default physical output relays to a different, explicitly selected physical output.
 
 When Windows changes the default output away from an APO-installed physical endpoint while an old AudioDG graph remains alive, Voxveil does not treat the process-wide `loaded>0` counter as proof that the APO covers the new route. The APO app gate is disabled before virtual-relay processing so a stale instance cannot suppress relay fallback or double-process the relay destination.
 
@@ -53,7 +90,7 @@ The relay path is:
 
 ```text
 Windows applications
-  -> controlled virtual render endpoint
+  -> controlled source render endpoint (Voxveil Input or default physical output)
   -> WASAPI loopback capture
   -> Voxveil Rust DSP / optional AI
   -> selected physical output
@@ -63,7 +100,7 @@ The Classic DSP relay retains a persistent 512-frame / 128-hop spectral-center p
 
 The selected physical output is stored by endpoint ID, virtual endpoints are excluded from the physical-output list, and Voxveil rejects a route that would render back into the interception endpoint. `ready` is reported only while the selected interception strategy is actually active. A missing relay source is `component-required`; installed-but-not-default routing or a missing safe sink is `routing-required`; relay startup/runtime failures are `faulted`.
 
-Voxveil does **not** bundle, redistribute, silently download, or silently install VB-CABLE. When it is needed, the UI can open the official VB-Audio page and Windows Sound settings. The relay intentionally does not mutate Windows defaults through undocumented `PolicyConfig` interfaces.
+The UI can open Windows Sound settings for manual routing. The relay intentionally does not mutate Windows defaults through undocumented `PolicyConfig` interfaces.
 
 The first-party virtual driver exposes one render endpoint (`Voxveil Input`), no capture/microphone endpoint, and a stereo 48 kHz float32 path compatible with the same user-mode relay. Its INF applicability follows the exact pinned SysVAD sample boundary and is restricted to Windows 11 build 22621 (22H2) or later; Windows 10 system-wide processing remains available through the Tier 1 relay path where supported. The local WDK project does not test-sign itself. Its Microsoft SysVAD dependency is materialized only at build time after verifying both the pinned upstream commit and exact `audio/sysvad` tree SHA; the materialized source tree is ignored and is not vendored into this repository. Driver build tooling prepares and validates x64/Arm64 unsigned submission directories. Attestation CAB creation is an explicit release-boundary operation through `scripts/windows/new-driver-attestation-cab.ps1`, after which returned Microsoft-signed packages are independently verified and pilot versus retail staging remains separate. Microsoft attestation signing is treated as a pilot/direct-validation path, not as Windows Certified retail qualification.
 
@@ -113,4 +150,4 @@ Voxveil processing is designed to work with no network connection. The applicati
 
 ### Optional AI model
 
-Voxveil does not bundle AI weights. The Engine screen can install a reviewed model only after explicit user consent. Downloads are pinned to an approved source revision, stored under Voxveil's local application-data directory, and SHA-256 verified before installation. The model can be removed from the same screen. See `docs/specs/audio/ai-model-delivery.md`.
+Windows packages include reviewed, hash-pinned AI weights, verified again before inference. Settings shows them as bundled/installed and hides Remove. Without bundled files, the Engine and Settings screens offer consent-based downloads pinned to an approved revision, stored in local application data and verified before installation. Downloaded copies can be removed when no bundled copy is present. See `docs/specs/audio/ai-model-delivery.md`.

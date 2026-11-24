@@ -4,25 +4,26 @@ import { readdirSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 
-const evaluationDir = path.resolve('scripts/evaluation');
-const scripts = readdirSync(evaluationDir)
-  .filter((name) => name.endsWith('.ps1'))
-  .sort()
-  .map((name) => path.join(evaluationDir, name));
+const powershell = process.platform === 'win32' ? 'powershell.exe' : process.env.VOXVEIL_TEST_POWERSHELL;
+const scripts = ['scripts/evaluation', 'scripts/windows'].flatMap((directory) =>
+  readdirSync(directory)
+    .filter((name) => name.endsWith('.ps1'))
+    .sort()
+    .map((name) => path.resolve(directory, name)));
 
-test('evaluation PowerShell scripts parse on the Windows release runner', { skip: process.platform !== 'win32' }, () => {
+test('build and evaluation PowerShell scripts parse', { skip: !powershell }, () => {
   const parseCommand = [
     '$tokens = $null',
     '$errors = $null',
     '[System.Management.Automation.Language.Parser]::ParseFile($env:VOXVEIL_SCRIPT, [ref]$tokens, [ref]$errors) | Out-Null',
-    'if ($errors -and $errors.Count -gt 0) { $errors | ForEach-Object { Write-Error $_.Message }; exit 1 }',
+    'if ($errors -and $errors.Count -gt 0) { foreach ($error in $errors) { [Console]::Error.WriteLine(("{0}:{1}: {2}" -f $error.Extent.StartLineNumber, $error.Extent.StartColumnNumber, $error.Message)) }; exit 1 }',
   ].join('; ');
 
   assert.ok(scripts.length > 0, 'expected at least one evaluation PowerShell script');
 
   for (const script of scripts) {
     const result = spawnSync(
-      'powershell.exe',
+      powershell,
       ['-NoProfile', '-NonInteractive', '-Command', parseCommand],
       {
         encoding: 'utf8',

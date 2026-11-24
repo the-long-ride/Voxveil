@@ -1,0 +1,288 @@
+use super::clock_tests::observe_frames;
+use super::*;
+
+pub(super) fn submit(buffer: &mut RelayBuffer, padding: &mut usize, captured_frames: usize) {
+    buffer.balance(*padding, captured_frames);
+    let frames_to_write = (buffer.render_capacity - *padding).min(buffer.queued_frames());
+    buffer.render_queue().drain(..frames_to_write * FRAME_BYTES);
+    *padding += frames_to_write;
+}
+
+fn stereo_frame(left: f32, right: f32) -> [u8; FRAME_BYTES] {
+    let mut frame = [0; FRAME_BYTES];
+    frame[..4].copy_from_slice(&left.to_le_bytes());
+    frame[4..].copy_from_slice(&right.to_le_bytes());
+    frame
+}
+
+#[test]
+fn render_reserve_covers_a_late_capture_poll_and_batched_catchup() {
+    let mut buffer = RelayBuffer::new(1_536, 48_000);
+    let mut padding = buffer.render_capacity;
+    let packet = [1; 480 * FRAME_BYTES];
+
+    padding -= 480;
+    buffer.push_capture(&packet);
+    submit(&mut buffer, &mut padding, 480);
+    assert_eq!(padding, buffer.render_capacity);
+
+    // The Windows trace had 480–576 missing render frames after the relay ran out of audio.
+    padding -= 576;
+    submit(&mut buffer, &mut padding, 0);
+    assert_eq!(padding, buffer.render_capacity);
+    assert_eq!(buffer.queued_frames(), buffer.reserve - 576);
+
+    padding -= 480;
+    buffer.push_capture(&packet);
+    buffer.push_capture(&packet);
+    submit(&mut buffer, &mut padding, 960);
+    assert_eq!(padding, buffer.render_capacity);
+    assert_eq!(buffer.queued_frames(), buffer.reserve - 96);
+}
+
+#[test]
+fn render_stays_fed_through_logged_worker_stall_and_capture_hole() {
+    let rate = 48_000;
+    let period = 480;
+    let render_capacity = rate * DEVICE_BUFFER_MS / 1_000;
+    let mut buffer = RelayBuffer::new(render_capacity, rate as u32);
+    let mut padding = render_capacity;
+    buffer.bytes.iter_mut().for_each(|byte| *byte = 1);
+
+    // Relay-02: no write for 86.56 ms. Only device padding can play while the worker is stalled.
+    let stalled_frames = (86_560 * rate).div_ceil(1_000_000);
+    let consumed = stalled_frames.div_ceil(period) * period;
+    assert!(padding > consumed, "device ran dry during the stall");
+    padding -= consumed;
+
+    // Relay-09: the next source packet exposed a 2,304-frame hole. Stress the reserve by
+    // combining the two extremes and giving capture a whole packet period to resume.
+    let mut timeline = CaptureTimeline::default();
+    assert_eq!(timeline.missing_frames(149_760, 96, true, false), 0);
+    let missing = 2_304_usize;
+    for _ in 0..missing.div_ceil(period) {
+        submit(&mut buffer, &mut padding, 0);
+        assert!(padding > period, "render ran dry before the hole was known");
+        padding -= period;
+    }
+    let gap = timeline.missing_frames(152_160, period, true, false);
+    assert_eq!(gap, missing);
+    let total = padding + buffer.queued_frames();
+    buffer.push_capture(&vec![0; gap * FRAME_BYTES]);
+    buffer.push_capture(&[2; 480 * FRAME_BYTES]);
+    assert!(
+        buffer.bytes.iter().copied().eq((0..gap * FRAME_BYTES)
+            .map(|_| 0)
+            .chain([2; 480 * FRAME_BYTES]))
+    );
+    submit(&mut buffer, &mut padding, period);
+    assert_eq!(padding + buffer.queued_frames(), total + gap + period);
+}
+
+#[test]
+fn complete_underrun_rebuilds_the_reserve_without_discarding_audio() {
+    let mut buffer = RelayBuffer::new(8, 48_000);
+    buffer.render_queue().clear();
+    let packet = [1; 3 * FRAME_BYTES];
+    buffer.push_capture(&packet);
+
+    buffer.balance(0, 3);
+
+    let target = buffer.render_capacity + buffer.reserve;
+    let silence_bytes = (target - 3) * FRAME_BYTES;
+    assert_eq!(buffer.queued_frames(), target);
+    assert!(buffer.bytes.range(..silence_bytes).all(|byte| *byte == 0));
+    assert!(buffer.bytes.range(silence_bytes..).copied().eq(packet));
+}
+
+#[test]
+fn recovery_restores_reserve_when_capture_batch_already_fills_device() {
+    let period = 480;
+    let mut buffer = RelayBuffer::new(4_800, 48_000);
+    let mut padding = 0;
+    let packet = [1; 480 * FRAME_BYTES];
+    buffer.render_queue().clear();
+    for _ in 0..buffer.render_capacity / period {
+        buffer.push_capture(&packet);
+    }
+    let captured = buffer.queued_frames();
+    submit(&mut buffer, &mut padding, captured);
+    assert_eq!(padding, buffer.render_capacity);
+
+    for tick in 1..=3_000 {
+        padding -= period;
+        buffer.push_capture(&packet);
+        observe_frames(&mut buffer, tick * 480, tick * 480);
+        submit(&mut buffer, &mut padding, period);
+    }
+
+    padding -= 8 * period;
+    for poll in 1..=5 {
+        assert!(
+            padding >= period,
+            "render ran dry during the next capture gap at poll {poll}"
+        );
+        padding -= period;
+        submit(&mut buffer, &mut padding, 0);
+    }
+    assert_eq!(
+        buffer.queued_frames() + padding,
+        buffer.render_capacity + buffer.reserve - 13 * period
+    );
+}
+
+#[test]
+fn capture_positions_recover_only_known_missing_frames() {
+    let mut timeline = CaptureTimeline::default();
+    assert_eq!(timeline.missing_frames(866_304, 96, true, false), 0);
+    assert_eq!(timeline.missing_frames(866_400, 96, true, false), 0);
+    // Real pilot trace: the discontinuity was flagged on the preceding packet.
+    assert_eq!(timeline.missing_frames(866_880, 480, false, false), 384);
+    assert_eq!(timeline.missing_frames(867_460, 480, true, false), 100);
+    assert_eq!(timeline.missing_frames(10, 480, true, true), 0);
+    assert_eq!(timeline.missing_frames(920_000, 480, false, false), 0);
+    assert_eq!(timeline.missing_frames(999_000, 480, true, false), 0);
+    assert_eq!(timeline.missing_frames(320, 480, true, false), 0);
+    assert_eq!(timeline.missing_frames(864, 480, false, false), 64);
+}
+
+#[test]
+fn clock_drift_keeps_the_fifo_in_a_bounded_band_in_both_directions() {
+    let packet = [0; 480 * FRAME_BYTES];
+    for drift_frames in [-1, 1] {
+        let mut buffer = RelayBuffer::new(1_440, 48_000);
+        let mut padding = buffer.render_capacity;
+        let target = padding + buffer.reserve;
+        let mut correction = 0;
+        let mut rendered = 0;
+        for tick in 1..=8_000 {
+            let render_per_tick =
+                480_usize.saturating_add_signed(if tick % 10 == 0 { drift_frames } else { 0 });
+            assert!(padding >= render_per_tick, "underrun at tick {tick}");
+            padding -= render_per_tick;
+            rendered += render_per_tick as u64;
+            buffer.push_capture(&packet);
+            observe_frames(&mut buffer, tick * 480, rendered);
+            let before_balance = padding + buffer.queued_frames();
+            submit(&mut buffer, &mut padding, 480);
+            let total = padding + buffer.queued_frames();
+            correction += total as isize - before_balance as isize;
+            assert!(total.abs_diff(target) <= 720, "tick {tick}: {total}");
+        }
+        assert_eq!(correction.signum(), drift_frames);
+    }
+}
+
+#[test]
+fn faster_render_clock_preserves_reserve_for_late_capture() {
+    let mut buffer = RelayBuffer::new(1_536, 48_000);
+    let mut padding = buffer.render_capacity;
+    let packet = [0; 480 * FRAME_BYTES];
+
+    // One extra render frame per ten capture packets is about 208 ppm at 48 kHz.
+    let mut rendered = 0;
+    for tick in 1..=8_000 {
+        let render_frames = 480 + usize::from(tick % 10 == 0);
+        padding -= render_frames;
+        rendered += render_frames as u64;
+        buffer.push_capture(&packet);
+        observe_frames(&mut buffer, tick * 480, rendered);
+        submit(&mut buffer, &mut padding, 480);
+    }
+
+    let reserve_after_drift = buffer.queued_frames();
+    for period in 1..=4 {
+        assert!(
+            padding >= 480,
+            "underrun in period {period} without capture: {padding} frames of padding, \
+             {reserve_after_drift} frames of reserve after drift"
+        );
+        padding -= 480;
+        submit(&mut buffer, &mut padding, 0);
+    }
+    assert!(reserve_after_drift >= buffer.reserve - 480);
+}
+
+#[test]
+fn rate_matched_vac_bursts_and_packet_phase_shift_never_splice() {
+    let mut buffer = RelayBuffer::new(1_440, 48_000);
+    let mut padding = buffer.render_capacity;
+    let packet = [0; 480 * FRAME_BYTES];
+
+    // Relay-07 had 1,680 frames at capture polls before falling to a 1,200-frame plateau.
+    buffer.render_queue().truncate(240 * FRAME_BYTES);
+    let mut capture_position = 0;
+    let mut process = |render_frames: usize, capture_packets: usize| {
+        padding -= render_frames;
+        for _ in 0..capture_packets {
+            buffer.push_capture(&packet);
+        }
+        if capture_packets != 0 {
+            capture_position += capture_packets as u64 * 480;
+            observe_frames(&mut buffer, capture_position, capture_position);
+        }
+        let total = padding + buffer.queued_frames();
+        submit(&mut buffer, &mut padding, capture_packets * 480);
+        assert_eq!(
+            padding + buffer.queued_frames(),
+            total,
+            "spliced at fill {total}"
+        );
+    };
+    for tick in 0..3_000 {
+        if tick == 1_334 {
+            process(480, 0);
+        }
+        if tick % 97 == 0 {
+            // The relay-06/08 traces also had occasional one-packet positive excursions.
+            process(0, 1);
+            process(960, 1);
+        } else {
+            process(480, 1);
+        }
+    }
+    process(0, 1);
+    assert_eq!(padding + buffer.queued_frames(), 1_680);
+}
+
+#[test]
+fn drift_adjustment_interpolates_complete_stereo_frames() {
+    let mut buffer = RelayBuffer::new(8, 48_000);
+    buffer.render_queue().clear();
+    let a = stereo_frame(0.25, -0.75);
+    let midpoint = stereo_frame(0.5, -0.5);
+    let b = stereo_frame(0.75, -0.25);
+    buffer.push_capture(&[a, b].concat());
+    buffer.splice_tail(true);
+    assert!(buffer.bytes.iter().copied().eq([a, midpoint, b].concat()));
+
+    buffer.push_capture(&[a, b].repeat(3).concat());
+    buffer.splice_tail(false);
+    let start = buffer.bytes.len() - 2 * FRAME_BYTES;
+    assert!(
+        buffer
+            .bytes
+            .range(start..)
+            .copied()
+            .eq([b, midpoint].concat())
+    );
+}
+
+#[test]
+fn sustained_overrun_drops_old_whole_frames_before_capacity_growth() {
+    let mut buffer = RelayBuffer::new(16, 48_000);
+    let capacity = buffer.bytes.capacity();
+    let older = [1; MAX_CAPTURE_FRAMES * FRAME_BYTES];
+    let newer = [2; MAX_CAPTURE_FRAMES * FRAME_BYTES];
+    buffer.push_capture(&older);
+    buffer.push_capture(&newer);
+    assert_eq!(buffer.queued_frames(), MIN_QUEUE_LIMIT_FRAMES);
+    assert_eq!(buffer.bytes.capacity(), capacity);
+    assert!(
+        buffer
+            .bytes
+            .iter()
+            .copied()
+            .eq(older.into_iter().chain(newer))
+    );
+}

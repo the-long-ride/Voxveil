@@ -58,6 +58,21 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+function Get-Sha256Hex([string]$Path) {
+  $stream = [IO.File]::OpenRead($Path)
+  try {
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+      $hashBytes = $sha256.ComputeHash($stream)
+      return ([BitConverter]::ToString($hashBytes)).Replace('-', '').ToLowerInvariant()
+    } finally {
+      $sha256.Dispose()
+    }
+  } finally {
+    $stream.Dispose()
+  }
+}
+
 $trustedSystemDirectoryForModules = [Environment]::SystemDirectory
 if (-not $trustedSystemDirectoryForModules) {
   throw 'Windows system directory could not be resolved for PowerShell module loading.'
@@ -185,7 +200,7 @@ function Assert-TrustedPackagedFile(
   if ($ExpectedSha256 -notmatch '^[0-9A-Fa-f]{64}$') {
     throw "Trusted packaged helper SHA-256 is invalid: $Description."
   }
-  $actual = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+  $actual = (Get-Sha256Hex $Path)
   if ($actual -ne $ExpectedSha256.ToLowerInvariant()) {
     throw "Trusted packaged helper failed integrity verification: $Description."
   }
@@ -236,7 +251,7 @@ function Assert-StagedFileHash([string]$Path, [string]$ExpectedSha256, [string]$
   if ($ExpectedSha256 -notmatch '^[0-9A-Fa-f]{64}$') {
     throw "apo-verification.json contains an invalid SHA-256 value for $Description."
   }
-  $actual = (Get-FileHash $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+  $actual = (Get-Sha256Hex $Path)
   if ($actual -ne $ExpectedSha256.ToLowerInvariant()) {
     throw "Verified production APO artifact changed after staging: $Description."
   }

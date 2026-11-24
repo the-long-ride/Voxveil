@@ -51,12 +51,12 @@ impl ProfileParameters {
     pub(super) fn for_profile(profile: ClassicSuppressionProfile) -> Self {
         match profile {
             ClassicSuppressionProfile::MusicPreservation => Self {
-                floor_gain: 0.251_188_64,
+                floor_gain: 0.001,
                 low_protect_hz: 180.0,
                 low_full_hz: 350.0,
                 high_full_hz: 5_500.0,
                 high_protect_hz: 9_000.0,
-                transient_protection: 0.75,
+                transient_protection: 0.0,
             },
             ClassicSuppressionProfile::Balanced => Self {
                 floor_gain: 0.125_892_55,

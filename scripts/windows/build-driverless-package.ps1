@@ -14,7 +14,7 @@ Get-ChildItem Env: | Where-Object {
 } | ForEach-Object { Remove-Item "Env:$($_.Name)" }
 
 Write-Host 'Building driverless Voxveil Tauri executable...'
-npm run tauri -- build --no-bundle
+npm run tauri -- build --no-bundle --config (Join-Path $Repo 'target\ai-model-resources.json')
 if ($LASTEXITCODE -ne 0) { throw "Tauri build failed with exit code $LASTEXITCODE" }
 $app = Join-Path $Repo 'target\release\voxveil.exe'
 if (-not (Test-Path $app -PathType Leaf)) { throw "Voxveil executable was not produced: $app" }
@@ -33,6 +33,9 @@ Assert-NoReparsePointInPath -Path $output -Boundary $Repo
 Remove-Item $output -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $output | Out-Null
 Copy-Item $app (Join-Path $output 'voxveil.exe')
+& (Join-Path $PSScriptRoot 'stage-onnx-runtime.ps1') -Repo $Repo -Destination $output
+node (Join-Path $PSScriptRoot 'stage-ai-models.mjs') --repo $Repo --destination $output
+if ($LASTEXITCODE -ne 0) { throw 'Bundled AI model packaging failed.' }
 
 @'
 Voxveil Windows x64 driverless package

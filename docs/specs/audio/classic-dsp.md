@@ -12,9 +12,9 @@ Processing geometry is fixed at a 512-frame transform with a 128-frame hop. For 
 
 - low-frequency protection for bass fundamentals;
 - high-frequency protection for stereo detail;
-- spectral-flux transient protection for percussion/attacks;
+- profile-dependent spectral-flux transient protection for percussion/attacks;
 - attack/release gain smoothing;
-- a non-zero suppression floor so maximum reduction never deletes the center completely.
+- profile-dependent minimum center gains, allowing deep center suppression at maximum reduction.
 
 WASAPI packets flagged `BUFFER_SILENT` are zero-filled and still passed through the retained processor. Silent source periods therefore advance the STFT timeline, overlap-add state, and fixed latency instead of pausing processor state until the next audible packet.
 
@@ -24,23 +24,24 @@ WASAPI packets flagged `BUFFER_SILENT` are zero-filled and still passed through 
 
 ### Music preservation
 
-This is the default. It prioritizes keeping centered instruments intact when the processor cannot confidently distinguish them from vocals.
+This is the default. Vocals 0% now deeply suppresses centered content, including centered instruments; bass and high-frequency protections are unchanged.
 
-- minimum center gain: `0.25118864` (-12 dB);
+- minimum center gain: `0.001` (-60 dB);
+- square-root center confidence for a more sensitive suppression mask;
 - low protection: full below 180 Hz, ramping to full suppression by 350 Hz;
 - high protection: suppression starts tapering after 5.5 kHz and is fully protected by 9 kHz;
-- stronger transient protection.
+- no transient protection.
 
 Some vocal may remain when the stereo evidence is ambiguous.
 
 ### Balanced
 
-This profile trades more center-instrument attenuation for stronger vocal reduction while retaining a non-zero center floor.
+This profile retains a higher center floor and squared center confidence than the retuned Music preservation profile, but applies suppression across a wider frequency range.
 
 - minimum center gain: `0.12589255` (-18 dB);
 - low protection: full below 120 Hz, ramping to full suppression by 260 Hz;
 - high protection: suppression starts tapering after 7 kHz and is fully protected by 12 kHz;
-- lighter transient protection.
+- transient protection of `0.45`.
 
 ### Strong reduction
 
@@ -48,7 +49,7 @@ Strong is opt-in and trades centered-instrument preservation for deeper center a
 
 The Strong thresholds are engineering starting points, not a release-quality claim. The controlled and natural-mix evaluation in `docs/testing/classic-dsp-evaluation.md` must compare Balanced and Strong at matched levels and report accompaniment damage before Strong is promoted beyond an opt-in profile.
 
-The profile can be changed while processing is active; the retained processor updates its mask parameters without restarting the stream. A live **Balanced → Music preservation** transition resets retained smoothed spectral gains to unity without restarting the stream or rebuilding the processor, so the more protective profile does not temporarily inherit stronger Balanced attenuation. A Music preservation → Balanced transition keeps the normal attack smoothing.
+The profile can be changed while processing is active without restarting the stream or rebuilding the processor. A Balanced → Music preservation transition, or any change to or from Strong, resets retained smoothed spectral gains to unity before the new mask settles through normal smoothing. Music preservation → Balanced keeps the retained gains and normal smoothing.
 
 On Windows, the selected Classic DSP profile is persisted in the nonessential `windows-audio.json` preferences and restored on the next application start. Existing preference files that predate the profile field default to Music preservation. A live profile change updates the backend first, then persists the selection, then commits AppState; if persistence fails, Voxveil attempts to restore the previous live profile instead of reporting a saved selection that is not actually durable.
 
@@ -70,7 +71,7 @@ The APO must never return to full-band hard center cancellation. A spectral APO 
 
 ## Quality boundary
 
-Classic DSP is stereo-position/spectral suppression, not semantic source separation. It cannot perfectly distinguish a centered singer from centered instruments in all mixes. The two profiles expose that tradeoff explicitly instead of silently destroying all centered content.
+Classic DSP is stereo-position/spectral suppression, not semantic source separation. It cannot perfectly distinguish a centered singer from centered instruments in all mixes. The three profiles expose different suppression and protection tradeoffs; their names do not imply a universal ordering of vocal reduction.
 
 ## Validation protocol
 

@@ -17,6 +17,10 @@ export interface PlaybackScreenProps {
   onSelectOutput: (endpointId: string) => void;
 }
 
+const seekKeys = new Set([
+  'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'End', 'Home', 'PageDown', 'PageUp',
+]);
+
 function clockTime(frames: number, sampleRate: number | null): string {
   if (!sampleRate || !Number.isFinite(frames)) return '0:00';
   const seconds = Math.max(0, Math.floor(frames / sampleRate));
@@ -42,15 +46,16 @@ export function PlaybackScreen({
   const duration = totalFrames ?? 0;
   const seekPercent = duration > 0 ? Math.min(100, (positionFrames / duration) * 100) : 0;
   const sliderValue = seekDraft ?? seekPercent;
-  const canSeek = duration > 0 && sampleRate !== null && status !== 'loading';
-  const isActive = status === 'playing' || status === 'paused';
+  const canStop = status === 'playing' || status === 'paused' || status === 'ended' || status === 'buffering' || status === 'loading';
+  const canSeek = duration > 0 && sampleRate !== null && canStop;
   const error = operationError ?? playback.error;
   const outputName = playback.outputName ?? (selectedOutputId
     ? outputs.find((output) => output.endpointId === selectedOutputId)?.displayName ?? selectedOutputName
     : null);
-  const commitSeek = (value: number) => {
+  const commitSeek = () => {
+    if (seekDraft === null) return;
     setSeekDraft(null);
-    if (canSeek) void onSeek(Math.round((Math.min(100, Math.max(0, value)) / 100) * duration));
+    if (canSeek) void onSeek(Math.round((Math.min(100, Math.max(0, seekDraft)) / 100) * duration));
   };
 
   return (
@@ -62,7 +67,9 @@ export function PlaybackScreen({
       />
 
       <div className="player-track" aria-live="polite">
-        <span className="meta">{t(`playback.status.${status}`)}</span>
+        <span className="meta">{status === 'buffering' && playback.preparingWaitMs != null
+          ? t('aiPlayer.preparingWait', { seconds: Math.max(1, Math.ceil(playback.preparingWaitMs / 1000)) })
+          : t(status === 'buffering' ? 'aiPlayer.preparing' : `playback.status.${status}`)}</span>
         <strong>{playback.fileName ?? t('playback.noFile')}</strong>
         <span>{outputName ?? t('playback.noOutput')}</span>
       </div>
@@ -71,7 +78,7 @@ export function PlaybackScreen({
         <button className="action-button" type="button" onClick={() => void onOpen()} disabled={status === 'loading'}>
           {t('playback.open')}
         </button>
-        {status === 'playing' && (
+        {(status === 'playing' || status === 'buffering') && (
           <button className="action-button is-subtle" type="button" onClick={() => void onPause()}>
             {t('playback.pause')}
           </button>
@@ -81,7 +88,7 @@ export function PlaybackScreen({
             {t('playback.resume')}
           </button>
         )}
-        <button className="action-button is-subtle" type="button" onClick={() => void onStop()} disabled={!isActive}>
+        <button className="action-button is-subtle" type="button" onClick={() => void onStop()} disabled={!canStop}>
           {t('playback.stop')}
         </button>
       </div>
@@ -116,8 +123,10 @@ export function PlaybackScreen({
           value={sliderValue}
           disabled={!canSeek}
           onChange={(event) => setSeekDraft(Number(event.currentTarget.value))}
-          onPointerUp={(event) => commitSeek(Number(event.currentTarget.value))}
-          onKeyUp={(event) => commitSeek(Number(event.currentTarget.value))}
+          onPointerUp={commitSeek}
+          onKeyUp={(event) => {
+            if (seekKeys.has(event.key)) commitSeek();
+          }}
         />
         <div className="range-labels mono">
           <span>{clockTime(positionFrames, sampleRate)}</span>

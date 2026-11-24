@@ -32,7 +32,7 @@ fn left_rms(samples: &[f32], start_frame: usize, frames: usize) -> f32 {
 }
 
 #[test]
-fn balanced_to_music_hot_switch_does_not_inherit_stronger_balanced_attenuation() {
+fn balanced_to_music_hot_switch_converges_to_retuned_music_attenuation() {
     let mut switched = SpectralCenterSuppressor::new(
         SAMPLE_RATE,
         VocalLevel::new(0.0).unwrap(),
@@ -54,7 +54,7 @@ fn balanced_to_music_hot_switch_does_not_inherit_stronger_balanced_attenuation()
     let balanced_rms = left_rms(&balanced_warm, warm_start, MEASURE_FRAMES);
     let music_rms = left_rms(&music_warm, warm_start, MEASURE_FRAMES);
     assert!(
-        balanced_rms < music_rms * 0.8,
+        music_rms < balanced_rms * 0.1,
         "precondition failed: balanced={balanced_rms}, music={music_rms}"
     );
 
@@ -68,10 +68,11 @@ fn balanced_to_music_hot_switch_does_not_inherit_stronger_balanced_attenuation()
     switched.process_stereo_interleaved(&mut switched_output);
     music_reference.process_stereo_interleaved(&mut reference_output);
 
-    let switched_rms = left_rms(&switched_output, latency, MEASURE_FRAMES);
-    let reference_rms = left_rms(&reference_output, latency, MEASURE_FRAMES);
+    let settled_start = latency + POST_FRAMES - MEASURE_FRAMES;
+    let switched_rms = left_rms(&switched_output, settled_start, MEASURE_FRAMES);
+    let reference_rms = left_rms(&reference_output, settled_start, MEASURE_FRAMES);
     assert!(
-        switched_rms >= reference_rms * 0.95,
-        "Music preservation inherited stronger Balanced attenuation: switched={switched_rms}, reference={reference_rms}"
+        (0.95..=1.05).contains(&(switched_rms / reference_rms)),
+        "Music preservation retained stale Balanced attenuation: switched={switched_rms}, reference={reference_rms}"
     );
 }
